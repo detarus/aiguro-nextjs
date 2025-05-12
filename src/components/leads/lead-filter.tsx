@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LeadStatus, statusLabels } from './types';
 
@@ -22,12 +20,7 @@ const categoryOptions = [
   { id: 'first', label: 'First Manager' }
 ];
 
-export function LeadFilter({
-  activeCategory,
-  onCategoryChange,
-  activeStatus,
-  onStatusChange
-}: LeadFilterProps) {
+export function LeadFilter({ activeStatus, onStatusChange }: LeadFilterProps) {
   return (
     <div className='space-y-4'>
       {/* Category filter */}

@@ -1,4 +1,4 @@
-import { LeadsContainer } from './components/leads-container';
+import { LeadsContainer } from '@/components/leads/leads-container';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {

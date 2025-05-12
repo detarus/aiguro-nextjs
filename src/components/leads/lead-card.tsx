@@ -6,22 +6,13 @@ import {
   CardFooter,
   CardHeader
 } from '@/components/ui/card';
-import { Lead } from './leads-container';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Lead, statusColorMap } from './types';
 
 interface LeadCardProps {
   lead: Lead;
 }
-
-// Status indicator color mapping
-const statusColorMap = {
-  new: 'bg-red-500',
-  processing: 'bg-orange-500',
-  contacted: 'bg-yellow-500',
-  qualified: 'bg-blue-500',
-  closed: 'bg-green-500'
-};
 
 export function LeadCard({ lead }: LeadCardProps) {
   const { name, category, date, request, price, status } = lead;

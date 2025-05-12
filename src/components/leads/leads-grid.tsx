@@ -1,7 +1,7 @@
 'use client';
 
 import { LeadCard } from './lead-card';
-import { Lead } from './leads-container';
+import { Lead } from './types';
 
 interface LeadsGridProps {
   leads: Lead[];

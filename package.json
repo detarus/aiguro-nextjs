@@ -1,13 +1,13 @@
 {
-  "name": "next-shadcn-dashboard-starter",
+  "name": "aiguro-nextjs",
   "version": "1.0.0",
   "private": true,
   "author": {
-    "name": "Kiran",
-    "url": "https://github.com/Kiranism"
+    "name": "Detarus",
+    "url": "https://github.com/detarus"
   },
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

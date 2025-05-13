@@ -115,18 +115,18 @@ const chartData = [
 
 const chartConfig = {
   views: {
-    label: 'Page Views'
+    label: 'Конверсий'
   },
   desktop: {
-    label: 'Desktop',
+    label: 'Мессенджеры',
     color: 'var(--primary)'
   },
   mobile: {
-    label: 'Mobile',
+    label: 'Голосовые',
     color: 'var(--primary)'
   },
   error: {
-    label: 'Error',
+    label: 'Ошибка',
     color: 'var(--primary)'
   }
 } satisfies ChartConfig;
@@ -163,12 +163,12 @@ export function BarGraph() {
     <Card className='@container/card !pt-3'>
       <CardHeader className='flex flex-col items-stretch space-y-0 border-b !p-0 sm:flex-row'>
         <div className='flex flex-1 flex-col justify-center gap-1 px-6 !py-0'>
-          <CardTitle>Bar Chart - Interactive</CardTitle>
+          <CardTitle>Диалоги с клиентами</CardTitle>
           <CardDescription>
             <span className='hidden @[540px]/card:block'>
-              Total for the last 3 months
+              Всего за последнюю неделю
             </span>
-            <span className='@[540px]/card:hidden'>Last 3 months</span>
+            <span className='@[540px]/card:hidden'>За неделю</span>
           </CardDescription>
         </div>
         <div className='flex'>

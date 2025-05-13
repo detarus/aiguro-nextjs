@@ -49,8 +49,8 @@ export function RecentSales() {
   return (
     <Card className='h-full'>
       <CardHeader>
-        <CardTitle>Recent Sales</CardTitle>
-        <CardDescription>You made 265 sales this month.</CardDescription>
+        <CardTitle>Последние сделки</CardTitle>
+        <CardDescription>У вас было 265 сделок за эту неделю</CardDescription>
       </CardHeader>
       <CardContent>
         <div className='space-y-8'>

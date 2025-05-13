@@ -29,14 +29,14 @@ const chartData = [
 
 const chartConfig = {
   visitors: {
-    label: 'Visitors'
+    label: 'Конверсий'
   },
   desktop: {
-    label: 'Desktop',
+    label: 'Квалификация',
     color: 'var(--primary)'
   },
   mobile: {
-    label: 'Mobile',
+    label: 'Закрытие',
     color: 'var(--primary)'
   }
 } satisfies ChartConfig;
@@ -45,10 +45,8 @@ export function AreaGraph() {
   return (
     <Card className='@container/card'>
       <CardHeader>
-        <CardTitle>Area Chart - Stacked</CardTitle>
-        <CardDescription>
-          Showing total visitors for the last 6 months
-        </CardDescription>
+        <CardTitle>Эффективность воронки</CardTitle>
+        <CardDescription>Прогрессия уровня конверсий по этапам</CardDescription>
       </CardHeader>
       <CardContent className='px-2 pt-4 sm:px-6 sm:pt-6'>
         <ChartContainer

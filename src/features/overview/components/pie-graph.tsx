@@ -29,27 +29,27 @@ const chartData = [
 
 const chartConfig = {
   visitors: {
-    label: 'Visitors'
+    label: 'Rjydthcbq'
   },
   chrome: {
-    label: 'Chrome',
+    label: 'Первый контакт',
     color: 'var(--primary)'
   },
   safari: {
-    label: 'Safari',
+    label: 'Квалификация',
     color: 'var(--primary)'
   },
   firefox: {
-    label: 'Firefox',
+    label: 'Презентаци',
     color: 'var(--primary)'
   },
   edge: {
-    label: 'Edge',
+    label: 'Закрытие',
     color: 'var(--primary)'
   },
   other: {
-    label: 'Other',
-    color: 'var(--primary)'
+    label: 'Отказ',
+    color: 'var(--primary-dark)'
   }
 } satisfies ChartConfig;
 
@@ -61,12 +61,12 @@ export function PieGraph() {
   return (
     <Card className='@container/card'>
       <CardHeader>
-        <CardTitle>Pie Chart - Donut with Text</CardTitle>
+        <CardTitle>Всего диалогов</CardTitle>
         <CardDescription>
           <span className='hidden @[540px]/card:block'>
-            Total visitors by browser for the last 6 months
+            Общее число диалогов по сделкам за неделю
           </span>
-          <span className='@[540px]/card:hidden'>Browser distribution</span>
+          <span className='@[540px]/card:hidden'>Число диалогов</span>
         </CardDescription>
       </CardHeader>
       <CardContent className='px-2 pt-4 sm:px-6 sm:pt-6'>
@@ -137,7 +137,7 @@ export function PieGraph() {
                           y={(viewBox.cy || 0) + 24}
                           className='fill-muted-foreground text-sm'
                         >
-                          Total Visitors
+                          Диалогов
                         </tspan>
                       </text>
                     );
@@ -150,12 +150,12 @@ export function PieGraph() {
       </CardContent>
       <CardFooter className='flex-col gap-2 text-sm'>
         <div className='flex items-center gap-2 leading-none font-medium'>
-          Chrome leads with{' '}
+          Общий рост превышает{' '}
           {((chartData[0].visitors / totalVisitors) * 100).toFixed(1)}%{' '}
           <IconTrendingUp className='h-4 w-4' />
         </div>
         <div className='text-muted-foreground leading-none'>
-          Based on data from January - June 2024
+          Основано на данных 11 Мая - 15 Мая 2025
         </div>
       </CardFooter>
     </Card>

@@ -69,6 +69,7 @@ export const Icons = {
   add: IconPlus,
   warning: IconAlertTriangle,
   user: IconUser,
+  users: IconUsers,
   arrowRight: IconArrowRight,
   help: IconHelpCircle,
   pizza: IconPizza,

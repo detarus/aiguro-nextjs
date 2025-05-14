@@ -12,10 +12,14 @@ export default function PageContainer({
     <>
       {scrollable ? (
         <ScrollArea className='h-[calc(100dvh-52px)]'>
-          <div className='flex flex-1 p-4 md:px-6'>{children}</div>
+          <div className='flex w-full max-w-full flex-1 overflow-x-hidden px-1.5 py-1.5 sm:p-2 sm:px-3 md:px-4'>
+            <div className='w-full max-w-full'>{children}</div>
+          </div>
         </ScrollArea>
       ) : (
-        <div className='flex flex-1 p-4 md:px-6'>{children}</div>
+        <div className='flex w-full max-w-full flex-1 overflow-x-hidden px-1.5 py-1.5 sm:p-2 sm:px-3 md:px-4'>
+          <div className='w-full max-w-full'>{children}</div>
+        </div>
       )}
     </>
   );

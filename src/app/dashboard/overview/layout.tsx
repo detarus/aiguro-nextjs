@@ -51,17 +51,27 @@ export default function OverViewLayout({
     { absolute: 45, percentage: 70, stage: '4/4' }
   ];
 
+  // Фильтры для мобильного и десктопного отображения
+  const timeFilters = [
+    { id: 'today', label: 'Сегодня' },
+    { id: 'week', label: 'За неделю' },
+    { id: 'month', label: 'За месяц' },
+    { id: 'quarter', label: 'За квартал' },
+    { id: 'period', label: 'За период' }
+  ];
+
   return (
     <PageContainer>
-      <div className='flex flex-1 flex-col space-y-4'>
-        <div className='flex flex-col items-center justify-between gap-4 pt-2 pb-2 sm:flex-row'>
-          <div className='flex items-center gap-4 self-start'>
-            <h2 className='ml-1 text-xl font-semibold text-gray-800'>
+      <div className='flex w-full max-w-full flex-1 flex-col space-y-4'>
+        {/* Заголовок и селект воронки */}
+        <div className='flex w-full flex-col items-start justify-between gap-3 pt-2 pb-2 sm:flex-row sm:items-center'>
+          <div className='flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center'>
+            <h2 className='truncate text-lg font-semibold text-gray-800 sm:text-xl'>
               Дашборд
             </h2>
             <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>
-              <SelectTrigger className='h-8 w-[180px] text-sm'>
-                <SelectValue>
+              <SelectTrigger className='h-8 w-full max-w-[180px] text-sm'>
+                <SelectValue className='truncate'>
                   {selectedFunnel === 'funnel1' ? 'Воронка 1' : 'Воронка 2'}
                 </SelectValue>
               </SelectTrigger>
@@ -71,9 +81,14 @@ export default function OverViewLayout({
               </SelectContent>
             </Select>
           </div>
-          <div className='flex items-center gap-4'>
+
+          {/* Переключатель процентов и фильтр времени */}
+          <div className='flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center'>
             <div className='flex items-center space-x-2'>
-              <Label htmlFor='show-percentage' className='text-sm'>
+              <Label
+                htmlFor='show-percentage'
+                className='text-sm whitespace-nowrap'
+              >
                 Проценты
               </Label>
               <Switch
@@ -82,19 +97,15 @@ export default function OverViewLayout({
                 onCheckedChange={setShowPercentage}
               />
             </div>
-            <div className='flex items-center overflow-hidden rounded-md border shadow-sm'>
-              {[
-                { id: 'today', label: 'Сегодня' },
-                { id: 'week', label: 'За неделю' },
-                { id: 'month', label: 'За месяц' },
-                { id: 'quarter', label: 'За квартал' },
-                { id: 'period', label: 'За период' }
-              ].map((filter) => (
+
+            {/* Десктопный вид фильтров (скрыт на мобильном) */}
+            <div className='hidden items-center overflow-hidden rounded-md border shadow-sm sm:flex'>
+              {timeFilters.map((filter) => (
                 <Button
                   key={filter.id}
                   variant='ghost'
                   className={cn(
-                    'h-8 rounded-none border-r px-4 text-sm font-medium last:border-r-0',
+                    'h-8 rounded-none border-r px-3 text-xs font-medium last:border-r-0 sm:text-sm',
                     activeTimeFilter === filter.id
                       ? 'bg-background border-b-primary text-primary hover:bg-background border-b-2'
                       : 'hover:bg-muted text-muted-foreground border-b-2 border-b-transparent'
@@ -105,12 +116,34 @@ export default function OverViewLayout({
                 </Button>
               ))}
             </div>
+
+            {/* Мобильный вид фильтров (Select вместо кнопок) */}
+            <div className='w-full sm:hidden'>
+              <Select
+                value={activeTimeFilter}
+                onValueChange={setActiveTimeFilter}
+              >
+                <SelectTrigger className='h-8 w-full text-sm'>
+                  <SelectValue className='truncate'>
+                    {timeFilters.find((f) => f.id === activeTimeFilter)?.label}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {timeFilters.map((filter) => (
+                    <SelectItem key={filter.id} value={filter.id}>
+                      {filter.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
-        <div className='*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs md:grid-cols-3 lg:grid-cols-5'>
+        {/* Карточки конверсии */}
+        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5'>
           {conversionData.map((data, index) => (
-            <Card key={index} className='@container/card'>
+            <Card key={index} className='@container/card w-full'>
               <CardHeader>
                 <CardDescription>
                   {index === 0 && <>Первый контакт </>}
@@ -122,8 +155,12 @@ export default function OverViewLayout({
                   {showPercentage ? `${data.percentage}%` : data.absolute}
                 </CardTitle>
                 <CardAction>
-                  <Badge variant='outline'>
-                    <IconTrendingUp />
+                  <Badge variant='outline' className='flex items-center'>
+                    {index === 1 ? (
+                      <IconTrendingDown className='mr-1 size-4' />
+                    ) : (
+                      <IconTrendingUp className='mr-1 size-4' />
+                    )}
                     {index === 1 ? '-5%' : '+9%'}
                   </Badge>
                 </CardAction>
@@ -151,7 +188,7 @@ export default function OverViewLayout({
                     </>
                   )}
                 </div>
-                <div className='text-muted-foreground'>
+                <div className='text-muted-foreground text-xs sm:text-sm'>
                   {index === 0 && 'Посетители за последние 6 месяцев'}
                   {index === 1 && 'Требуется внимание к привлечению'}
                   {index === 2 && 'Вовлеченность превышает цели'}
@@ -166,17 +203,24 @@ export default function OverViewLayout({
             className='hover:bg-muted/50 flex cursor-pointer items-center justify-center transition-colors'
             onClick={() => alert('Добавление новой карточки')}
           >
-            <IconPlus className='text-muted-foreground size-12' />
+            <IconPlus className='text-muted-foreground size-8 sm:size-12' />
           </Card>
         </div>
+
+        {/* Графики и статистика */}
         <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7'>
-          <div className='col-span-4'>{bar_stats}</div>
-          <div className='col-span-4 md:col-span-3'>
-            {/* sales arallel routes */}
+          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-4'>
+            {bar_stats}
+          </div>
+          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-3'>
             {sales}
           </div>
-          <div className='col-span-4'>{area_stats}</div>
-          <div className='col-span-4 md:col-span-3'>{pie_stats}</div>
+          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-4'>
+            {area_stats}
+          </div>
+          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-3'>
+            {pie_stats}
+          </div>
         </div>
       </div>
     </PageContainer>

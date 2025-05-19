@@ -201,7 +201,7 @@ export interface SaleUser {
 export const recentSalesData: SaleUser[] = [
   {
     id: 1,
-    name: 'Olivia Martin',
+    name: 'Оливия Мартинова',
     email: 'olivia.martin@email.com',
     amount: '+$1,999.00',
     image: 'https://api.slingacademy.com/public/sample-users/1.png',
@@ -209,7 +209,7 @@ export const recentSalesData: SaleUser[] = [
   },
   {
     id: 2,
-    name: 'Jackson Lee',
+    name: 'Джек Ли',
     email: 'jackson.lee@email.com',
     amount: '+$39.00',
     image: 'https://api.slingacademy.com/public/sample-users/2.png',
@@ -217,7 +217,7 @@ export const recentSalesData: SaleUser[] = [
   },
   {
     id: 3,
-    name: 'Isabella Nguyen',
+    name: 'Изабель Нгуен',
     email: 'isabella.nguyen@email.com',
     amount: '+$299.00',
     image: 'https://api.slingacademy.com/public/sample-users/3.png',
@@ -225,7 +225,7 @@ export const recentSalesData: SaleUser[] = [
   },
   {
     id: 4,
-    name: 'William Kim',
+    name: 'Уильям Ким',
     email: 'will@email.com',
     amount: '+$99.00',
     image: 'https://api.slingacademy.com/public/sample-users/4.png',
@@ -233,7 +233,7 @@ export const recentSalesData: SaleUser[] = [
   },
   {
     id: 5,
-    name: 'Sofia Davis',
+    name: 'София Дейвис',
     email: 'sofia.davis@email.com',
     amount: '+$39.00',
     image: 'https://api.slingacademy.com/public/sample-users/5.png',

@@ -43,11 +43,10 @@ export default function SignInViewPage() {
         <div className='relative z-20 mt-auto'>
           <blockquote className='space-y-2'>
             <p className='text-lg'>
-              &ldquo;This starter template has saved me countless hours of work
-              and helped me deliver projects to my clients faster than ever
-              before.&rdquo;
+              &ldquo;Ваше время ограничено, не тратьте его, живя чужой
+              жизнью.&rdquo;
             </p>
-            <footer className='text-sm'>Random Dude</footer>
+            <footer className='text-sm'>Стив Джобс</footer>
           </blockquote>
         </div>
       </div>
@@ -60,19 +59,19 @@ export default function SignInViewPage() {
           />
 
           <p className='text-muted-foreground px-8 text-center text-sm'>
-            By clicking continue, you agree to our{' '}
+            Нажимая на продолжить, вы соглашаетесь с нашими{' '}
             <Link
               href='/terms'
               className='hover:text-primary underline underline-offset-4'
             >
-              Terms of Service
+              Условиями использования
             </Link>{' '}
-            and{' '}
+            и{' '}
             <Link
               href='/privacy'
               className='hover:text-primary underline underline-offset-4'
             >
-              Privacy Policy
+              Политикой конфиденциальности
             </Link>
             .
           </p>

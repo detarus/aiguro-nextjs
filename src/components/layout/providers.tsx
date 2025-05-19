@@ -4,6 +4,7 @@ import { dark } from '@clerk/themes';
 import { useTheme } from 'next-themes';
 import React from 'react';
 import { ActiveThemeProvider } from '../active-theme';
+import { ruRU } from '@clerk/localizations';
 
 export default function Providers({
   activeThemeValue,
@@ -22,6 +23,7 @@ export default function Providers({
           appearance={{
             baseTheme: resolvedTheme === 'dark' ? dark : undefined
           }}
+          localization={ruRU}
         >
           {children}
         </ClerkProvider>

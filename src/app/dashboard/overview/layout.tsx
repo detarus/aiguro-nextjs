@@ -65,8 +65,8 @@ export default function OverViewLayout({
       <div className='flex w-full max-w-full flex-1 flex-col space-y-4'>
         {/* Заголовок и селект воронки */}
         <div className='flex w-full flex-col items-start justify-between gap-3 pt-2 pb-2 sm:flex-row sm:items-center'>
-          <div className='flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center'>
-            <h2 className='truncate text-lg font-semibold text-gray-800 sm:text-xl'>
+          <div className='flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center'>
+            <h2 className='text-lg font-semibold text-gray-800 sm:text-xl'>
               Дашборд
             </h2>
             <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>

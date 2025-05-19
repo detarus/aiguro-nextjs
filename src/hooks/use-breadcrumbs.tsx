@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
+import { navItems } from '@/constants/data';
 
 type BreadcrumbItem = {
   title: string;
@@ -10,33 +11,51 @@ type BreadcrumbItem = {
 
 // This allows to add custom title as well
 const routeMapping: Record<string, BreadcrumbItem[]> = {
-  '/dashboard': [{ title: 'Dashboard', link: '/dashboard' }],
+  '/dashboard': [{ title: 'Панель управления', link: '/dashboard' }],
   '/dashboard/employee': [
-    { title: 'Dashboard', link: '/dashboard' },
-    { title: 'Employee', link: '/dashboard/employee' }
+    { title: 'Панель управления', link: '/dashboard' },
+    { title: 'Сотрудник', link: '/dashboard/employee' }
   ],
   '/dashboard/product': [
-    { title: 'Dashboard', link: '/dashboard' },
-    { title: 'Product', link: '/dashboard/product' }
+    { title: 'Панель управления', link: '/dashboard' },
+    { title: 'Товар', link: '/dashboard/product' }
   ]
   // Add more custom mappings as needed
 };
+
+function findSidebarTitle(path: string): string | undefined {
+  // Flatten navItems and their children
+  const flatItems = navItems.flatMap((item) => [item, ...(item.items || [])]);
+  const found = flatItems.find((item) => {
+    // Remove query params for comparison
+    const cleanUrl = item.url?.split('?')[0];
+    const cleanPath = path.split('?')[0];
+    return cleanUrl === cleanPath;
+  });
+  return found?.title;
+}
 
 export function useBreadcrumbs() {
   const pathname = usePathname();
 
   const breadcrumbs = useMemo(() => {
-    // Check if we have a custom mapping for this exact path
-    if (routeMapping[pathname]) {
-      return routeMapping[pathname];
+    // Special case for dashboard root
+    if (pathname === '/dashboard') {
+      return [{ title: 'Панель управления', link: '/dashboard' }];
     }
 
-    // If no exact match, fall back to generating breadcrumbs from the path
+    // Try to build breadcrumbs from segments
     const segments = pathname.split('/').filter(Boolean);
     return segments.map((segment, index) => {
       const path = `/${segments.slice(0, index + 1).join('/')}`;
+      let title: string | undefined;
+      if (path === '/dashboard') {
+        title = 'Панель управления';
+      } else {
+        title = findSidebarTitle(path);
+      }
       return {
-        title: segment.charAt(0).toUpperCase() + segment.slice(1),
+        title: title || segment.charAt(0).toUpperCase() + segment.slice(1),
         link: path
       };
     });

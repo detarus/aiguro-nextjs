@@ -128,7 +128,7 @@ export const navItems: NavItem[] = [
     items: []
   },
   {
-    title: 'API Keys',
+    title: 'API-ключи',
     url: '/dashboard/api-keys',
     icon: 'apiKeys',
     shortcut: ['a', 'p'],

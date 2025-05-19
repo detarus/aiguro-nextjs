@@ -23,6 +23,7 @@
     ]
   },
   "dependencies": {
+    "@clerk/localizations": "^3.16.0",
     "@clerk/nextjs": "^6.12.12",
     "@clerk/themes": "^2.2.26",
     "@dnd-kit/core": "^6.3.1",

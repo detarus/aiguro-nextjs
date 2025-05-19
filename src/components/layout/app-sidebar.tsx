@@ -39,6 +39,8 @@ import {
   IconCreditCard,
   IconLogout,
   IconPhotoUp,
+  IconPlus,
+  IconSettings,
   IconUserCircle
 } from '@tabler/icons-react';
 import { SignOutButton } from '@clerk/nextjs';
@@ -87,8 +89,12 @@ export default function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Главное меню</SidebarGroupLabel>
           <SidebarMenu>
-            {navItems.map((item) => {
+            {[
+              ...navItems.filter((i) => i.isActive),
+              ...navItems.filter((i) => !i.isActive)
+            ].map((item) => {
               const Icon = item.icon ? Icons[item.icon] : Icons.logo;
+              const isDisabled = !!item.disabled;
               return item?.items && item?.items?.length > 0 ? (
                 <Collapsible
                   key={item.title}
@@ -101,6 +107,12 @@ export default function AppSidebar() {
                       <SidebarMenuButton
                         tooltip={item.title}
                         isActive={pathname === item.url}
+                        disabled={isDisabled}
+                        className={
+                          isDisabled
+                            ? 'text-muted-foreground pointer-events-none opacity-60'
+                            : ''
+                        }
                       >
                         {item.icon && <Icon />}
                         <span>{item.title}</span>
@@ -127,16 +139,26 @@ export default function AppSidebar() {
                 </Collapsible>
               ) : (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={pathname === item.url}
-                  >
-                    <Link href={item.url}>
+                  {isDisabled ? (
+                    <SidebarMenuButton
+                      disabled
+                      className='text-muted-foreground pointer-events-none opacity-60'
+                    >
                       <Icon />
                       <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={pathname === item.url}
+                    >
+                      <Link href={item.url}>
+                        <Icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               );
             })}
@@ -186,15 +208,17 @@ export default function AppSidebar() {
                     onClick={() => router.push('/dashboard/profile')}
                   >
                     <IconUserCircle className='mr-2 h-4 w-4' />
-                    Профиль
+                    Учетная запись
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => router.push('/dashboard/management')}
+                  >
+                    <IconSettings className='mr-2 h-4 w-4' />
+                    Управление компанией
                   </DropdownMenuItem>
                   <DropdownMenuItem>
-                    <IconCreditCard className='mr-2 h-4 w-4' />
-                    Счета
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <IconBell className='mr-2 h-4 w-4' />
-                    Уведомления
+                    <IconPlus className='mr-2 h-4 w-4' />
+                    Добавить компанию
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />

@@ -12,6 +12,13 @@ import {
 import { UserAvatarProfile } from '@/components/user-avatar-profile';
 import { SignOutButton, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import {
+  IconSettings,
+  IconPlus,
+  IconUserCircle,
+  IconLogout
+} from '@tabler/icons-react';
+
 export function UserNav() {
   const { user } = useUser();
   const router = useRouter();
@@ -42,14 +49,23 @@ export function UserNav() {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
-              Профиль
+              <IconUserCircle className='mr-2 h-4 w-4' />
+              Учетная запись
             </DropdownMenuItem>
-            <DropdownMenuItem>Счета</DropdownMenuItem>
-            <DropdownMenuItem>Настройки</DropdownMenuItem>
-            <DropdownMenuItem>Компании</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => router.push('/dashboard/management')}
+            >
+              <IconSettings className='mr-2 h-4 w-4' />
+              Управление компанией
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <IconPlus className='mr-2 h-4 w-4' />
+              Добавить компанию
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem>
+            <IconLogout className='mr-2 h-4 w-4' />
             <SignOutButton redirectUrl='/auth/sign-in'>Выйти</SignOutButton>
           </DropdownMenuItem>
         </DropdownMenuContent>

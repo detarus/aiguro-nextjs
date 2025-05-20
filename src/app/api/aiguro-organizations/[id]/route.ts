@@ -4,9 +4,9 @@ import { AiguroOrganizationApi } from '../handler'; // Assuming handler is in th
 
 export async function DELETE(
   request: NextRequest, // request param is conventional, though not used for DELETE body here
-  context: { params: { id: string } } // UPDATED: Use the explicit interface for the second argument
+  { params }: { params: { id: string } }
 ) {
-  const organizationId = context.params.id; // UPDATED: Access id via context.params.id
+  const organizationId = params.id; // UPDATED: Access id via destructured params
   console.log(
     `[/api/aiguro-organizations/${organizationId} DELETE] Received request.`
   );

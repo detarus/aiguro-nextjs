@@ -2,30 +2,28 @@ import { NextResponse, NextRequest } from 'next/server';
 import { fetchAiguroServerToken } from '@/app/api/aiguro-token/route'; // Adjust path as needed
 import { AiguroOrganizationApi } from '../handler'; // Assuming handler is in the parent directory
 
-interface RouteContext {
-  params: {
-    id: string; // Matching the error message which includes a semicolon
-  };
-}
-
 export async function DELETE(
-  request: NextRequest, // request param is conventional, though not used for DELETE body here
-  context: RouteContext
+  request: NextRequest // Only one argument
 ) {
-  const organizationId = context.params.id;
-  console.log(
-    `[/api/aiguro-organizations/${organizationId} DELETE] Received request.`
-  );
+  const pathname = request.nextUrl.pathname;
+  // Extract the last segment of the path, e.g., 'org-id' from '/api/aiguro-organizations/org-id'
+  const segments = pathname.split('/').filter(Boolean); // filter(Boolean) removes empty strings from leading/trailing slashes
+  const organizationId = segments.pop(); // Get the last segment
 
+  // Check if organizationId was successfully extracted
   if (!organizationId) {
     console.error(
-      '[/api/aiguro-organizations/[id] DELETE] Organization ID is missing in path.'
+      '[/api/aiguro-organizations/[id] DELETE] Could not extract Organization ID from path.'
     );
     return NextResponse.json(
-      { error: 'Organization ID is required in the path.' },
+      { error: 'Organization ID could not be determined from the path.' },
       { status: 400 }
     );
   }
+
+  console.log(
+    `[/api/aiguro-organizations/${organizationId} DELETE] Received request.`
+  );
 
   const token = await fetchAiguroServerToken();
   if (!token) {

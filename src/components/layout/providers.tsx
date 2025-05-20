@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes';
 import React from 'react';
 import { ActiveThemeProvider } from '../active-theme';
 import { ruRU } from '@clerk/localizations';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 export default function Providers({
   activeThemeValue,
@@ -17,7 +18,7 @@ export default function Providers({
   const { resolvedTheme } = useTheme();
 
   return (
-    <>
+    <AuthProvider>
       <ActiveThemeProvider initialTheme={activeThemeValue}>
         <ClerkProvider
           appearance={{
@@ -28,6 +29,6 @@ export default function Providers({
           {children}
         </ClerkProvider>
       </ActiveThemeProvider>
-    </>
+    </AuthProvider>
   );
 }

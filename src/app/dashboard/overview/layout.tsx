@@ -15,7 +15,8 @@ import {
   IconTrendingUp,
   IconPlus
 } from '@tabler/icons-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Select,
   SelectContent,
@@ -42,6 +43,25 @@ export default function OverViewLayout({
   const [activeTimeFilter, setActiveTimeFilter] = useState('week');
   const [selectedFunnel, setSelectedFunnel] = useState('funnel1');
   const [showPercentage, setShowPercentage] = useState(false);
+
+  const {
+    token,
+    loginAndFetchToken,
+    fetchOrganizations,
+    isLoadingToken,
+    isLoadingOrganizations,
+    error: authError
+  } = useAuth();
+
+  useEffect(() => {
+    loginAndFetchToken();
+  }, [loginAndFetchToken]);
+
+  useEffect(() => {
+    if (token) {
+      fetchOrganizations();
+    }
+  }, [token, fetchOrganizations]);
 
   // Данные для карточек конверсии
   const conversionData = [

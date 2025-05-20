@@ -21,12 +21,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-interface ApiOrganization {
-  id: number;
-  display_name: string;
-  is_active: boolean;
-}
-
 interface Tenant {
   id: string;
   name: string;
@@ -112,7 +106,8 @@ const ConfirmDeleteModal = ({
       <div className='bg-background w-full max-w-md rounded-lg p-6 shadow-xl'>
         <h2 className='mb-4 text-lg font-semibold'>Подтверждение удаления</h2>
         <p className='mb-6'>
-          Вы действительно хотите удалить компанию "<b>{companyName || ''}</b>"?
+          Вы действительно хотите удалить компанию &quot;
+          <b>{companyName || ''}</b>&quot;?
         </p>
         <div className='flex justify-end space-x-2'>
           <Button variant='outline' onClick={onClose} disabled={isLoading}>

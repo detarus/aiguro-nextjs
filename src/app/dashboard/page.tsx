@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 // Import the new server-side token fetching function
-import { fetchAiguroServerToken } from '@/app/api/aiguro-token/route';
+import { fetchAiguroServerToken } from '@/lib/fetchAiguroServerToken';
 
 export default async function Dashboard() {
   console.log('[Dashboard Page] Attempting to fetch Aiguro token...');

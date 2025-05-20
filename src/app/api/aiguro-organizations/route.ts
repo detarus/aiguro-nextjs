@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { fetchAiguroServerToken } from '../aiguro-token/route';
+import { fetchAiguroServerToken } from '@/lib/fetchAiguroServerToken';
 import { AiguroOrganizationApi } from './handler';
 
 export async function GET() {

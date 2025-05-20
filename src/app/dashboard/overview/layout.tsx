@@ -28,6 +28,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useFunnels } from '@/hooks/useFunnels';
+import { Input } from '@/components/ui/input';
 
 export default function OverViewLayout({
   sales,
@@ -41,7 +43,6 @@ export default function OverViewLayout({
   area_stats: React.ReactNode;
 }) {
   const [activeTimeFilter, setActiveTimeFilter] = useState('week');
-  const [selectedFunnel, setSelectedFunnel] = useState('funnel1');
   const [showPercentage, setShowPercentage] = useState(false);
 
   const {
@@ -50,8 +51,15 @@ export default function OverViewLayout({
     fetchOrganizations,
     isLoadingToken,
     isLoadingOrganizations,
-    error: authError
+    error: authError,
+    selectedOrganizationId
   } = useAuth();
+
+  const { funnels, currentFunnel, selectFunnel } = useFunnels(
+    selectedOrganizationId
+  );
+  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const [newFunnelName, setNewFunnelName] = useState('');
 
   useEffect(() => {
     loginAndFetchToken();
@@ -62,6 +70,14 @@ export default function OverViewLayout({
       fetchOrganizations();
     }
   }, [token, fetchOrganizations]);
+
+  useEffect(() => {
+    if (funnels && funnels.length > 0) {
+      console.log('Текущий список воронок компании:', funnels);
+    } else {
+      console.log('Воронки не найдены для текущей компании.');
+    }
+  }, [funnels, currentFunnel]);
 
   // Данные для карточек конверсии
   const conversionData = [
@@ -80,6 +96,34 @@ export default function OverViewLayout({
     { id: 'period', label: 'За период' }
   ];
 
+  // При смене воронки выводим все воронки
+  const handleFunnelChange = (funnelId: string) => {
+    const funnel = funnels.find((f) => f.id === funnelId);
+    if (funnel) {
+      selectFunnel(funnel);
+      console.log('Все воронки:', funnels);
+    }
+    if (funnelId === 'add-funnel') {
+      setAddModalOpen(true);
+    }
+  };
+
+  // Добавление новой воронки (локально, для примера)
+  const handleAddFunnel = () => {
+    if (newFunnelName.trim()) {
+      const newFunnel = {
+        id: Date.now().toString(),
+        name: newFunnelName.trim()
+      };
+      const updatedFunnels = [newFunnel, ...funnels];
+      localStorage.setItem('funnels', JSON.stringify(updatedFunnels));
+      localStorage.setItem('currentFunnel', JSON.stringify(newFunnel));
+      setNewFunnelName('');
+      setAddModalOpen(false);
+      window.location.reload();
+    }
+  };
+
   return (
     <PageContainer>
       <div className='flex w-full max-w-full flex-1 flex-col space-y-4'>
@@ -89,15 +133,26 @@ export default function OverViewLayout({
             <h2 className='text-lg font-semibold text-gray-800 sm:text-xl'>
               Дашборд
             </h2>
-            <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>
+            <Select
+              value={currentFunnel?.id}
+              onValueChange={handleFunnelChange}
+            >
               <SelectTrigger className='h-8 w-full max-w-[180px] text-sm'>
                 <SelectValue className='truncate'>
-                  {selectedFunnel === 'funnel1' ? 'Воронка 1' : 'Воронка 2'}
+                  {currentFunnel?.display_name ||
+                    currentFunnel?.name ||
+                    'Выберите воронку'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='funnel1'>Воронка 1</SelectItem>
-                <SelectItem value='funnel2'>Воронка 2</SelectItem>
+                {funnels.map((funnel) => (
+                  <SelectItem key={funnel.id} value={funnel.id}>
+                    {funnel.display_name || funnel.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value='add-funnel'>
+                  <span className='text-primary'>+ Добавить воронку</span>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -242,6 +297,31 @@ export default function OverViewLayout({
             {pie_stats}
           </div>
         </div>
+
+        {/* Модалка для добавления воронки */}
+        {isAddModalOpen && (
+          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
+            <div className='rounded bg-white p-4 shadow'>
+              <Input
+                value={newFunnelName}
+                onChange={(e) => setNewFunnelName(e.target.value)}
+                placeholder='Название воронки'
+                className='mb-2 w-full border p-2'
+              />
+              <div className='flex gap-2'>
+                <button onClick={handleAddFunnel} className='btn btn-primary'>
+                  Добавить
+                </button>
+                <button
+                  onClick={() => setAddModalOpen(false)}
+                  className='btn btn-secondary'
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PageContainer>
   );

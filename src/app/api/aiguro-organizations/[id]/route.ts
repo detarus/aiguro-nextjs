@@ -2,11 +2,17 @@ import { NextResponse, NextRequest } from 'next/server';
 import { fetchAiguroServerToken } from '@/app/api/aiguro-token/route'; // Adjust path as needed
 import { AiguroOrganizationApi } from '../handler'; // Assuming handler is in the parent directory
 
+interface RouteContext {
+  params: {
+    id: string; // Matching the error message which includes a semicolon
+  };
+}
+
 export async function DELETE(
   request: NextRequest, // request param is conventional, though not used for DELETE body here
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
-  const organizationId = params.id; // UPDATED: Access id via destructured params
+  const organizationId = context.params.id;
   console.log(
     `[/api/aiguro-organizations/${organizationId} DELETE] Received request.`
   );

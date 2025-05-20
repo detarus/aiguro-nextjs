@@ -2,11 +2,18 @@ import { NextResponse, NextRequest } from 'next/server';
 import { fetchAiguroServerToken } from '@/app/api/aiguro-token/route'; // Adjust path as needed
 import { AiguroOrganizationApi } from '../handler'; // Assuming handler is in the parent directory
 
+// Define an interface for the route context
+interface DeleteRouteContext {
+  params: {
+    id: string;
+  };
+}
+
 export async function DELETE(
   request: NextRequest, // request param is conventional, though not used for DELETE body here
-  { params }: { params: { id: string } }
+  context: DeleteRouteContext // UPDATED: Use the explicit interface for the second argument
 ) {
-  const organizationId = params.id;
+  const organizationId = context.params.id; // UPDATED: Access id via context.params.id
   console.log(
     `[/api/aiguro-organizations/${organizationId} DELETE] Received request.`
   );

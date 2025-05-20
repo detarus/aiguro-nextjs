@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { fetchAiguroServerToken } from '@/lib/fetchAiguroServerToken';
+import { fetchAiguroServerToken } from '@/app/api/aiguro-token/handler';
 import { AiguroOrganizationApi } from '../handler';
 
 export async function DELETE(request: NextRequest) {

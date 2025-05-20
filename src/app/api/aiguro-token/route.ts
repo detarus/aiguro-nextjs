@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchAiguroServerToken } from '@/lib/fetchAiguroServerToken';
+import { fetchAiguroServerToken } from './handler';
 
 export async function GET() {
   try {

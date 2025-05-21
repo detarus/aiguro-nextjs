@@ -30,6 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useFunnels } from '@/hooks/useFunnels';
 import { Input } from '@/components/ui/input';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function OverViewLayout({
   sales,
@@ -60,6 +61,21 @@ export default function OverViewLayout({
   );
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [newFunnelName, setNewFunnelName] = useState('');
+
+  // По умолчанию два этапа с уникальными id
+  const [stages, setStages] = useState([
+    { id: Date.now() + Math.random(), name: '', prompt: '', followups: [60] },
+    {
+      id: Date.now() + Math.random() + 1,
+      name: '',
+      prompt: '',
+      followups: [60]
+    }
+  ]);
+  // Состояние для раскрытия follow-up в каждом этапе
+  const [showFollowup, setShowFollowup] = useState<{ [key: number]: boolean }>(
+    {}
+  );
 
   useEffect(() => {
     loginAndFetchToken();
@@ -108,17 +124,102 @@ export default function OverViewLayout({
     }
   };
 
-  // Добавление новой воронки (локально, для примера)
+  // Добавить этап
+  const handleAddStage = () => {
+    setStages([
+      ...stages,
+      { id: Date.now() + Math.random(), name: '', prompt: '', followups: [60] }
+    ]);
+  };
+
+  // Удалить этап
+  const handleRemoveStage = (id: number) => {
+    setStages(stages.filter((stage) => stage.id !== id));
+  };
+
+  // Изменить поле этапа
+  const handleStageChange = (
+    id: number,
+    field: 'name' | 'prompt',
+    value: string
+  ) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id ? { ...stage, [field]: value } : stage
+      )
+    );
+  };
+
+  // Добавить followup
+  const handleAddFollowup = (id: number) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id && stage.followups.length < 5
+          ? { ...stage, followups: [...stage.followups, 60] }
+          : stage
+      )
+    );
+  };
+
+  // Удалить followup
+  const handleRemoveFollowup = (id: number, followupIdx: number) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id
+          ? {
+              ...stage,
+              followups: stage.followups.filter((_, j) => j !== followupIdx)
+            }
+          : stage
+      )
+    );
+  };
+
+  // Изменить значение followup
+  const handleFollowupChange = (
+    id: number,
+    followupIdx: number,
+    value: number
+  ) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id
+          ? {
+              ...stage,
+              followups: stage.followups.map((f, j) =>
+                j === followupIdx ? value : f
+              )
+            }
+          : stage
+      )
+    );
+  };
+
+  // --- Добавление новой воронки с этапами ---
   const handleAddFunnel = () => {
-    if (newFunnelName.trim()) {
+    if (newFunnelName.trim() && stages.every((s) => s.name.trim())) {
       const newFunnel = {
         id: Date.now().toString(),
-        name: newFunnelName.trim()
+        name: newFunnelName.trim(),
+        display_name: newFunnelName.trim(),
+        stages: stages.map((s) => ({
+          name: s.name.trim(),
+          prompt: s.prompt,
+          followups: s.followups
+        }))
       };
       const updatedFunnels = [newFunnel, ...funnels];
       localStorage.setItem('funnels', JSON.stringify(updatedFunnels));
       localStorage.setItem('currentFunnel', JSON.stringify(newFunnel));
       setNewFunnelName('');
+      setStages([
+        {
+          id: Date.now() + Math.random(),
+          name: '',
+          prompt: '',
+          followups: [60]
+        }
+      ]);
       setAddModalOpen(false);
       window.location.reload();
     }
@@ -301,23 +402,206 @@ export default function OverViewLayout({
         {/* Модалка для добавления воронки */}
         {isAddModalOpen && (
           <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
-            <div className='rounded bg-white p-4 shadow'>
+            <div className='bg-background w-full max-w-2xl rounded-xl p-8 shadow-2xl'>
+              <h3 className='text-foreground mb-2 text-2xl font-bold'>
+                Добавить воронку
+              </h3>
+              <div className='text-muted-foreground mb-6'>
+                Укажите название воронки и добавьте этапы. Для каждого этапа
+                заполните название, промпт для ассистента и интервалы follow-up
+                (до 3, в минутах).
+              </div>
               <Input
                 value={newFunnelName}
                 onChange={(e) => setNewFunnelName(e.target.value)}
                 placeholder='Название воронки'
-                className='mb-2 w-full border p-2'
+                className='text-foreground bg-background mb-6 h-12 text-lg'
               />
-              <div className='flex gap-2'>
-                <button onClick={handleAddFunnel} className='btn btn-primary'>
+              <div className='flex max-h-[50vh] flex-row flex-nowrap gap-6 overflow-x-auto pb-2'>
+                <AnimatePresence initial={false}>
+                  {stages.map((stage, idx) => {
+                    const isAccordionOpen = !!showFollowup[stage.id];
+                    return (
+                      <motion.div
+                        key={stage.id}
+                        initial={{ opacity: 0, x: 40 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -40 }}
+                        transition={{ duration: 0.25 }}
+                        className={`bg-background relative flex max-w-[340px] min-w-[340px] flex-col gap-4 rounded-xl border border-gray-200 p-6 shadow dark:border-gray-700 ${isAccordionOpen ? 'max-h-[320px] overflow-y-auto' : ''}`}
+                      >
+                        <div className='mb-2 flex items-center justify-between'>
+                          <span className='text-foreground text-lg font-semibold'>
+                            Этап {idx + 1}
+                          </span>
+                          <div className='flex gap-1'>
+                            {stages.length > 1 && (
+                              <Button
+                                size='icon'
+                                variant='ghost'
+                                onClick={() => handleRemoveStage(stage.id)}
+                                title='Удалить этап'
+                                className='text-xl'
+                              >
+                                ×
+                              </Button>
+                            )}
+                            <Button
+                              size='icon'
+                              variant='outline'
+                              onClick={() => {
+                                const newStage = {
+                                  id: Date.now() + Math.random(),
+                                  name: '',
+                                  prompt: '',
+                                  followups: [60]
+                                };
+                                const idxInArr = stages.findIndex(
+                                  (s) => s.id === stage.id
+                                );
+                                setStages((prev) => [
+                                  ...prev.slice(0, idxInArr + 1),
+                                  newStage,
+                                  ...prev.slice(idxInArr + 1)
+                                ]);
+                              }}
+                              title='Добавить этап'
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </div>
+                        <div className='flex flex-col gap-2'>
+                          <label className='text-foreground text-sm font-medium'>
+                            Название этапа
+                          </label>
+                          <Input
+                            value={stage.name}
+                            onChange={(e) =>
+                              handleStageChange(
+                                stage.id,
+                                'name',
+                                e.target.value
+                              )
+                            }
+                            placeholder='Название этапа'
+                            className='text-foreground bg-background h-10 text-base'
+                          />
+                        </div>
+                        <div className='flex flex-col gap-2'>
+                          <label className='text-foreground text-sm font-medium'>
+                            Промпт для ассистента
+                          </label>
+                          <textarea
+                            value={stage.prompt}
+                            onChange={(e) =>
+                              handleStageChange(
+                                stage.id,
+                                'prompt',
+                                e.target.value
+                              )
+                            }
+                            placeholder='Промпт для ассистента'
+                            className='text-foreground bg-background min-h-[70px] w-full rounded border p-2 text-base'
+                          />
+                        </div>
+                        {/* Аккордеон для follow-up */}
+                        <div>
+                          <div
+                            className='text-primary mb-2 flex cursor-pointer items-center gap-1 text-xs font-medium select-none'
+                            onClick={() =>
+                              setShowFollowup((s) => ({
+                                ...s,
+                                [stage.id]: !s[stage.id]
+                              }))
+                            }
+                          >
+                            <span>
+                              {isAccordionOpen
+                                ? 'Скрыть Follow-up (в мин)'
+                                : 'Настроить Follow-up (в мин)'}
+                            </span>
+                            <span
+                              className={`transition-transform ${isAccordionOpen ? 'rotate-90' : ''}`}
+                            >
+                              ▶
+                            </span>
+                          </div>
+                          {isAccordionOpen && (
+                            <div>
+                              <div className='flex flex-wrap items-center gap-2'>
+                                <div className='bg-muted flex flex-row flex-wrap gap-0 rounded border px-1 py-1'>
+                                  {stage.followups.slice(0, 3).map((f, j) => (
+                                    <div key={j} className='flex items-center'>
+                                      <Input
+                                        type='number'
+                                        min={1}
+                                        max={300}
+                                        value={f}
+                                        onChange={(e) =>
+                                          handleFollowupChange(
+                                            stage.id,
+                                            j,
+                                            Math.max(
+                                              1,
+                                              Math.min(
+                                                300,
+                                                Number(e.target.value)
+                                              )
+                                            )
+                                          )
+                                        }
+                                        className='text-foreground bg-background h-8 w-14 rounded-none border-none text-sm focus:ring-0'
+                                      />
+                                      {stage.followups.length > 1 && (
+                                        <Button
+                                          size='icon'
+                                          variant='ghost'
+                                          onClick={() =>
+                                            handleRemoveFollowup(stage.id, j)
+                                          }
+                                          title='Удалить интервал'
+                                          className='rounded-none border-l px-0 text-base'
+                                        >
+                                          -
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                {stage.followups.length < 3 && (
+                                  <Button
+                                    size='icon'
+                                    variant='outline'
+                                    onClick={() => handleAddFollowup(stage.id)}
+                                    title='Добавить интервал'
+                                    className='px-1 text-base'
+                                  >
+                                    +
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+              <div className='mt-8 flex gap-2'>
+                <Button
+                  onClick={handleAddFunnel}
+                  className='btn btn-primary px-6 py-2 text-base'
+                >
                   Добавить
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setAddModalOpen(false)}
-                  className='btn btn-secondary'
+                  className='btn btn-secondary px-6 py-2 text-base'
                 >
                   Отмена
-                </button>
+                </Button>
               </div>
             </div>
           </div>

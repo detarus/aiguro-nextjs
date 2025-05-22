@@ -261,6 +261,7 @@ export function OrgSwitcher({
       onTenantSwitch(tenant.id);
     }
     setIsOrgDropdownOpen(false);
+    window.location.reload();
   };
 
   const handleAddCompanySubmit = async (companyName: string) => {

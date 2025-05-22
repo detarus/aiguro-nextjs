@@ -12,6 +12,7 @@ import {
 import { IconAdjustments } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/ui/page-container';
+import Link from 'next/link';
 
 export default function ManagementPage() {
   return (
@@ -19,18 +20,20 @@ export default function ManagementPage() {
       <PageContainer scrollable={true}>
         <div className='space-y-6'>
           <div>
-            <h1 className='text-3xl font-bold tracking-tight'>Управление</h1>
+            <h1 className='text-3xl font-bold tracking-tight'>
+              Управление воронкой
+            </h1>
             <p className='text-muted-foreground'>
               Административная панель управления системой
             </p>
           </div>
 
           <div className='grid grid-cols-1 gap-6 md:grid-cols-2'>
-            <Card>
+            {/* <Card>
               <CardHeader>
-                <CardTitle>Пользователи</CardTitle>
+                <CardTitle>Организация</CardTitle>
                 <CardDescription>
-                  Управление пользователями и ролями
+                  Управление пользователями и их ролями в компании
                 </CardDescription>
               </CardHeader>
               <CardContent className='space-y-4'>
@@ -46,15 +49,17 @@ export default function ManagementPage() {
                       </p>
                     </div>
                   </div>
-                  <Button size='sm'>Управление</Button>
+                  <Button size='sm'>Перейти</Button>
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
             <Card>
               <CardHeader>
-                <CardTitle>Отделы</CardTitle>
-                <CardDescription>Управление структурой отделов</CardDescription>
+                <CardTitle>Интеграции</CardTitle>
+                <CardDescription>
+                  Подключение и отключение месенджеров
+                </CardDescription>
               </CardHeader>
               <CardContent className='space-y-4'>
                 <div className='flex items-center justify-between rounded-lg border p-4'>
@@ -63,22 +68,24 @@ export default function ManagementPage() {
                       <IconAdjustments className='text-primary h-6 w-6' />
                     </div>
                     <div>
-                      <h3 className='font-medium'>3 отдела</h3>
+                      <h3 className='font-medium'>3 активных подключения</h3>
                       <p className='text-muted-foreground text-sm'>
                         Продажи, Поддержка, Маркетинг
                       </p>
                     </div>
                   </div>
-                  <Button size='sm'>Управление</Button>
+                  <Link href='/dashboard/management/integrations'>
+                    <Button size='sm'>Перейти</Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            {/* <Card>
               <CardHeader>
-                <CardTitle>Автоматизация</CardTitle>
+                <CardTitle>Воронки</CardTitle>
                 <CardDescription>
-                  Настройка автоматических процессов
+                  Настройка, активация и удаление воронок
                 </CardDescription>
               </CardHeader>
               <CardContent className='space-y-4'>
@@ -88,22 +95,22 @@ export default function ManagementPage() {
                       <IconAdjustments className='text-primary h-6 w-6' />
                     </div>
                     <div>
-                      <h3 className='font-medium'>7 активных сценариев</h3>
+                      <h3 className='font-medium'>7 активных воронок</h3>
                       <p className='text-muted-foreground text-sm'>
-                        Автоматизация рутинных задач
+                        Несколько воронок ожидают изменений
                       </p>
                     </div>
                   </div>
-                  <Button size='sm'>Управление</Button>
+                  <Button size='sm'>Перейти</Button>
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
             <Card>
               <CardHeader>
-                <CardTitle>Мониторинг</CardTitle>
+                <CardTitle>AI-ассистенты</CardTitle>
                 <CardDescription>
-                  Отслеживание системных событий
+                  Настройка и доработка ассистентов
                 </CardDescription>
               </CardHeader>
               <CardContent className='space-y-4'>
@@ -113,13 +120,15 @@ export default function ManagementPage() {
                       <IconAdjustments className='text-primary h-6 w-6' />
                     </div>
                     <div>
-                      <h3 className='font-medium'>Системные логи</h3>
+                      <h3 className='font-medium'>11 ассистентов</h3>
                       <p className='text-muted-foreground text-sm'>
-                        Просмотр и анализ логов системы
+                        Просмотр и редактирование
                       </p>
                     </div>
                   </div>
-                  <Button size='sm'>Управление</Button>
+                  <Link href='/dashboard/management/ai-assistants/'>
+                    <Button size='sm'>Перейти</Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>

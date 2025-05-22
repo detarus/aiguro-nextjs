@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { fetchAiguroServerToken } from '@/app/api/token/handler';
-import { AiguroOrganizationApi } from '@/app/api/organization/handler';
+import { AiguroOrganizationApi } from './handler';
 
 export async function GET() {
   console.log(

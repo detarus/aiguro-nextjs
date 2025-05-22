@@ -49,7 +49,7 @@ export const navItems: NavItem[] = [
     ]
   },
   {
-    title: 'Управление',
+    title: 'Управление воронкой',
     url: '/dashboard/management',
     icon: 'management',
     isActive: true,

@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { fetchAiguroServerToken } from '@/app/api/aiguro-token/handler';
+import { fetchAiguroServerToken } from '@/app/api/token/handler';
 
 export default async function Dashboard() {
   console.log('[Dashboard Page] Attempting to fetch Aiguro token...');

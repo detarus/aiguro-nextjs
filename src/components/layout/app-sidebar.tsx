@@ -70,6 +70,82 @@ export default function AppSidebar() {
     // Tenant switching functionality would be implemented here
   };
 
+  // Группа "Текущая воронка"
+  const funnelNav: Array<{
+    title: string;
+    url: string;
+    icon: keyof typeof Icons;
+    isActive: boolean;
+    disabled: boolean;
+  }> = [
+    {
+      title: 'Дашборд',
+      url: '/dashboard/overview',
+      icon: 'dashboard',
+      isActive: pathname === '/dashboard/overview',
+      disabled: false
+    },
+    {
+      title: 'Клиенты',
+      url: '/dashboard/clients',
+      icon: 'users',
+      isActive: pathname === '/dashboard/clients',
+      disabled: false
+    },
+    {
+      title: 'Месенджеры',
+      url: '/dashboard/messengers',
+      icon: 'messengers',
+      isActive: pathname === '/dashboard/messengers',
+      disabled: false
+    },
+    {
+      title: 'Управление',
+      url: '/dashboard/management',
+      icon: 'settings',
+      isActive: pathname === '/dashboard/management',
+      disabled: false
+    }
+  ];
+
+  // Группа "Разделы компании"
+  const companyNav: Array<{
+    title: string;
+    url: string;
+    icon: keyof typeof Icons;
+    isActive: boolean;
+    disabled: boolean;
+  }> = [
+    {
+      title: 'Воронки',
+      url: '/dashboard/funnels',
+      icon: 'kanban',
+      isActive: pathname === '/dashboard/funnels',
+      disabled: false
+    },
+    {
+      title: 'Пользователи и Роли',
+      url: '#',
+      icon: 'users',
+      isActive: false,
+      disabled: false
+    },
+    {
+      title: 'Команды AI-асистентов',
+      url: '#',
+      icon: 'userPen',
+      isActive: false,
+      disabled: false
+    },
+    {
+      title: 'API-ключи',
+      url: '#',
+      icon: 'apiKeys',
+      isActive: false,
+      disabled: false
+    }
+  ];
+
   const activeTenant = tenants[0];
 
   React.useEffect(() => {
@@ -83,78 +159,46 @@ export default function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className='overflow-x-hidden'>
         <SidebarGroup>
-          <SidebarGroupLabel>Главное меню</SidebarGroupLabel>
+          <SidebarGroupLabel>Текущая воронка</SidebarGroupLabel>
           <SidebarMenu>
-            {[
-              ...navItems.filter((i) => i.isActive),
-              ...navItems.filter((i) => !i.isActive)
-            ].map((item) => {
-              const Icon = item.icon ? Icons[item.icon] : Icons.logo;
-              const isDisabled = !!item.disabled;
-              return item?.items && item?.items?.length > 0 ? (
-                <Collapsible
-                  key={item.title}
-                  asChild
-                  defaultOpen={item.isActive}
-                  className='group/collapsible'
-                >
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip={item.title}
-                        isActive={pathname === item.url}
-                        disabled={isDisabled}
-                        className={
-                          isDisabled
-                            ? 'text-muted-foreground pointer-events-none opacity-60'
-                            : ''
-                        }
-                      >
-                        {item.icon && <Icon />}
-                        <span>{item.title}</span>
-                        <IconChevronRight className='ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90' />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={pathname === subItem.url}
-                            >
-                              <Link href={subItem.url}>
-                                <span>{subItem.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              ) : (
+            {funnelNav.map((item) => {
+              const Icon = item.icon
+                ? Icons[item.icon as keyof typeof Icons]
+                : Icons.logo;
+              return (
                 <SidebarMenuItem key={item.title}>
-                  {isDisabled ? (
-                    <SidebarMenuButton
-                      disabled
-                      className='text-muted-foreground pointer-events-none opacity-60'
-                    >
-                      <Icon />
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.title}
+                    isActive={item.isActive}
+                  >
+                    <Link href={item.url}>
+                      {Icon ? <Icon /> : <Icons.logo />}
                       <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  ) : (
-                    <SidebarMenuButton
-                      asChild
-                      tooltip={item.title}
-                      isActive={pathname === item.url}
-                    >
-                      <Link href={item.url}>
-                        <Icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  )}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+          <SidebarGroupLabel>Разделы компании</SidebarGroupLabel>
+          <SidebarMenu>
+            {companyNav.map((item) => {
+              const Icon = item.icon
+                ? Icons[item.icon as keyof typeof Icons]
+                : Icons.logo;
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.title}
+                    isActive={item.isActive}
+                  >
+                    <Link href={item.url}>
+                      {Icon ? <Icon /> : <Icons.logo />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               );
             })}

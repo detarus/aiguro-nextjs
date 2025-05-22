@@ -31,6 +31,8 @@ import { Label } from '@/components/ui/label';
 import { useFunnels } from '@/hooks/useFunnels';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback } from 'react';
+import AddFunnelModal from './AddFunnelModal';
 
 export default function OverViewLayout({
   sales,
@@ -79,6 +81,16 @@ export default function OverViewLayout({
 
   useEffect(() => {
     loginAndFetchToken();
+    // При инициализации пробуем загрузить выбранную воронку из localStorage
+    const storedFunnel = localStorage.getItem('currentFunnel');
+    if (storedFunnel) {
+      try {
+        const parsed = JSON.parse(storedFunnel);
+        if (parsed?.id) {
+          selectFunnel(parsed);
+        }
+      } catch {}
+    }
   }, [loginAndFetchToken]);
 
   useEffect(() => {
@@ -96,12 +108,36 @@ export default function OverViewLayout({
   }, [funnels, currentFunnel]);
 
   // Данные для карточек конверсии
-  const conversionData = [
-    { absolute: 1250, percentage: 82, stage: '1/4' },
-    { absolute: 1024, percentage: 66, stage: '2/4' },
-    { absolute: 678, percentage: 42, stage: '3/4' },
-    { absolute: 45, percentage: 70, stage: '4/4' }
-  ];
+  const conversionData = React.useMemo(() => {
+    if (!currentFunnel?.stages || currentFunnel.stages.length === 0) {
+      return [
+        { absolute: 1250, percentage: 82, stage: '1/4', name: 'Этап 1' },
+        { absolute: 1024, percentage: 66, stage: '2/4', name: 'Этап 2' },
+        { absolute: 678, percentage: 42, stage: '3/4', name: 'Этап 3' },
+        { absolute: 45, percentage: 70, stage: '4/4', name: 'Этап 4' }
+      ];
+    }
+
+    // Создаем карточки по этапам из текущей воронки
+    return currentFunnel.stages.map(
+      (
+        stage: { name: string; assistant_code_name?: string },
+        index: number
+      ) => {
+        // Генерируем случайные числа для сохранения логики демонстрации
+        const absolute = Math.floor(Math.random() * 1500) + 50;
+        const percentage = Math.floor(Math.random() * 80) + 20;
+
+        return {
+          absolute,
+          percentage,
+          stage: `${index + 1}/${currentFunnel.stages?.length}`,
+          name: stage.name,
+          assistant_code_name: stage.assistant_code_name
+        };
+      }
+    );
+  }, [currentFunnel]);
 
   // Фильтры для мобильного и десктопного отображения
   const timeFilters = [
@@ -117,6 +153,7 @@ export default function OverViewLayout({
     const funnel = funnels.find((f) => f.id === funnelId);
     if (funnel) {
       selectFunnel(funnel);
+      localStorage.setItem('currentFunnel', JSON.stringify(funnel)); // сохраняем выбранную воронку
       console.log('Все воронки:', funnels);
     }
     if (funnelId === 'add-funnel') {
@@ -138,11 +175,7 @@ export default function OverViewLayout({
   };
 
   // Изменить поле этапа
-  const handleStageChange = (
-    id: number,
-    field: 'name' | 'prompt',
-    value: string
-  ) => {
+  const handleStageChange = (id: number, field: string, value: string) => {
     setStages(
       stages.map((stage) =>
         stage.id === id ? { ...stage, [field]: value } : stage
@@ -231,7 +264,7 @@ export default function OverViewLayout({
         {/* Заголовок и селект воронки */}
         <div className='flex w-full flex-col items-start justify-between gap-3 pt-2 pb-2 sm:flex-row sm:items-center'>
           <div className='flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center'>
-            <h2 className='text-lg font-semibold text-gray-800 sm:text-xl'>
+            <h2 className='text-lg font-semibold text-gray-800 sm:text-xl dark:text-white'>
               Дашборд
             </h2>
             <Select
@@ -318,61 +351,63 @@ export default function OverViewLayout({
 
         {/* Карточки конверсии */}
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5'>
-          {conversionData.map((data, index) => (
-            <Card key={index} className='@container/card w-full'>
-              <CardHeader>
-                <CardDescription>
-                  {index === 0 && <>Первый контакт </>}
-                  {index === 1 && <>Квалификация </>}
-                  {index === 2 && <>Презентация </>}
-                  {index === 3 && <>Закрытие </>}({data.stage})
-                </CardDescription>
-                <CardTitle className='text-2xl font-semibold tabular-nums @[250px]/card:text-3xl'>
-                  {showPercentage ? `${data.percentage}%` : data.absolute}
-                </CardTitle>
-                <CardAction>
-                  <Badge variant='outline' className='flex items-center'>
-                    {index === 1 ? (
-                      <IconTrendingDown className='mr-1 size-4' />
+          {conversionData.map(
+            (
+              data: {
+                absolute: number;
+                percentage: number;
+                stage: string;
+                name?: string;
+                assistant_code_name?: string;
+              },
+              index: number
+            ) => (
+              <Card key={index} className='@container/card w-full'>
+                <CardHeader>
+                  <CardDescription>
+                    {data.name || `Этап ${index + 1}`} ({data.stage})
+                  </CardDescription>
+                  <CardTitle className='text-2xl font-semibold tabular-nums @[250px]/card:text-3xl'>
+                    {showPercentage ? `${data.percentage}%` : data.absolute}
+                  </CardTitle>
+                  <CardAction>
+                    <Badge variant='outline' className='flex items-center'>
+                      {Math.random() > 0.3 ? (
+                        <IconTrendingUp className='mr-1 size-4' />
+                      ) : (
+                        <IconTrendingDown className='mr-1 size-4' />
+                      )}
+                      {Math.random() > 0.3 ? '+9%' : '-5%'}
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardFooter className='flex-col items-start gap-1.5 text-sm'>
+                  <div className='line-clamp-1 flex gap-2 font-medium'>
+                    {Math.random() > 0.2 ? (
+                      <>
+                        Рост в этом месяце <IconTrendingUp className='size-4' />
+                      </>
                     ) : (
-                      <IconTrendingUp className='mr-1 size-4' />
+                      <>
+                        Снижение на {Math.floor(Math.random() * 20) + 5}%{' '}
+                        <IconTrendingDown className='size-4' />
+                      </>
                     )}
-                    {index === 1 ? '-5%' : '+9%'}
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className='flex-col items-start gap-1.5 text-sm'>
-                <div className='line-clamp-1 flex gap-2 font-medium'>
-                  {index === 0 && (
-                    <>
-                      Рост в этом месяце <IconTrendingUp className='size-4' />
-                    </>
-                  )}
-                  {index === 1 && (
-                    <>
-                      Снижение на 20% <IconTrendingDown className='size-4' />
-                    </>
-                  )}
-                  {index === 2 && (
-                    <>
-                      Высокий уровень <IconTrendingUp className='size-4' />
-                    </>
-                  )}
-                  {index === 3 && (
-                    <>
-                      Стабильный рост <IconTrendingUp className='size-4' />
-                    </>
-                  )}
-                </div>
-                <div className='text-muted-foreground text-xs sm:text-sm'>
-                  {index === 0 && 'Посетители за последние 6 месяцев'}
-                  {index === 1 && 'Требуется внимание к привлечению'}
-                  {index === 2 && 'Вовлеченность превышает цели'}
-                  {index === 3 && 'Соответствует прогнозам роста'}
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+                  </div>
+                  <div className='text-muted-foreground text-xs sm:text-sm'>
+                    {
+                      [
+                        'Посетители за последние 6 месяцев',
+                        'Требуется внимание к привлечению',
+                        'Вовлеченность превышает цели',
+                        'Соответствует прогнозам роста'
+                      ][index % 4]
+                    }
+                  </div>
+                </CardFooter>
+              </Card>
+            )
+          )}
 
           {/* Пятая карточка с плюсом */}
           <Card
@@ -400,212 +435,23 @@ export default function OverViewLayout({
         </div>
 
         {/* Модалка для добавления воронки */}
-        {isAddModalOpen && (
-          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
-            <div className='bg-background w-full max-w-2xl rounded-xl p-8 shadow-2xl'>
-              <h3 className='text-foreground mb-2 text-2xl font-bold'>
-                Добавить воронку
-              </h3>
-              <div className='text-muted-foreground mb-6'>
-                Укажите название воронки и добавьте этапы. Для каждого этапа
-                заполните название, промпт для ассистента и интервалы follow-up
-                (до 3, в минутах).
-              </div>
-              <Input
-                value={newFunnelName}
-                onChange={(e) => setNewFunnelName(e.target.value)}
-                placeholder='Название воронки'
-                className='text-foreground bg-background mb-6 h-12 text-lg'
-              />
-              <div className='flex max-h-[50vh] flex-row flex-nowrap gap-6 overflow-x-auto pb-2'>
-                <AnimatePresence initial={false}>
-                  {stages.map((stage, idx) => {
-                    const isAccordionOpen = !!showFollowup[stage.id];
-                    return (
-                      <motion.div
-                        key={stage.id}
-                        initial={{ opacity: 0, x: 40 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -40 }}
-                        transition={{ duration: 0.25 }}
-                        className={`bg-background relative flex max-w-[340px] min-w-[340px] flex-col gap-4 rounded-xl border border-gray-200 p-6 shadow dark:border-gray-700 ${isAccordionOpen ? 'max-h-[320px] overflow-y-auto' : ''}`}
-                      >
-                        <div className='mb-2 flex items-center justify-between'>
-                          <span className='text-foreground text-lg font-semibold'>
-                            Этап {idx + 1}
-                          </span>
-                          <div className='flex gap-1'>
-                            {stages.length > 1 && (
-                              <Button
-                                size='icon'
-                                variant='ghost'
-                                onClick={() => handleRemoveStage(stage.id)}
-                                title='Удалить этап'
-                                className='text-xl'
-                              >
-                                ×
-                              </Button>
-                            )}
-                            <Button
-                              size='icon'
-                              variant='outline'
-                              onClick={() => {
-                                const newStage = {
-                                  id: Date.now() + Math.random(),
-                                  name: '',
-                                  prompt: '',
-                                  followups: [60]
-                                };
-                                const idxInArr = stages.findIndex(
-                                  (s) => s.id === stage.id
-                                );
-                                setStages((prev) => [
-                                  ...prev.slice(0, idxInArr + 1),
-                                  newStage,
-                                  ...prev.slice(idxInArr + 1)
-                                ]);
-                              }}
-                              title='Добавить этап'
-                            >
-                              +
-                            </Button>
-                          </div>
-                        </div>
-                        <div className='flex flex-col gap-2'>
-                          <label className='text-foreground text-sm font-medium'>
-                            Название этапа
-                          </label>
-                          <Input
-                            value={stage.name}
-                            onChange={(e) =>
-                              handleStageChange(
-                                stage.id,
-                                'name',
-                                e.target.value
-                              )
-                            }
-                            placeholder='Название этапа'
-                            className='text-foreground bg-background h-10 text-base'
-                          />
-                        </div>
-                        <div className='flex flex-col gap-2'>
-                          <label className='text-foreground text-sm font-medium'>
-                            Промпт для ассистента
-                          </label>
-                          <textarea
-                            value={stage.prompt}
-                            onChange={(e) =>
-                              handleStageChange(
-                                stage.id,
-                                'prompt',
-                                e.target.value
-                              )
-                            }
-                            placeholder='Промпт для ассистента'
-                            className='text-foreground bg-background min-h-[70px] w-full rounded border p-2 text-base'
-                          />
-                        </div>
-                        {/* Аккордеон для follow-up */}
-                        <div>
-                          <div
-                            className='text-primary mb-2 flex cursor-pointer items-center gap-1 text-xs font-medium select-none'
-                            onClick={() =>
-                              setShowFollowup((s) => ({
-                                ...s,
-                                [stage.id]: !s[stage.id]
-                              }))
-                            }
-                          >
-                            <span>
-                              {isAccordionOpen
-                                ? 'Скрыть Follow-up (в мин)'
-                                : 'Настроить Follow-up (в мин)'}
-                            </span>
-                            <span
-                              className={`transition-transform ${isAccordionOpen ? 'rotate-90' : ''}`}
-                            >
-                              ▶
-                            </span>
-                          </div>
-                          {isAccordionOpen && (
-                            <div>
-                              <div className='flex flex-wrap items-center gap-2'>
-                                <div className='bg-muted flex flex-row flex-wrap gap-0 rounded border px-1 py-1'>
-                                  {stage.followups.slice(0, 3).map((f, j) => (
-                                    <div key={j} className='flex items-center'>
-                                      <Input
-                                        type='number'
-                                        min={1}
-                                        max={300}
-                                        value={f}
-                                        onChange={(e) =>
-                                          handleFollowupChange(
-                                            stage.id,
-                                            j,
-                                            Math.max(
-                                              1,
-                                              Math.min(
-                                                300,
-                                                Number(e.target.value)
-                                              )
-                                            )
-                                          )
-                                        }
-                                        className='text-foreground bg-background h-8 w-14 rounded-none border-none text-sm focus:ring-0'
-                                      />
-                                      {stage.followups.length > 1 && (
-                                        <Button
-                                          size='icon'
-                                          variant='ghost'
-                                          onClick={() =>
-                                            handleRemoveFollowup(stage.id, j)
-                                          }
-                                          title='Удалить интервал'
-                                          className='rounded-none border-l px-0 text-base'
-                                        >
-                                          -
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                                {stage.followups.length < 3 && (
-                                  <Button
-                                    size='icon'
-                                    variant='outline'
-                                    onClick={() => handleAddFollowup(stage.id)}
-                                    title='Добавить интервал'
-                                    className='px-1 text-base'
-                                  >
-                                    +
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-              <div className='mt-8 flex gap-2'>
-                <Button
-                  onClick={handleAddFunnel}
-                  className='btn btn-primary px-6 py-2 text-base'
-                >
-                  Добавить
-                </Button>
-                <Button
-                  onClick={() => setAddModalOpen(false)}
-                  className='btn btn-secondary px-6 py-2 text-base'
-                >
-                  Отмена
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <AddFunnelModal
+          isOpen={isAddModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          onAdd={handleAddFunnel}
+          newFunnelName={newFunnelName}
+          setNewFunnelName={setNewFunnelName}
+          stages={stages}
+          setStages={setStages}
+          showFollowup={showFollowup}
+          setShowFollowup={setShowFollowup}
+          handleStageChange={handleStageChange}
+          handleAddStage={handleAddStage}
+          handleRemoveStage={handleRemoveStage}
+          handleAddFollowup={handleAddFollowup}
+          handleRemoveFollowup={handleRemoveFollowup}
+          handleFollowupChange={handleFollowupChange}
+        />
       </div>
     </PageContainer>
   );

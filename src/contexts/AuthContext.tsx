@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setError(null);
     console.log('[AuthProvider] Fetching Aiguro token...');
     try {
-      const response = await fetch('/api/aiguro-token'); // GET request by default
+      const response = await fetch('/api/token'); // GET request by default
       if (!response.ok) {
         const errorData = await response
           .json()

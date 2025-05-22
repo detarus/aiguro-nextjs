@@ -32,7 +32,7 @@ const chartConfig = {
     label: 'Rjydthcbq'
   },
   chrome: {
-    label: 'Первый контакт',
+    label: 'Знакомство',
     color: 'var(--primary)'
   },
   safari: {

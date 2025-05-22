@@ -4,6 +4,12 @@ export interface Funnel {
   id: string;
   name?: string;
   display_name?: string;
+  stages?: Array<{
+    name: string;
+    assistant_code_name?: string;
+    prompt?: string;
+    followups?: number[];
+  }>;
   // Добавьте другие поля, если они есть в ответе API
 }
 
@@ -29,12 +35,13 @@ export function useFunnels(orgId: string | null | undefined) {
   useEffect(() => {
     if (!orgId) return;
     // Очищаем старые воронки при смене компании
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(FUNNELS_KEY);
-      localStorage.removeItem(CURRENT_FUNNEL_KEY);
-    }
-    setFunnels([]);
-    setCurrentFunnel(null);
+
+    // if (typeof window !== 'undefined') {
+    //   localStorage.removeItem(FUNNELS_KEY);
+    //   localStorage.removeItem(CURRENT_FUNNEL_KEY);
+    // }
+    // setFunnels([]);
+    // setCurrentFunnel(null);
     setLoading(true);
     setError(null);
     fetch(`/api/funnels?orgId=${orgId}`)
@@ -45,9 +52,24 @@ export function useFunnels(orgId: string | null | undefined) {
       .then((data) => {
         setFunnels(data);
         localStorage.setItem(FUNNELS_KEY, JSON.stringify(data));
-        if (data.length > 0) {
-          setCurrentFunnel(data[0]);
-          localStorage.setItem(CURRENT_FUNNEL_KEY, JSON.stringify(data[0]));
+        // Проверяем, есть ли уже выбранная воронка в localStorage и она валидна
+        const storedCurrent = localStorage.getItem(CURRENT_FUNNEL_KEY);
+        let funnelToSet = null;
+        if (storedCurrent) {
+          try {
+            const parsed = JSON.parse(storedCurrent);
+            if (parsed?.id && data.some((f: any) => f.id === parsed.id)) {
+              funnelToSet = data.find((f: any) => f.id === parsed.id);
+            }
+          } catch {}
+        }
+        // Если нет валидной сохранённой воронки, устанавливаем первую и сохраняем в localStorage
+        if (!funnelToSet && data.length > 0) {
+          funnelToSet = data[0];
+          setCurrentFunnel(funnelToSet);
+          localStorage.setItem(CURRENT_FUNNEL_KEY, JSON.stringify(funnelToSet));
+        } else if (funnelToSet) {
+          setCurrentFunnel(funnelToSet);
         }
       })
       .catch((e) => setError(e.message))

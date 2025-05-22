@@ -3,9 +3,9 @@ import { fetchAiguroServerToken } from '@/app/api/token/handler';
 
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
-  const { id: orgId } = (await context).params;
+  const { id: orgId } = params;
   try {
     const body = await req.json();
     // Валидация структуры запроса

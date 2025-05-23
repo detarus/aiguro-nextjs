@@ -3,9 +3,9 @@ import { fetchAiguroServerToken } from '@/app/api/token/handler';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  const { id: orgId } = params;
+  const orgId = context.params.id;
   try {
     const body = await req.json();
     // Валидация структуры запроса
@@ -54,19 +54,9 @@ export async function POST(
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (e) {
-    // Improved error logging
-    console.error('[API /api/organization/[id]/funnel] Server Error:', e);
-    // Check if 'e' is an instance of Error to safely access its message property
-    const errorMessage = e instanceof Error ? e.message : 'Ошибка сервера';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    // Log the error for server-side debugging
+    console.error('[API /api/organization/[id]/funnel] Error:', e);
+    // Return a generic error response
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 });
   }
 }
-
-// If you need to handle other methods, you can export them similarly:
-// export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-//   // ... GET logic ...
-//   return NextResponse.json({ message: "GET request received" });
-// }
-
-// By not exporting other methods (GET, PUT, DELETE, etc.), Next.js will
-// automatically return a 405 Method Not Allowed response for those requests.

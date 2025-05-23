@@ -70,7 +70,7 @@ export default function ManagementPage() {
                     <div>
                       <h3 className='font-medium'>3 активных подключения</h3>
                       <p className='text-muted-foreground text-sm'>
-                        Продажи, Поддержка, Маркетинг
+                        Подключение внешних сервисов
                       </p>
                     </div>
                   </div>

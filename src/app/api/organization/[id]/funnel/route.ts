@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAiguroServerToken } from '@/app/api/token/handler';
 
-export async function POST(req: NextRequest, params: { id: string }) {
-  const orgId = params.id;
+export async function POST(req: NextRequest) {
+  // Extract the organization ID from the URL path
+  const url = new URL(req.url);
+  const pathSegments = url.pathname.split('/');
+  const orgIdIndex = pathSegments.indexOf('organization') + 1;
+  const orgId = pathSegments[orgIdIndex];
+
+  if (!orgId) {
+    return NextResponse.json(
+      { error: 'Organization ID not found in URL' },
+      { status: 400 }
+    );
+  }
+
   try {
     const body = await req.json();
     // Валидация структуры запроса

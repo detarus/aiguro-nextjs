@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAiguroServerToken } from '@/app/api/token/handler';
 
-export async function POST(
-  req: NextRequest,
-  context: { params: { id: string } }
-) {
-  const orgId = context.params.id;
+export async function POST(req: NextRequest, params: { id: string }) {
+  const orgId = params.id;
   try {
     const body = await req.json();
     // Валидация структуры запроса

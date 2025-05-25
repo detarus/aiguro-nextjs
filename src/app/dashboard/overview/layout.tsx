@@ -80,7 +80,8 @@ export default function OverViewLayout({
   );
 
   useEffect(() => {
-    loginAndFetchToken();
+    // loginAndFetchToken();
+
     // При инициализации пробуем загрузить выбранную воронку из localStorage
     const storedFunnel = localStorage.getItem('currentFunnel');
     if (storedFunnel) {
@@ -91,6 +92,17 @@ export default function OverViewLayout({
         }
       } catch {}
     }
+
+    // Log __session cookie value when user navigates to /dashboard/overview
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(';').shift();
+      return null;
+    };
+
+    const sessionCookie = getCookie('__session');
+    console.log('Current __session cookie value:', sessionCookie);
   }, [loginAndFetchToken]);
 
   useEffect(() => {

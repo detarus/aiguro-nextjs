@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { fetchAiguroServerToken } from '@/app/api/token/handler';
+import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 import { AiguroOrganizationApi } from '../handler';
 
 export async function DELETE(request: NextRequest) {
@@ -12,12 +12,22 @@ export async function DELETE(request: NextRequest) {
       { error: 'Organization ID missing.' },
       { status: 400 }
     );
-  const token = await fetchAiguroServerToken();
-  if (!token)
+
+  const token = getClerkTokenFromCookie(request);
+  if (!token) {
+    console.error(
+      '[DELETE /api/organization/[id]] No token received from __session cookie.'
+    );
     return NextResponse.json(
       { error: 'Authentication failed.' },
       { status: 401 }
     );
+  }
+
+  console.log(
+    '[DELETE /api/organization/[id]] Token received from __session cookie, deleting organization.'
+  );
+
   const success = await AiguroOrganizationApi.deleteOrganization(
     token,
     organizationId

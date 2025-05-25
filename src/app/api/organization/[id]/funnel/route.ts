@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAiguroServerToken } from '@/app/api/token/handler';
+import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
 export async function POST(req: NextRequest) {
   // Extract the organization ID from the URL path
@@ -42,11 +42,18 @@ export async function POST(req: NextRequest) {
       JSON.stringify(funnel, null, 2)
     );
 
-    // Fetch the token
-    const token = await fetchAiguroServerToken();
+    // Get the token from __session cookie
+    const token = getClerkTokenFromCookie(req);
     if (!token) {
+      console.error(
+        '[POST /api/organization/[id]/funnel] No token received from __session cookie.'
+      );
       return NextResponse.json({ error: 'No auth token' }, { status: 401 });
     }
+
+    console.log(
+      '[POST /api/organization/[id]/funnel] Token received from __session cookie, creating funnel.'
+    );
 
     // Make the real POST request
     const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel`;
@@ -63,9 +70,7 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (e) {
-    // Log the error for server-side debugging
     console.error('[API /api/organization/[id]/funnel] Error:', e);
-    // Return a generic error response
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 });
   }
 }

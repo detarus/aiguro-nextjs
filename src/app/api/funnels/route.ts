@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAiguroServerToken } from '@/app/api/token/handler';
+import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -8,10 +8,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
   }
 
-  const token = await fetchAiguroServerToken();
+  const token = getClerkTokenFromCookie(request);
   if (!token) {
+    console.error(
+      '[/api/funnels GET] No token received from __session cookie.'
+    );
     return NextResponse.json({ error: 'No auth token' }, { status: 401 });
   }
+
+  console.log(
+    '[/api/funnels GET] Token received from __session cookie, fetching funnels.'
+  );
 
   const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnels`;
   const res = await fetch(apiUrl, {

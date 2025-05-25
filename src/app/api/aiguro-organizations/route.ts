@@ -1,18 +1,17 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { fetchAiguroServerToken } from '@/app/api/token/handler';
+import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 import { AiguroOrganizationApi } from '@/app/api/organization/handler';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   console.log(
-    '[/api/aiguro-organizations GET] Attempting to fetch Aiguro server token...'
+    '[/api/aiguro-organizations GET] Attempting to get Clerk token from __session cookie...'
   );
-  const token = await fetchAiguroServerToken();
+  const token = getClerkTokenFromCookie(request);
 
   if (!token) {
     console.error(
-      '[/api/aiguro-organizations GET] No token received from fetchAiguroServerToken. Cannot fetch organizations.'
+      '[/api/aiguro-organizations GET] No token received from __session cookie. Cannot fetch organizations.'
     );
-    // Ensuring a distinct error message if token is missing before calling getOrganizations
     return NextResponse.json(
       { error: 'Authentication token is missing, cannot fetch organizations.' },
       { status: 401 }
@@ -20,9 +19,8 @@ export async function GET() {
   }
 
   console.log(
-    '[/api/aiguro-organizations GET] Token received, attempting to fetch organizations.'
+    '[/api/aiguro-organizations GET] Token received from __session cookie, attempting to fetch organizations.'
   );
-  // AiguroOrganizationApi should be defined here now due to previous handler.ts creation
   const orgs = await AiguroOrganizationApi.getOrganizations(token);
 
   if (!orgs) {
@@ -46,17 +44,19 @@ export async function POST(request: NextRequest) {
     '[/api/aiguro-organizations POST] Attempting to create new organization...'
   );
 
-  const token = await fetchAiguroServerToken();
+  const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[/api/aiguro-organizations POST] No token received from fetchAiguroServerToken. Cannot create organization.'
+      '[/api/aiguro-organizations POST] No token received from __session cookie. Cannot create organization.'
     );
     return NextResponse.json(
       { error: 'Authentication token is missing, cannot create organization.' },
       { status: 401 }
     );
   }
-  console.log('[/api/aiguro-organizations POST] Token received.');
+  console.log(
+    '[/api/aiguro-organizations POST] Token received from __session cookie.'
+  );
 
   let body;
   try {

@@ -1,12 +1,25 @@
 import { NextResponse } from 'next/server';
 import { fetchAiguroServerToken } from './handler';
 
+/**
+ * @deprecated This endpoint is deprecated. API routes now use Clerk tokens directly from  __session cookie.
+ * This endpoint remains for backward compatibility but should not be used in new implementations.
+ */
 export async function GET() {
+  console.warn(
+    '[DEPRECATED] /api/token endpoint is deprecated. Use Clerk tokens from  __session cookie instead.'
+  );
+
   try {
     const token = await fetchAiguroServerToken();
 
     if (token) {
-      return NextResponse.json({ token });
+      return NextResponse.json({
+        token,
+        deprecated: true,
+        message:
+          'This endpoint is deprecated. Use Clerk tokens from  __session cookie instead.'
+      });
     } else {
       return NextResponse.json(
         {

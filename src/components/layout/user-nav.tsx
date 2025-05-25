@@ -53,7 +53,7 @@ export function UserNav() {
               Учетная запись
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => router.push('/dashboard/management')}
+              onClick={() => router.push('/dashboard/organization')}
             >
               <IconSettings className='mr-2 h-4 w-4' />
               Управление компанией

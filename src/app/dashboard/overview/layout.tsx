@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCallback } from 'react';
 import AddFunnelModal from './AddFunnelModal';
+import { OrganizationDebug } from '@/components/organization-debug';
 
 export default function OverViewLayout({
   sales,
@@ -445,6 +446,9 @@ export default function OverViewLayout({
             {pie_stats}
           </div>
         </div>
+
+        {/* Organization Debug Info */}
+        <OrganizationDebug />
 
         {/* Модалка для добавления воронки */}
         <AddFunnelModal

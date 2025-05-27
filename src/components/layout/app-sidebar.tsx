@@ -29,9 +29,10 @@ import {
   SidebarRail
 } from '@/components/ui/sidebar';
 import { UserAvatarProfile } from '@/components/user-avatar-profile';
+import { CreateOrganizationModal } from '@/components/modal/create-organization-modal';
 import { navItems } from '@/constants/data';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useUser } from '@clerk/nextjs';
+import { useUser, OrganizationSwitcher } from '@clerk/nextjs';
 import {
   IconBell,
   IconChevronRight,
@@ -48,27 +49,19 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 import { Icons } from '../icons';
-import { OrgSwitcher } from '../org-switcher';
+
 export const company = {
   name: 'Acme Inc',
   logo: IconPhotoUp,
   plan: 'Enterprise'
 };
 
-const tenants = [
-  { id: '1', name: 'Acme Inc' },
-  { id: '2', name: 'Beta Corp' },
-  { id: '3', name: 'Gamma Ltd' }
-];
-
 export default function AppSidebar() {
   const pathname = usePathname();
   const { isOpen } = useMediaQuery();
   const { user } = useUser();
   const router = useRouter();
-  const handleSwitchTenant = (_tenantId: string) => {
-    // Tenant switching functionality would be implemented here
-  };
+  const [isCreateOrgModalOpen, setIsCreateOrgModalOpen] = React.useState(false);
 
   // Группа "Текущая воронка"
   const funnelNav: Array<{
@@ -146,8 +139,6 @@ export default function AppSidebar() {
     }
   ];
 
-  const activeTenant = tenants[0];
-
   React.useEffect(() => {
     // Side effects based on sidebar state changes
   }, [isOpen]);
@@ -155,7 +146,18 @@ export default function AppSidebar() {
   return (
     <Sidebar collapsible='icon'>
       <SidebarHeader>
-        <OrgSwitcher onTenantSwitch={handleSwitchTenant} />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <OrganizationSwitcher
+              organizationProfileMode='navigation'
+              organizationProfileUrl='/dashboard/organization'
+              createOrganizationMode='modal'
+              hidePersonal={true}
+              afterCreateOrganizationUrl='/dashboard/organization'
+              afterSelectOrganizationUrl='/dashboard/overview'
+            />
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className='overflow-x-hidden'>
         <SidebarGroup>
@@ -256,7 +258,9 @@ export default function AppSidebar() {
                     <IconSettings className='mr-2 h-4 w-4' />
                     Управление компанией
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsCreateOrgModalOpen(true)}
+                  >
                     <IconPlus className='mr-2 h-4 w-4' />
                     Добавить компанию
                   </DropdownMenuItem>
@@ -274,6 +278,10 @@ export default function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
+      <CreateOrganizationModal
+        isOpen={isCreateOrgModalOpen}
+        onClose={() => setIsCreateOrgModalOpen(false)}
+      />
     </Sidebar>
   );
 }

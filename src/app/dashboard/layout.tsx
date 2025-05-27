@@ -2,6 +2,8 @@ import KBar from '@/components/kbar';
 import AppSidebar from '@/components/layout/app-sidebar';
 import Header from '@/components/layout/header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { OrganizationGuard } from '@/components/organization-guard';
+import { OrganizationCreationProvider } from '@/contexts/OrganizationCreationContext';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import OnboardingModalWrapper from '@/components/onboarding/onboarding-modal-wrapper';
@@ -20,18 +22,22 @@ export default async function DashboardLayout({
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
   return (
-    <KBar>
-      <SidebarProvider defaultOpen={defaultOpen}>
-        <AppSidebar />
-        <SidebarInset>
-          <Header />
-          {/* Onboarding modal (client-side only) */}
-          {/* <OnboardingModalWrapper /> */}
-          {/* page main content */}
-          {children}
-          {/* page main content ends */}
-        </SidebarInset>
-      </SidebarProvider>
-    </KBar>
+    <OrganizationGuard>
+      <OrganizationCreationProvider>
+        <KBar>
+          <SidebarProvider defaultOpen={defaultOpen}>
+            <AppSidebar />
+            <SidebarInset>
+              <Header />
+              {/* Onboarding modal (client-side only) */}
+              {/* <OnboardingModalWrapper /> */}
+              {/* page main content */}
+              {children}
+              {/* page main content ends */}
+            </SidebarInset>
+          </SidebarProvider>
+        </KBar>
+      </OrganizationCreationProvider>
+    </OrganizationGuard>
   );
 }

@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     // Create organization in Aiguro backend
     console.log('🚀 Attempting to create organization in Aiguro backend...');
     const requestBody = {
+      gid: clerkOrgId,
       display_name: organizationName,
       is_active: true
     };

@@ -37,6 +37,7 @@ import { OrganizationDebug } from '@/components/organization-debug';
 import { UserDebug } from '@/components/user-debug';
 import { OrganizationApiDebug } from '@/components/organization-api-debug';
 import { FunnelDebug } from '@/components/funnel-debug';
+import { TokenDebug } from '@/components/token-debug';
 
 export default function OverViewLayout({
   sales,
@@ -458,6 +459,7 @@ export default function OverViewLayout({
           <UserDebug />
           <OrganizationApiDebug />
           <FunnelDebug />
+          <TokenDebug />
         </div>
 
         {/* Модалка для добавления воронки */}

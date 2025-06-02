@@ -1,51 +1,140 @@
 'use client';
 
 import { useOrganization } from '@clerk/nextjs';
-import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
 export function OrganizationApiDebug() {
   const { organization } = useOrganization();
-  const { token, selectedOrganizationId } = useAuth();
-  const [apiData, setApiData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchOrganizationData = async () => {
-    if (!token || !selectedOrganizationId) return;
+  const [allOrgsData, setAllOrgsData] = useState<any>(null);
+  const [allOrgsLoading, setAllOrgsLoading] = useState(false);
+  const [allOrgsError, setAllOrgsError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-    setLoading(true);
-    setError(null);
+  const [currentOrgData, setCurrentOrgData] = useState<any>(null);
+  const [currentOrgLoading, setCurrentOrgLoading] = useState(false);
+  const [currentOrgError, setCurrentOrgError] = useState<string | null>(null);
+  const [currentOrgSuccessMessage, setCurrentOrgSuccessMessage] = useState<
+    string | null
+  >(null);
+
+  const handleFetchAllOrganizations = async () => {
+    console.log('Button clicked!');
+
+    // Получаем токен из cookie
+    const token = getClerkTokenFromClientCookie();
+    console.log('Token from cookie:', !!token);
+
+    if (!token) {
+      setAllOrgsError('No token available in __session cookie');
+      return;
+    }
+
+    setAllOrgsLoading(true);
+    setAllOrgsError(null);
+    setSuccessMessage(null);
 
     try {
-      const response = await fetch(
-        `https://app.dev.aiguro.ru/api/organization/${selectedOrganizationId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+      console.log('Sending request to /api/aiguro-organizations...');
+
+      const response = await fetch('/api/aiguro-organizations', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         }
-      );
+      });
+
+      console.log('Response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      setApiData(data);
+      console.log('Response data:', data);
+
+      setAllOrgsData(data);
+      setSuccessMessage('Запрос успешно отправлен и данные получены!');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Error fetching organizations:', err);
+      setAllOrgsError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setLoading(false);
+      setAllOrgsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (token && selectedOrganizationId) {
-      fetchOrganizationData();
+  const handleFetchCurrentOrganization = async () => {
+    console.log('Get Current Organization button clicked!');
+
+    // Получаем токен из cookie
+    const token = getClerkTokenFromClientCookie();
+    console.log('Token from cookie:', !!token);
+
+    if (!token) {
+      setCurrentOrgError('No token available in __session cookie');
+      return;
     }
-  }, [token, selectedOrganizationId]);
+
+    // Получаем backend ID из метаданных организации
+    const backendOrgId = organization?.publicMetadata?.id_backend as string;
+    console.log('Backend Organization ID:', backendOrgId);
+
+    if (!backendOrgId) {
+      setCurrentOrgError('No backend organization ID found in metadata');
+      return;
+    }
+
+    setCurrentOrgLoading(true);
+    setCurrentOrgError(null);
+    setCurrentOrgSuccessMessage(null);
+
+    try {
+      const apiUrl = `https://app.dev.aiguro.ru/api/organization/${backendOrgId}`;
+      console.log('Sending request to:', apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Current organization data:', data);
+
+      setCurrentOrgData(data);
+      setCurrentOrgSuccessMessage(
+        'Данные текущей организации успешно получены!'
+      );
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setCurrentOrgSuccessMessage(null);
+      }, 3000);
+    } catch (err) {
+      console.error('Error fetching current organization:', err);
+      setCurrentOrgError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setCurrentOrgLoading(false);
+    }
+  };
+
+  // Получаем backend ID для отображения
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
   return (
     <div className='rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-700 dark:bg-purple-900/20'>
@@ -54,41 +143,87 @@ export function OrganizationApiDebug() {
       </h3>
       <div className='space-y-2 text-sm'>
         <p>
-          <strong>Selected Org ID:</strong> {selectedOrganizationId || 'None'}
+          <strong>Selected Org ID (Backend):</strong> {backendOrgId || 'None'}
         </p>
         <p>
-          <strong>Has Token:</strong> {token ? 'Yes' : 'No'}
+          <strong>Has Token in Cookie:</strong>{' '}
+          {getClerkTokenFromClientCookie() ? 'Yes' : 'No'}
         </p>
         <p>
-          <strong>Backend ID:</strong>{' '}
-          {(organization?.publicMetadata?.id_backend as string) || 'Not set'}
+          <strong>Clerk Org ID:</strong> {organization?.id || 'Not set'}
         </p>
 
-        <div className='mt-3'>
-          <button
-            onClick={fetchOrganizationData}
-            disabled={!token || !selectedOrganizationId || loading}
-            className='rounded bg-purple-600 px-3 py-1 text-white disabled:bg-gray-400 dark:bg-purple-700 dark:disabled:bg-gray-600'
-          >
-            {loading ? 'Loading...' : 'Fetch API Data'}
-          </button>
+        <div className='mt-3 space-y-2'>
+          <div className='flex flex-wrap gap-2'>
+            <Button
+              onClick={handleFetchAllOrganizations}
+              disabled={allOrgsLoading}
+              variant='default'
+              size='sm'
+              className='cursor-pointer transition-colors hover:bg-blue-600 active:bg-blue-700'
+            >
+              {allOrgsLoading ? 'Loading...' : 'Get All Organizations'}
+            </Button>
+
+            <Button
+              onClick={handleFetchCurrentOrganization}
+              disabled={
+                currentOrgLoading || !organization?.publicMetadata?.id_backend
+              }
+              variant='secondary'
+              size='sm'
+              className='cursor-pointer transition-colors hover:bg-gray-600 active:bg-gray-700'
+            >
+              {currentOrgLoading ? 'Loading...' : 'Get Current Organization'}
+            </Button>
+          </div>
         </div>
 
-        {error && (
-          <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
-            <strong>Error:</strong> {error}
+        {successMessage && (
+          <div className='mt-2 rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
+            <strong>Success:</strong> {successMessage}
           </div>
         )}
 
-        {apiData && (
-          <details className='mt-2'>
-            <summary className='cursor-pointer text-purple-600 dark:text-purple-400'>
-              View API Response
-            </summary>
-            <pre className='mt-2 overflow-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800 dark:text-gray-200'>
-              {JSON.stringify(apiData, null, 2)}
+        {currentOrgSuccessMessage && (
+          <div className='mt-2 rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
+            <strong>Success:</strong> {currentOrgSuccessMessage}
+          </div>
+        )}
+
+        {allOrgsError && (
+          <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+            <strong>Error (All Orgs):</strong> {allOrgsError}
+          </div>
+        )}
+
+        {currentOrgError && (
+          <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+            <strong>Error (Current Org):</strong> {currentOrgError}
+          </div>
+        )}
+
+        {allOrgsData && (
+          <div className='mt-2'>
+            <h4 className='mb-2 font-medium text-purple-700 dark:text-purple-300'>
+              All Organizations (
+              {Array.isArray(allOrgsData) ? allOrgsData.length : 'N/A'} found):
+            </h4>
+            <pre className='max-h-64 overflow-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800 dark:text-gray-200'>
+              {JSON.stringify(allOrgsData, null, 2)}
             </pre>
-          </details>
+          </div>
+        )}
+
+        {currentOrgData && (
+          <div className='mt-2'>
+            <h4 className='mb-2 font-medium text-green-700 dark:text-green-300'>
+              Current Organization Data:
+            </h4>
+            <pre className='max-h-64 overflow-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800 dark:text-gray-200'>
+              {JSON.stringify(currentOrgData, null, 2)}
+            </pre>
+          </div>
         )}
       </div>
     </div>

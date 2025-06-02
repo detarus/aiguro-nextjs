@@ -13,12 +13,29 @@ The system automatically sends POST requests to the Aiguro backend API:
 
 The system uses the `getClerkTokenFromCookie()` function to extract the authentication token from the `__session` cookie and includes it as a Bearer token in the Authorization header.
 
+### Request Structure
+
+The API now sends the following structure to the backend:
+
+```json
+{
+  "gid": "org_2abc123def456ghi789",
+  "display_name": "Company Name",
+  "is_active": true
+}
+```
+
+Where:
+- **gid**: Clerk Organization ID (unique identifier from Clerk)
+- **display_name**: Organization display name
+- **is_active**: Always `true` for new organizations
+
 ## How It Works
 
 1. **Organization Guard**: Forces users to select/create an organization before accessing the dashboard
 2. **Organization Creation Detection**: Automatically detects when new organizations are created
-3. **Backend Integration**: Sends POST request to Aiguro API with `{ display_name, is_active }`
-4. **Response Processing**: Extracts `id` from Aiguro response `{ id, display_name, is_active }`
+3. **Backend Integration**: Sends POST request to Aiguro API with `{ gid, display_name, is_active }`
+4. **Response Processing**: Extracts `id` from Aiguro response `{ id, gid, display_name, is_active }`
 5. **Metadata Update**: Stores the `id` as `id_backend` in Clerk's organization public metadata
 
 ## Metadata Storage
@@ -40,9 +57,18 @@ This allows you to link Clerk organizations with Aiguro backend organizations.
 ### POST `/api/organizations`
 Creates a new organization in the backend and updates Clerk metadata.
 
-**Request Body:**
+**Frontend Request Body:**
 ```json
 {
+  "organizationName": "Company Name",
+  "clerkOrgId": "org_2abc123def456ghi789"
+}
+```
+
+**Backend Request Body (sent to Aiguro API):**
+```json
+{
+  "gid": "org_2abc123def456ghi789",
   "display_name": "Company Name",
   "is_active": true
 }
@@ -52,7 +78,8 @@ Creates a new organization in the backend and updates Clerk metadata.
 ```json
 {
   "id": 0,
-  "display_name": "string",
+  "gid": "org_2abc123def456ghi789",
+  "display_name": "Company Name",
   "is_active": true
 }
 ```
@@ -62,7 +89,7 @@ Creates a new organization in the backend and updates Clerk metadata.
 {
   "success": true,
   "backendOrgId": 0,
-  "clerkOrgId": "org_clerk_id_here",
+  "clerkOrgId": "org_2abc123def456ghi789",
   "message": "Organization created successfully"
 }
 ```
@@ -98,10 +125,26 @@ When creating an organization, you'll see detailed logging:
 ```
 [/api/organizations POST] Token received from __session cookie.
 🚀 Attempting to create organization in Aiguro backend...
-📤 Request data: { url, method, body: { display_name, is_active }, clerkOrgId, userId, hasToken: true }
+📤 Request data: { 
+  url: 'https://app.dev.aiguro.ru/api/organization', 
+  method: 'POST', 
+  body: { 
+    gid: 'org_2abc123def456ghi789',
+    display_name: 'Company Name', 
+    is_active: true 
+  }, 
+  clerkOrgId: 'org_2abc123def456ghi789', 
+  userId: 'user_123', 
+  hasToken: true 
+}
 📥 Backend response status: 200
 📥 Backend response headers: { ... }
-✅ Backend response data: { id: 123, display_name: "Company Name", is_active: true }
+✅ Backend response data: { 
+  id: 123, 
+  gid: 'org_2abc123def456ghi789',
+  display_name: "Company Name", 
+  is_active: true 
+}
 🎯 Extracted backend organization ID: 123
 Backend organization created with ID: 123
 Clerk organization metadata updated with backend ID: 123

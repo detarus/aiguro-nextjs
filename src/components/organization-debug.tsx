@@ -20,8 +20,8 @@ export function OrganizationDebug() {
   }
 
   return (
-    <div className='rounded-lg border border-blue-200 bg-blue-50 p-4'>
-      <h3 className='mb-2 font-semibold text-blue-800'>
+    <div className='rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900/20'>
+      <h3 className='mb-2 font-semibold text-blue-800 dark:text-blue-200'>
         Organization Debug Info
       </h3>
       <div className='space-y-1 text-sm'>
@@ -40,10 +40,10 @@ export function OrganizationDebug() {
           {new Date(organization.createdAt).toLocaleString()}
         </p>
         <details className='mt-2'>
-          <summary className='cursor-pointer text-blue-600'>
+          <summary className='cursor-pointer text-blue-600 dark:text-blue-400'>
             View Full Metadata
           </summary>
-          <pre className='mt-2 overflow-auto rounded bg-gray-100 p-2 text-xs'>
+          <pre className='mt-2 overflow-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800 dark:text-gray-200'>
             {JSON.stringify(organization.publicMetadata, null, 2)}
           </pre>
         </details>

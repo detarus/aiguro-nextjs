@@ -34,6 +34,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCallback } from 'react';
 import AddFunnelModal from './AddFunnelModal';
 import { OrganizationDebug } from '@/components/organization-debug';
+import { UserDebug } from '@/components/user-debug';
+import { OrganizationApiDebug } from '@/components/organization-api-debug';
+import { FunnelDebug } from '@/components/funnel-debug';
 
 export default function OverViewLayout({
   sales,
@@ -431,7 +434,8 @@ export default function OverViewLayout({
           </Card>
         </div>
 
-        {/* Графики и статистика */}
+        {/* Графики и статистика - СКРЫТО */}
+        {/* 
         <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7'>
           <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-4'>
             {bar_stats}
@@ -446,9 +450,15 @@ export default function OverViewLayout({
             {pie_stats}
           </div>
         </div>
+        */}
 
-        {/* Organization Debug Info */}
-        <OrganizationDebug />
+        {/* Отладочные блоки */}
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+          <OrganizationDebug />
+          <UserDebug />
+          <OrganizationApiDebug />
+          <FunnelDebug />
+        </div>
 
         {/* Модалка для добавления воронки */}
         <AddFunnelModal

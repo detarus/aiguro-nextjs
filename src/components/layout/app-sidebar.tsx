@@ -26,7 +26,8 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarRail
+  SidebarRail,
+  useSidebar
 } from '@/components/ui/sidebar';
 import { UserAvatarProfile } from '@/components/user-avatar-profile';
 import { CreateOrganizationModal } from '@/components/modal/create-organization-modal';
@@ -62,6 +63,7 @@ export default function AppSidebar() {
   const { user } = useUser();
   const router = useRouter();
   const [isCreateOrgModalOpen, setIsCreateOrgModalOpen] = React.useState(false);
+  const { state } = useSidebar();
 
   // Группа "Текущая воронка"
   const funnelNav: Array<{
@@ -148,14 +150,16 @@ export default function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <OrganizationSwitcher
-              organizationProfileMode='navigation'
-              organizationProfileUrl='/dashboard/organization'
-              createOrganizationMode='modal'
-              hidePersonal={true}
-              afterCreateOrganizationUrl='/dashboard/organization'
-              afterSelectOrganizationUrl='/dashboard/overview'
-            />
+            {state === 'expanded' && (
+              <OrganizationSwitcher
+                organizationProfileMode='navigation'
+                organizationProfileUrl='/dashboard/organization'
+                createOrganizationMode='modal'
+                hidePersonal={true}
+                afterCreateOrganizationUrl='/dashboard/organization'
+                afterSelectOrganizationUrl='/dashboard/overview'
+              />
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

@@ -70,7 +70,7 @@ export default function ChatPage() {
     name: 'Иванов Иван',
     phone: '+7 (999) 123-45-67',
     email: 'ivan@example.com',
-    stage: 'Квалификация',
+    stage: 'Новый',
     probability: 65,
     contactDate: '23.11.2024',
     messagesCount: 12,

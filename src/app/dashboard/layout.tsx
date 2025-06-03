@@ -9,8 +9,8 @@ import { cookies } from 'next/headers';
 import OnboardingModalWrapper from '@/components/onboarding/onboarding-modal-wrapper';
 
 export const metadata: Metadata = {
-  title: 'Next Shadcn Dashboard Starter',
-  description: 'Basic dashboard with Next.js and Shadcn'
+  title: 'AI Guro Sales Platform',
+  description: 'AI Guro Sales Platform'
 };
 
 export default async function DashboardLayout({

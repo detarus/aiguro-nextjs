@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOrganization } from '@clerk/nextjs';
+import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
 interface AddFunnelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: () => void;
+  onAdd: (newFunnel?: any) => void;
   newFunnelName: string;
   setNewFunnelName: (v: string) => void;
   stages: any[];
@@ -45,8 +46,11 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
   >({});
   const [funnelNameError, setFunnelNameError] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { selectedOrganizationId, token } = useAuth();
+  const { organization } = useOrganization();
   const [loading, setLoading] = useState(false);
+
+  // Получаем backend ID организации из метаданных Clerk
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
   React.useEffect(() => {
     if (isOpen) {
@@ -104,50 +108,110 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
 
   const handleAddClick = async () => {
     if (!validate()) return;
-    if (!selectedOrganizationId) {
-      setError('Не выбрана организация');
+
+    // Получаем токен из Clerk cookie
+    const token = getClerkTokenFromClientCookie();
+    console.log('Clerk token available:', !!token);
+    console.log('Backend organization ID:', backendOrgId);
+
+    if (!backendOrgId) {
+      setError(
+        'Не выбрана организация или отсутствует backend ID в метаданных'
+      );
       return;
     }
+
+    if (!token) {
+      setError('Отсутствует токен аутентификации');
+      return;
+    }
+
     setLoading(true);
-    // Формируем тело запроса
+    // Формируем тело запроса согласно требуемой структуре API
     const funnelPayload = {
       display_name: newFunnelName.trim(),
       stages: stages.map((stage) => ({
         name: stage.name.trim(),
-        assistant_code_name: stage.name.trim(),
+        assistant_code_name: stage.name
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '_'),
         followups: stage.followups.map((delay: number) => ({
-          delay_minutes: delay,
+          delay_minutes: Number(delay),
           assistant_code_name: 'follow_up'
         }))
       }))
     };
+
+    console.log(
+      'Creating funnel with payload:',
+      JSON.stringify(funnelPayload, null, 2)
+    );
+    console.log('Using organization ID:', backendOrgId);
+
     try {
-      const res = await fetch(
-        `/api/organization/${selectedOrganizationId}/funnel`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify(funnelPayload)
-        }
+      const res = await fetch(`/api/organization/${backendOrgId}/funnel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(funnelPayload)
+      });
+
+      console.log('API response status:', res.status);
+      console.log(
+        'API response headers:',
+        Object.fromEntries(res.headers.entries())
       );
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Ошибка при создании воронки');
+        let errorMessage = `HTTP ${res.status} ${res.statusText}`;
+
+        try {
+          const errorData = await res.json();
+          console.error('API error response:', errorData);
+
+          // Извлекаем детальное сообщение об ошибке
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else {
+            errorMessage = `${errorMessage}\nОтвет сервера: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          // Если не удается распарсить JSON, пытаемся получить текст
+          try {
+            const errorText = await res.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nОтвет сервера: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nНе удалось прочитать ответ сервера`;
+          }
+        }
+
+        throw new Error(errorMessage);
       }
+
       const newFunnel = await res.json();
+      console.log('Successfully created funnel:', newFunnel);
+
       if (newFunnel && newFunnel.id) {
         localStorage.setItem('currentFunnel', String(newFunnel.id));
       }
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        onAdd();
+        onAdd(newFunnel);
       }, 1000);
     } catch (e: any) {
-      setError(e.message || 'Ошибка при создании воронки');
+      console.error('Error creating funnel:', e);
+      // Показываем конкретную ошибку вместо общего сообщения
+      setError(e.message || 'Неизвестная ошибка при создании воронки');
     } finally {
       setLoading(false);
     }
@@ -164,6 +228,22 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
           Укажите название воронки и добавьте этапы. Для каждого этапа заполните
           название и интервалы follow-up (до 3, в минутах).
         </div>
+
+        {/* Информация о текущей организации - СКРЫТО */}
+        {/* 
+        <div className='mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-700 dark:bg-blue-900/20'>
+          <h4 className='mb-2 font-medium text-blue-800 dark:text-blue-200'>
+            Информация об организации:
+          </h4>
+          <div className='space-y-1 text-blue-700 dark:text-blue-300'>
+            <p><strong>Название:</strong> {organization?.name || 'Не указано'}</p>
+            <p><strong>Clerk ID:</strong> {organization?.id || 'Не указан'}</p>
+            <p><strong>Backend ID:</strong> {backendOrgId || 'Отсутствует в метаданных'}</p>
+            <p><strong>Токен доступен:</strong> {getClerkTokenFromClientCookie() ? 'Да' : 'Нет'}</p>
+          </div>
+        </div>
+        */}
+
         <Input
           value={newFunnelName}
           onChange={(e) => setNewFunnelName(e.target.value)}
@@ -322,9 +402,16 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
             })}
           </AnimatePresence>
         </div>
-        {error && <div className='mt-4 text-red-500'>{error}</div>}
+        {error && (
+          <div className='mt-4 rounded bg-red-100 p-3 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+            <strong>Ошибка:</strong>
+            <pre className='mt-1 text-sm whitespace-pre-wrap'>{error}</pre>
+          </div>
+        )}
         {success && (
-          <div className='mt-4 text-green-600'>Воронка добавлена</div>
+          <div className='mt-4 rounded bg-green-100 p-3 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
+            <strong>Успех:</strong> Воронка успешно создана!
+          </div>
         )}
         <div className='mt-8 flex gap-2'>
           <Button

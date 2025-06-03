@@ -16,7 +16,7 @@ import {
   IconPlus
 } from '@tabler/icons-react';
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOrganization } from '@clerk/nextjs';
 import {
   Select,
   SelectContent,
@@ -38,6 +38,9 @@ import { UserDebug } from '@/components/user-debug';
 import { OrganizationApiDebug } from '@/components/organization-api-debug';
 import { FunnelDebug } from '@/components/funnel-debug';
 import { TokenDebug } from '@/components/token-debug';
+import { MessengerConnectionsDebug } from '@/components/messenger-connections-debug';
+import { AssistantsDebug } from '@/components/assistants-debug';
+import { DialogsDebug } from '@/components/dialogs-debug';
 
 export default function OverViewLayout({
   sales,
@@ -53,19 +56,18 @@ export default function OverViewLayout({
   const [activeTimeFilter, setActiveTimeFilter] = useState('week');
   const [showPercentage, setShowPercentage] = useState(false);
 
-  const {
-    token,
-    loginAndFetchToken,
-    fetchOrganizations,
-    isLoadingToken,
-    isLoadingOrganizations,
-    error: authError,
-    selectedOrganizationId
-  } = useAuth();
+  const { organization } = useOrganization();
 
-  const { funnels, currentFunnel, selectFunnel } = useFunnels(
-    selectedOrganizationId
-  );
+  // Получаем backend ID организации из метаданных Clerk
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+
+  const {
+    funnels,
+    currentFunnel,
+    selectFunnel,
+    refreshFunnels,
+    setNewFunnelAsSelected
+  } = useFunnels(backendOrgId);
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [newFunnelName, setNewFunnelName] = useState('');
 
@@ -85,19 +87,6 @@ export default function OverViewLayout({
   );
 
   useEffect(() => {
-    // loginAndFetchToken();
-
-    // При инициализации пробуем загрузить выбранную воронку из localStorage
-    const storedFunnel = localStorage.getItem('currentFunnel');
-    if (storedFunnel) {
-      try {
-        const parsed = JSON.parse(storedFunnel);
-        if (parsed?.id) {
-          selectFunnel(parsed);
-        }
-      } catch {}
-    }
-
     // Log __session cookie value when user navigates to /dashboard/overview
     const getCookie = (name: string) => {
       const value = `; ${document.cookie}`;
@@ -108,13 +97,9 @@ export default function OverViewLayout({
 
     const sessionCookie = getCookie('__session');
     console.log('Current __session cookie value:', sessionCookie);
-  }, [loginAndFetchToken]);
-
-  useEffect(() => {
-    if (token) {
-      fetchOrganizations();
-    }
-  }, [token, fetchOrganizations]);
+    console.log('Current organization:', organization?.name);
+    console.log('Backend organization ID:', backendOrgId);
+  }, [organization, backendOrgId]);
 
   useEffect(() => {
     if (funnels && funnels.length > 0) {
@@ -170,8 +155,8 @@ export default function OverViewLayout({
     const funnel = funnels.find((f) => f.id === funnelId);
     if (funnel) {
       selectFunnel(funnel);
-      localStorage.setItem('currentFunnel', JSON.stringify(funnel)); // сохраняем выбранную воронку
       console.log('Все воронки:', funnels);
+      console.log('Выбрана воронка:', funnel);
     }
     if (funnelId === 'add-funnel') {
       setAddModalOpen(true);
@@ -245,34 +230,30 @@ export default function OverViewLayout({
     );
   };
 
-  // --- Добавление новой воронки с этапами ---
-  const handleAddFunnel = () => {
-    if (newFunnelName.trim() && stages.every((s) => s.name.trim())) {
-      const newFunnel = {
-        id: Date.now().toString(),
-        name: newFunnelName.trim(),
-        display_name: newFunnelName.trim(),
-        stages: stages.map((s) => ({
-          name: s.name.trim(),
-          prompt: s.prompt,
-          followups: s.followups
-        }))
-      };
-      const updatedFunnels = [newFunnel, ...funnels];
-      localStorage.setItem('funnels', JSON.stringify(updatedFunnels));
-      localStorage.setItem('currentFunnel', JSON.stringify(newFunnel));
-      setNewFunnelName('');
-      setStages([
-        {
-          id: Date.now() + Math.random(),
-          name: '',
-          prompt: '',
-          followups: [60]
-        }
-      ]);
-      setAddModalOpen(false);
-      window.location.reload();
+  // Обработка добавления воронки
+  const handleAddFunnel = async (newFunnel?: any) => {
+    console.log('handleAddFunnel called with:', newFunnel);
+
+    if (newFunnel) {
+      // Если передана новая воронка, устанавливаем её как выбранную
+      setNewFunnelAsSelected(newFunnel);
+    } else {
+      // Если воронка не передана, обновляем список воронок
+      refreshFunnels();
     }
+
+    // Закрываем модальное окно и сбрасываем форму
+    setAddModalOpen(false);
+    setNewFunnelName('');
+    setStages([
+      { id: Date.now() + Math.random(), name: '', prompt: '', followups: [60] },
+      {
+        id: Date.now() + Math.random() + 1,
+        name: '',
+        prompt: '',
+        followups: [60]
+      }
+    ]);
   };
 
   return (
@@ -284,28 +265,41 @@ export default function OverViewLayout({
             <h2 className='text-lg font-semibold text-gray-800 sm:text-xl dark:text-white'>
               Дашборд
             </h2>
-            <Select
-              value={currentFunnel?.id}
-              onValueChange={handleFunnelChange}
-            >
-              <SelectTrigger className='h-8 w-full max-w-[180px] text-sm'>
-                <SelectValue className='truncate'>
-                  {currentFunnel?.display_name ||
-                    currentFunnel?.name ||
-                    'Выберите воронку'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {funnels.map((funnel) => (
-                  <SelectItem key={funnel.id} value={funnel.id}>
-                    {funnel.display_name || funnel.name}
+            {/* Условное отображение: кнопка если воронок нет, селект если есть */}
+            {funnels.length === 0 ? (
+              <Button
+                onClick={() => setAddModalOpen(true)}
+                variant='default'
+                size='sm'
+                className='h-8 w-full max-w-[180px] text-sm'
+              >
+                <IconPlus className='mr-2 h-4 w-4' />
+                Добавить воронку
+              </Button>
+            ) : (
+              <Select
+                value={currentFunnel?.id}
+                onValueChange={handleFunnelChange}
+              >
+                <SelectTrigger className='h-8 w-full max-w-[180px] text-sm'>
+                  <SelectValue className='truncate'>
+                    {currentFunnel?.display_name ||
+                      currentFunnel?.name ||
+                      'Выберите воронку'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {funnels.map((funnel) => (
+                    <SelectItem key={funnel.id} value={funnel.id}>
+                      {funnel.display_name || funnel.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value='add-funnel'>
+                    <span className='text-primary'>+ Добавить воронку</span>
                   </SelectItem>
-                ))}
-                <SelectItem value='add-funnel'>
-                  <span className='text-primary'>+ Добавить воронку</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Переключатель процентов и фильтр времени */}
@@ -460,6 +454,9 @@ export default function OverViewLayout({
           <OrganizationApiDebug />
           <FunnelDebug />
           <TokenDebug />
+          <MessengerConnectionsDebug />
+          <AssistantsDebug />
+          <DialogsDebug />
         </div>
 
         {/* Модалка для добавления воронки */}

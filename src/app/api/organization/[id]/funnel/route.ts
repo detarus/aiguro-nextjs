@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
 
     // Make the real POST request
     const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel`;
+    console.log(
+      `[POST /api/organization/[id]/funnel] Making request to: ${apiUrl}`
+    );
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -67,7 +71,50 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(funnel)
     });
 
+    console.log(
+      `[POST /api/organization/[id]/funnel] Response status: ${response.status}`
+    );
+
+    if (!response.ok) {
+      let errorDetails = `HTTP ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        console.error(
+          '[POST /api/organization/[id]/funnel] Error response JSON:',
+          errorData
+        );
+        errorDetails =
+          errorData.error ||
+          errorData.message ||
+          errorData.detail ||
+          JSON.stringify(errorData);
+      } catch (jsonError) {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          console.error(
+            '[POST /api/organization/[id]/funnel] Error response text:',
+            errorText
+          );
+          errorDetails = errorText || errorDetails;
+        } catch (textError) {
+          console.error(
+            '[POST /api/organization/[id]/funnel] Could not read error response'
+          );
+        }
+      }
+
+      return NextResponse.json(
+        { error: errorDetails },
+        { status: response.status }
+      );
+    }
+
     const data = await response.json();
+    console.log(
+      '[POST /api/organization/[id]/funnel] Successfully created funnel:',
+      data
+    );
     return NextResponse.json(data, { status: response.status });
   } catch (e) {
     console.error('[API /api/organization/[id]/funnel] Error:', e);

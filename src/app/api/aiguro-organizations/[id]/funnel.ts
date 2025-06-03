@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params: _params }: { params: { id: string } }
 ) {
-  const orgId = params.id;
+  // Organization ID from params: params.id (for future use)
   try {
     const body = await req.json();
     // Валидация структуры запроса

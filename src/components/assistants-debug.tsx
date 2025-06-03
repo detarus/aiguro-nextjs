@@ -785,9 +785,9 @@ export function AssistantsDebug() {
 
               {selectedAssistantToDelete && (
                 <div className='rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-900/20'>
-                  <p className='text-sm text-yellow-800 dark:text-yellow-200'>
-                    <strong>Warning:</strong> You are about to delete assistant
-                    "{selectedAssistantToDelete}". This action cannot be undone.
+                  <p className='text-sm text-gray-600'>
+                    Are you sure you want to delete assistant &quot;
+                    {selectedAssistantToDelete}&quot;?
                   </p>
                 </div>
               )}

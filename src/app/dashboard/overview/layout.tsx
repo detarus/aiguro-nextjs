@@ -1,22 +1,9 @@
 'use client';
 
-import PageContainer from '@/components/layout/page-container';
-import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardAction,
-  CardFooter
-} from '@/components/ui/card';
-import {
-  IconTrendingDown,
-  IconTrendingUp,
-  IconPlus
-} from '@tabler/icons-react';
 import React, { useState, useEffect } from 'react';
 import { useOrganization } from '@clerk/nextjs';
+import PageContainer from '@/components/layout/page-container';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -24,14 +11,25 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardAction,
+  CardFooter
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import {
+  IconTrendingUp,
+  IconTrendingDown,
+  IconPlus
+} from '@tabler/icons-react';
 import { useFunnels } from '@/hooks/useFunnels';
-import { Input } from '@/components/ui/input';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useCallback } from 'react';
 import AddFunnelModal from './AddFunnelModal';
 import { OrganizationDebug } from '@/components/organization-debug';
 import { UserDebug } from '@/components/user-debug';
@@ -43,15 +41,9 @@ import { AssistantsDebug } from '@/components/assistants-debug';
 import { DialogsDebug } from '@/components/dialogs-debug';
 
 export default function OverViewLayout({
-  sales,
-  pie_stats,
-  bar_stats,
-  area_stats
+  children
 }: {
-  sales: React.ReactNode;
-  pie_stats: React.ReactNode;
-  bar_stats: React.ReactNode;
-  area_stats: React.ReactNode;
+  children: React.ReactNode;
 }) {
   const [activeTimeFilter, setActiveTimeFilter] = useState('week');
   const [showPercentage, setShowPercentage] = useState(false);
@@ -428,24 +420,6 @@ export default function OverViewLayout({
             <IconPlus className='text-muted-foreground size-8 sm:size-12' />
           </Card>
         </div>
-
-        {/* Графики и статистика - СКРЫТО */}
-        {/* 
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7'>
-          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-4'>
-            {bar_stats}
-          </div>
-          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-3'>
-            {sales}
-          </div>
-          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-4'>
-            {area_stats}
-          </div>
-          <div className='col-span-1 overflow-x-auto md:col-span-2 lg:col-span-3'>
-            {pie_stats}
-          </div>
-        </div>
-        */}
 
         {/* Отладочные блоки */}
         <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>

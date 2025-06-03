@@ -219,36 +219,76 @@ export function AssistantsDebug() {
   };
 
   const handleCreateAssistant = async () => {
+    console.log('=== CREATE NEW ASSISTANT REQUEST START ===');
     console.log('Create New Assistant button clicked!');
+    console.log('Timestamp:', new Date().toISOString());
 
     // Получаем токен из cookie
     const tokenFromCookie = getClerkTokenFromClientCookie();
-    console.log('Token from cookie:', !!tokenFromCookie);
+    console.log('=== AUTHENTICATION INFO ===');
+    console.log('Token from cookie available:', !!tokenFromCookie);
+    console.log('Token length:', tokenFromCookie ? tokenFromCookie.length : 0);
+    console.log(
+      'Token preview (first 20 chars):',
+      tokenFromCookie ? tokenFromCookie.substring(0, 20) + '...' : 'N/A'
+    );
 
     if (!tokenFromCookie) {
+      console.error(
+        '❌ AUTHENTICATION FAILED: No token available in __session cookie'
+      );
       setCreateAssistantError('No token available in __session cookie');
       return;
     }
 
+    console.log('=== ORGANIZATION INFO ===');
+    console.log('Backend organization ID:', backendOrgId);
+    console.log('Organization object:', organization);
+    console.log('Organization metadata:', organization?.publicMetadata);
+
     if (!backendOrgId) {
+      console.error(
+        '❌ ORGANIZATION ERROR: No backend organization ID found in metadata'
+      );
       setCreateAssistantError('No backend organization ID found in metadata');
       return;
     }
 
+    console.log('=== FUNNEL INFO ===');
+    console.log('Current funnel from localStorage:', localStorageFunnel);
+    console.log('Funnel ID:', localStorageFunnel?.id);
+    console.log(
+      'Funnel name/display_name:',
+      localStorageFunnel?.name || localStorageFunnel?.display_name
+    );
+
     if (!localStorageFunnel?.id) {
+      console.error('❌ FUNNEL ERROR: No current funnel selected');
       setCreateAssistantError('No current funnel selected');
       return;
     }
 
+    console.log('=== FORM VALIDATION ===');
+    console.log('Code name input:', codeName);
+    console.log('Code name trimmed:', codeName.trim());
+    console.log('Code name length:', codeName.trim().length);
+    console.log('Text input:', text);
+    console.log('Text trimmed:', text.trim());
+    console.log('Text length:', text.trim().length);
+
     if (!codeName.trim()) {
+      console.error('❌ VALIDATION ERROR: Code name is required');
       setCreateAssistantError('Code name is required');
       return;
     }
 
     if (!text.trim()) {
+      console.error('❌ VALIDATION ERROR: Text is required');
       setCreateAssistantError('Text is required');
       return;
     }
+
+    console.log('✅ All validations passed, proceeding with API request...');
 
     setCreateAssistantLoading(true);
     setCreateAssistantError(null);
@@ -260,76 +300,133 @@ export function AssistantsDebug() {
         text: text.trim()
       };
 
-      console.log(
-        'Making POST request to /api/organization/' +
-          backendOrgId +
-          '/funnel/' +
-          localStorageFunnel.id +
-          '/assistants'
-      );
-      console.log('Payload:', payload);
+      const apiUrl = `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/assistant`;
 
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/assistants`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${tokenFromCookie}`
-          },
-          body: JSON.stringify(payload)
-        }
-      );
+      console.log('=== REQUEST DETAILS ===');
+      console.log('API URL:', apiUrl);
+      console.log('HTTP Method: POST');
+      console.log('Request payload:', JSON.stringify(payload, null, 2));
+      console.log('Request headers will include:');
+      console.log('  - Content-Type: application/json');
+      console.log('  - Authorization: Bearer [token]');
 
+      console.log('=== SENDING REQUEST ===');
+      console.log('Making POST request to:', apiUrl);
+      console.log('Payload being sent:', payload);
+      console.log('Request initiated at:', new Date().toISOString());
+
+      const requestStartTime = performance.now();
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenFromCookie}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const requestEndTime = performance.now();
+      const requestDuration = requestEndTime - requestStartTime;
+
+      console.log('=== RESPONSE RECEIVED ===');
+      console.log('Response received at:', new Date().toISOString());
+      console.log('Request duration:', requestDuration.toFixed(2), 'ms');
       console.log('Response status:', response.status);
+      console.log('Response status text:', response.statusText);
+      console.log('Response ok:', response.ok);
+      console.log(
+        'Response headers:',
+        Object.fromEntries(response.headers.entries())
+      );
+      console.log('Response URL:', response.url);
+      console.log('Response type:', response.type);
 
       if (!response.ok) {
+        console.log('=== ERROR RESPONSE HANDLING ===');
         let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+        console.log('Initial error message:', errorMessage);
 
         try {
           const errorData = await response.json();
+          console.log(
+            'Error response JSON:',
+            JSON.stringify(errorData, null, 2)
+          );
           console.error('API error response:', errorData);
 
           if (errorData.error) {
             errorMessage = errorData.error;
+            console.log('Using error.error field:', errorMessage);
           } else {
             errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+            console.log('Using full error response:', errorMessage);
           }
         } catch (parseError) {
+          console.log('Failed to parse error response as JSON:', parseError);
           try {
             const errorText = await response.text();
+            console.log('Error response as text:', errorText);
             if (errorText) {
               errorMessage = `${errorMessage}\nServer response: ${errorText}`;
             }
           } catch (textError) {
+            console.log('Failed to read error response as text:', textError);
             errorMessage = `${errorMessage}\nUnable to read server response`;
           }
         }
 
+        console.error('❌ REQUEST FAILED with error:', errorMessage);
         throw new Error(errorMessage);
       }
 
+      console.log('=== SUCCESS RESPONSE PROCESSING ===');
       const data = await response.json();
+      console.log('✅ Response parsed successfully');
+      console.log('Response data:', JSON.stringify(data, null, 2));
       console.log('Successfully created assistant:', data);
+
+      console.log('=== CALLBACK PROCESSING ===');
+      console.log('Setting success state...');
       setCreateAssistantData(data);
       setCreateAssistantSuccessMessage(
         'Запрос успешно отправлен и ассистент создан!'
       );
 
-      // Закрываем модальное окно и очищаем форму
+      console.log('=== UI STATE UPDATES ===');
+      console.log('Closing modal and clearing form...');
       setIsCreateModalOpen(false);
       setCodeName('');
       setText('');
 
-      // Убираем сообщение об успехе через 3 секунды
+      console.log('=== SUCCESS CALLBACK SCHEDULING ===');
+      console.log('Scheduling success message removal in 3 seconds...');
       setTimeout(() => {
+        console.log('Removing success message (3 second timeout)');
         setCreateAssistantSuccessMessage(null);
       }, 3000);
+
+      console.log(
+        '=== CREATE NEW ASSISTANT REQUEST COMPLETED SUCCESSFULLY ==='
+      );
     } catch (error: any) {
-      console.error('Error creating assistant:', error);
-      setCreateAssistantError(error.message || 'Unknown error occurred');
+      console.log('=== ERROR HANDLING ===');
+      console.error('❌ Error creating assistant:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      const errorMessage = error.message || 'Unknown error occurred';
+      console.log('Setting error state with message:', errorMessage);
+      setCreateAssistantError(errorMessage);
+
+      console.log('=== CREATE NEW ASSISTANT REQUEST FAILED ===');
     } finally {
+      console.log('=== CLEANUP ===');
+      console.log('Setting loading state to false');
       setCreateAssistantLoading(false);
+      console.log('=== CREATE NEW ASSISTANT REQUEST END ===');
     }
   };
 

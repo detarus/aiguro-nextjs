@@ -54,6 +54,21 @@ export function AssistantsDebug() {
   const [codeName, setCodeName] = useState('');
   const [text, setText] = useState('');
 
+  // Состояние для кнопки "Update Assistant"
+  const [updateAssistantData, setUpdateAssistantData] = useState<any>(null);
+  const [updateAssistantLoading, setUpdateAssistantLoading] = useState(false);
+  const [updateAssistantError, setUpdateAssistantError] = useState<
+    string | null
+  >(null);
+  const [updateAssistantSuccessMessage, setUpdateAssistantSuccessMessage] =
+    useState<string | null>(null);
+
+  // Состояние для модального окна обновления
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [selectedAssistantCodeName, setSelectedAssistantCodeName] =
+    useState('');
+  const [updateText, setUpdateText] = useState('');
+
   // Состояние для модального окна удаления
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAssistantToDelete, setSelectedAssistantToDelete] =
@@ -107,6 +122,9 @@ export function AssistantsDebug() {
     setCreateAssistantData(null);
     setCreateAssistantError(null);
     setCreateAssistantSuccessMessage(null);
+    setUpdateAssistantData(null);
+    setUpdateAssistantError(null);
+    setUpdateAssistantSuccessMessage(null);
     setDeleteAssistantData(null);
     setDeleteAssistantError(null);
     setDeleteAssistantSuccessMessage(null);
@@ -120,6 +138,9 @@ export function AssistantsDebug() {
     setCreateAssistantData(null);
     setCreateAssistantError(null);
     setCreateAssistantSuccessMessage(null);
+    setUpdateAssistantData(null);
+    setUpdateAssistantError(null);
+    setUpdateAssistantSuccessMessage(null);
     setDeleteAssistantData(null);
     setDeleteAssistantError(null);
     setDeleteAssistantSuccessMessage(null);
@@ -430,6 +451,170 @@ export function AssistantsDebug() {
     }
   };
 
+  const handleUpdateAssistant = async () => {
+    console.log('=== UPDATE ASSISTANT REQUEST START ===');
+    console.log('Update Assistant button clicked!');
+    console.log('Timestamp:', new Date().toISOString());
+
+    // Получаем токен из cookie
+    const tokenFromCookie = getClerkTokenFromClientCookie();
+    console.log('=== AUTHENTICATION INFO ===');
+    console.log('Token from cookie available:', !!tokenFromCookie);
+    console.log('Token length:', tokenFromCookie ? tokenFromCookie.length : 0);
+    console.log(
+      'Token preview (first 20 chars):',
+      tokenFromCookie ? tokenFromCookie.substring(0, 20) + '...' : 'N/A'
+    );
+
+    if (!tokenFromCookie) {
+      console.error(
+        '❌ AUTHENTICATION FAILED: No token available in __session cookie'
+      );
+      setUpdateAssistantError('No token available in __session cookie');
+      return;
+    }
+
+    console.log('=== ORGANIZATION INFO ===');
+    console.log('Backend Org ID:', backendOrgId);
+    if (!backendOrgId) {
+      console.error(
+        '❌ ORGANIZATION VALIDATION FAILED: No backend organization ID found in metadata'
+      );
+      setUpdateAssistantError('No backend organization ID found in metadata');
+      return;
+    }
+
+    console.log('=== FUNNEL INFO ===');
+    console.log('Current Funnel:', localStorageFunnel);
+    console.log('Current Funnel ID:', localStorageFunnel?.id);
+    if (!localStorageFunnel?.id) {
+      console.error('❌ FUNNEL VALIDATION FAILED: No current funnel selected');
+      setUpdateAssistantError('No current funnel selected');
+      return;
+    }
+
+    console.log('=== UPDATE PARAMETERS ===');
+    console.log('Selected Assistant Code Name:', selectedAssistantCodeName);
+    console.log('Update Text:', updateText);
+
+    if (!selectedAssistantCodeName) {
+      console.error(
+        '❌ VALIDATION FAILED: Please select an assistant to update'
+      );
+      setUpdateAssistantError('Please select an assistant to update');
+      return;
+    }
+
+    if (!updateText.trim()) {
+      console.error('❌ VALIDATION FAILED: Text is required');
+      setUpdateAssistantError('Text is required');
+      return;
+    }
+
+    setUpdateAssistantLoading(true);
+    setUpdateAssistantError(null);
+    setUpdateAssistantSuccessMessage(null);
+
+    try {
+      const putUrl = `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/assistant`;
+      console.log('=== API REQUEST INFO ===');
+      console.log('PUT URL:', putUrl);
+      console.log('Request Method: PUT');
+
+      const requestBody = {
+        code_name: selectedAssistantCodeName,
+        text: updateText
+      };
+      console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+
+      console.log('=== MAKING PUT REQUEST ===');
+      const response = await fetch(putUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenFromCookie}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('=== RESPONSE INFO ===');
+      console.log('Response status:', response.status);
+      console.log('Response statusText:', response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers));
+
+      if (!response.ok) {
+        console.log('❌ RESPONSE NOT OK - Processing error...');
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          console.log('Failed to parse error as JSON, trying text...');
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            console.log('Failed to read error response as text');
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        console.error('Final error message:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('=== SUCCESS ===');
+      console.log('✅ Successfully updated assistant:', data);
+      console.log('Response data type:', typeof data);
+      console.log('Response data:', JSON.stringify(data, null, 2));
+
+      setUpdateAssistantData(data);
+      setUpdateAssistantSuccessMessage(
+        `Запрос успешно отправлен и ассистент "${selectedAssistantCodeName}" обновлен!`
+      );
+
+      // Закрываем модальное окно и очищаем поля
+      setIsUpdateModalOpen(false);
+      setSelectedAssistantCodeName('');
+      setUpdateText('');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setUpdateAssistantSuccessMessage(null);
+      }, 3000);
+
+      console.log('=== UPDATE ASSISTANT REQUEST SUCCESS ===');
+    } catch (error: any) {
+      console.log('=== ERROR HANDLING ===');
+      console.error('❌ Error updating assistant:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      const errorMessage = error.message || 'Unknown error occurred';
+      console.log('Setting error state with message:', errorMessage);
+      setUpdateAssistantError(errorMessage);
+
+      console.log('=== UPDATE ASSISTANT REQUEST FAILED ===');
+    } finally {
+      console.log('=== CLEANUP ===');
+      console.log('Setting loading state to false');
+      setUpdateAssistantLoading(false);
+      console.log('=== UPDATE ASSISTANT REQUEST END ===');
+    }
+  };
+
   const handleDeleteAssistant = async () => {
     console.log('Delete Assistant button clicked!');
 
@@ -558,6 +743,19 @@ export function AssistantsDebug() {
     setDeleteAssistantError(null);
   };
 
+  const handleOpenUpdateModal = () => {
+    setIsUpdateModalOpen(true);
+    setUpdateAssistantError(null);
+    setUpdateAssistantSuccessMessage(null);
+  };
+
+  const handleCloseUpdateModal = () => {
+    setIsUpdateModalOpen(false);
+    setSelectedAssistantCodeName('');
+    setUpdateText('');
+    setUpdateAssistantError(null);
+  };
+
   // Получаем список ассистентов для селекта удаления
   const availableAssistants =
     allAssistantsData && Array.isArray(allAssistantsData)
@@ -616,6 +814,21 @@ export function AssistantsDebug() {
             </Button>
 
             <Button
+              onClick={handleOpenUpdateModal}
+              disabled={
+                !backendOrgId ||
+                !localStorageFunnel?.id ||
+                availableAssistants.length === 0
+              }
+              variant='outline'
+              size='sm'
+              className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
+            >
+              <Bot className='mr-2 h-4 w-4' />
+              Update Assistant
+            </Button>
+
+            <Button
               onClick={handleOpenDeleteModal}
               disabled={
                 !backendOrgId ||
@@ -646,6 +859,13 @@ export function AssistantsDebug() {
             </div>
           )}
 
+          {updateAssistantSuccessMessage && (
+            <div className='mt-2 rounded bg-blue-100 p-2 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'>
+              <strong>Успех (Update Assistant):</strong>{' '}
+              {updateAssistantSuccessMessage}
+            </div>
+          )}
+
           {deleteAssistantSuccessMessage && (
             <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
               <strong>Успех (Delete Assistant):</strong>{' '}
@@ -668,6 +888,15 @@ export function AssistantsDebug() {
               <strong>Ошибка (Create Assistant):</strong>
               <pre className='mt-1 text-sm whitespace-pre-wrap'>
                 {createAssistantError}
+              </pre>
+            </div>
+          )}
+
+          {updateAssistantError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Update Assistant):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {updateAssistantError}
               </pre>
             </div>
           )}
@@ -700,6 +929,17 @@ export function AssistantsDebug() {
               </summary>
               <pre className='mt-2 max-h-64 overflow-auto rounded bg-green-100 p-2 text-xs dark:bg-green-900/30 dark:text-green-200'>
                 {JSON.stringify(createAssistantData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {updateAssistantData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-purple-600 dark:text-purple-400'>
+                View Update Assistant API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-blue-100 p-2 text-xs dark:bg-blue-900/30 dark:text-blue-200'>
+                {JSON.stringify(updateAssistantData, null, 2)}
               </pre>
             </details>
           )}
@@ -817,6 +1057,114 @@ export function AssistantsDebug() {
                 >
                   <Bot className='mr-2 h-4 w-4' />
                   {createAssistantLoading ? 'Creating...' : 'Create Assistant'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для обновления ассистента */}
+      {isUpdateModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Update Assistant
+              </h2>
+              <button
+                onClick={handleCloseUpdateModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='assistant_select_update'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Assistant to Update
+                </Label>
+                <Select
+                  value={selectedAssistantCodeName}
+                  onValueChange={setSelectedAssistantCodeName}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose an assistant to update' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableAssistants.map((assistant: any) => (
+                      <SelectItem
+                        key={assistant.code_name}
+                        value={assistant.code_name}
+                      >
+                        {assistant.code_name} (ID: {assistant.id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='update_text'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Text
+                </Label>
+                <Textarea
+                  id='update_text'
+                  value={updateText}
+                  onChange={(e) => setUpdateText(e.target.value)}
+                  placeholder='Enter new assistant text/prompt'
+                  className='mt-1'
+                  rows={4}
+                />
+              </div>
+
+              {updateAssistantError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {updateAssistantError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseUpdateModal}
+                  variant='outline'
+                  disabled={updateAssistantLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUpdateAssistant}
+                  disabled={
+                    updateAssistantLoading ||
+                    !selectedAssistantCodeName ||
+                    !updateText.trim()
+                  }
+                  className='bg-blue-600 text-white hover:bg-blue-700'
+                >
+                  <Bot className='mr-2 h-4 w-4' />
+                  {updateAssistantLoading ? 'Updating...' : 'Update Assistant'}
                 </Button>
               </div>
             </div>

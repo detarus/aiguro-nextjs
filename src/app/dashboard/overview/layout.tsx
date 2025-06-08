@@ -39,6 +39,7 @@ import { TokenDebug } from '@/components/token-debug';
 import { MessengerConnectionsDebug } from '@/components/messenger-connections-debug';
 import { AssistantsDebug } from '@/components/assistants-debug';
 import { DialogsDebug } from '@/components/dialogs-debug';
+import { ClientsDebug } from '@/components/clients-debug';
 
 export default function OverViewLayout({
   children
@@ -63,12 +64,23 @@ export default function OverViewLayout({
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [newFunnelName, setNewFunnelName] = useState('');
 
-  // По умолчанию два этапа с уникальными id
+  // По умолчанию три этапа с предустановленными названиями
   const [stages, setStages] = useState([
-    { id: Date.now() + Math.random(), name: '', prompt: '', followups: [60] },
+    {
+      id: Date.now() + Math.random(),
+      name: 'Квалификация',
+      prompt: '',
+      followups: [60]
+    },
     {
       id: Date.now() + Math.random() + 1,
-      name: '',
+      name: 'Презентация',
+      prompt: '',
+      followups: [60]
+    },
+    {
+      id: Date.now() + Math.random() + 2,
+      name: 'Закрытие',
       prompt: '',
       followups: [60]
     }
@@ -105,10 +117,9 @@ export default function OverViewLayout({
   const conversionData = React.useMemo(() => {
     if (!currentFunnel?.stages || currentFunnel.stages.length === 0) {
       return [
-        { absolute: 1250, percentage: 82, stage: '1/4', name: 'Этап 1' },
-        { absolute: 1024, percentage: 66, stage: '2/4', name: 'Этап 2' },
-        { absolute: 678, percentage: 42, stage: '3/4', name: 'Этап 3' },
-        { absolute: 45, percentage: 70, stage: '4/4', name: 'Этап 4' }
+        { absolute: 1250, percentage: 82, stage: '1/3', name: 'Квалификация' },
+        { absolute: 1024, percentage: 66, stage: '2/3', name: 'Презентация' },
+        { absolute: 678, percentage: 42, stage: '3/3', name: 'Закрытие' }
       ];
     }
 
@@ -238,10 +249,21 @@ export default function OverViewLayout({
     setAddModalOpen(false);
     setNewFunnelName('');
     setStages([
-      { id: Date.now() + Math.random(), name: '', prompt: '', followups: [60] },
+      {
+        id: Date.now() + Math.random(),
+        name: 'Квалификация',
+        prompt: '',
+        followups: [60]
+      },
       {
         id: Date.now() + Math.random() + 1,
-        name: '',
+        name: 'Презентация',
+        prompt: '',
+        followups: [60]
+      },
+      {
+        id: Date.now() + Math.random() + 2,
+        name: 'Закрытие',
         prompt: '',
         followups: [60]
       }
@@ -431,6 +453,7 @@ export default function OverViewLayout({
           <MessengerConnectionsDebug />
           <AssistantsDebug />
           <DialogsDebug />
+          <ClientsDebug />
         </div>
 
         {/* Модалка для добавления воронки */}

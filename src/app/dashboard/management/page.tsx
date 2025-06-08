@@ -54,33 +54,6 @@ export default function ManagementPage() {
               </CardContent>
             </Card> */}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Интеграции</CardTitle>
-                <CardDescription>
-                  Подключение и отключение месенджеров
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div className='flex items-center justify-between rounded-lg border p-4'>
-                  <div className='flex items-center gap-4'>
-                    <div className='bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full'>
-                      <IconAdjustments className='text-primary h-6 w-6' />
-                    </div>
-                    <div>
-                      <h3 className='font-medium'>3 активных подключения</h3>
-                      <p className='text-muted-foreground text-sm'>
-                        Подключение внешних сервисов
-                      </p>
-                    </div>
-                  </div>
-                  <Link href='/dashboard/management/integrations'>
-                    <Button size='sm'>Перейти</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* <Card>
               <CardHeader>
                 <CardTitle>Воронки</CardTitle>

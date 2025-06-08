@@ -41,7 +41,8 @@ import {
   IconBookUpload,
   IconHeadset,
   IconAdjustments,
-  IconDevices
+  IconDevices,
+  IconPlugConnected
 } from '@tabler/icons-react';
 
 export type Icon = React.ComponentType<IconProps>;
@@ -90,5 +91,6 @@ export const Icons = {
   knowledgeBase: IconBookUpload,
   support: IconHeadset,
   systemSettings: IconSettings,
-  devices: IconDevices
+  devices: IconDevices,
+  integrations: IconPlugConnected
 };

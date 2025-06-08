@@ -24,6 +24,9 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { IconEdit } from '@tabler/icons-react';
+import { useOrganization } from '@clerk/nextjs';
+import { useFunnels } from '@/hooks/useFunnels';
+import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
 interface GeneralSettings {
   contextMemory: number;
@@ -55,6 +58,17 @@ interface StageSettings {
 }
 
 export default function AIAssistantsPage() {
+  const { organization } = useOrganization();
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+  const { currentFunnel } = useFunnels(backendOrgId);
+
+  // Состояние для загрузки данных текущей воронки
+  const [currentFunnelData, setCurrentFunnelData] = useState<any>(null);
+  const [currentFunnelLoading, setCurrentFunnelLoading] = useState(false);
+  const [currentFunnelError, setCurrentFunnelError] = useState<string | null>(
+    null
+  );
+
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
     contextMemory: 50,
     batchCollection: 5,
@@ -190,6 +204,94 @@ export default function AIAssistantsPage() {
     setEditingStageId(null);
   };
 
+  // Функция для загрузки данных текущей воронки (аналогично Get Current Funnel)
+  const fetchCurrentFunnelData = async () => {
+    if (!backendOrgId || !currentFunnel?.id) return;
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setCurrentFunnelError('No token available in __session cookie');
+      return;
+    }
+
+    setCurrentFunnelLoading(true);
+    setCurrentFunnelError(null);
+
+    try {
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      setCurrentFunnelData(data);
+    } catch (error: any) {
+      setCurrentFunnelError(error.message || 'Unknown error occurred');
+    } finally {
+      setCurrentFunnelLoading(false);
+    }
+  };
+
+  // Загружаем данные воронки при изменении currentFunnel
+  React.useEffect(() => {
+    if (currentFunnel?.id) {
+      fetchCurrentFunnelData();
+    } else {
+      setCurrentFunnelData(null);
+      setCurrentFunnelError(null);
+    }
+  }, [currentFunnel?.id, backendOrgId]);
+
+  // Синхронизируем локальные этапы с данными из API
+  React.useEffect(() => {
+    if (currentFunnelData?.stages) {
+      const apiStages = currentFunnelData.stages.map(
+        (stage: any, index: number) => ({
+          id: index + 1,
+          name: stage.name || `Этап ${index + 1}`,
+          prompt: stage.prompt || '',
+          testArea: '',
+          isActive: index === 0,
+          model: 'gpt-4.1 mini',
+          followUp: {
+            option1: '1 - 0 ч 20 мин',
+            option2: '2 - 2 ч 40 мин',
+            enabled: true
+          },
+          transfer:
+            index === currentFunnelData.stages.length - 1
+              ? 'manager'
+              : (index + 2).toString()
+        })
+      );
+      setStages(apiStages);
+
+      // Устанавливаем первый этап как активный, если нет активного
+      if (!activeStageId && apiStages.length > 0) {
+        setActiveStageId(1);
+      }
+    }
+  }, [currentFunnelData]);
+
   return (
     <PageContainer>
       {/* Заголовок страницы - отдельная строка */}
@@ -213,7 +315,7 @@ export default function AIAssistantsPage() {
 
       {/* Основной контент */}
       <div className='flex h-full'>
-        {/* Левая панель - Общие настройки */}
+        {/* Левая панель - Общие настройки (НЕАКТИВНА) */}
         <div className='w-1/2 border-r border-gray-200 pr-4 dark:border-gray-700'>
           <div className='space-y-6'>
             <div className='space-y-4'>
@@ -221,177 +323,228 @@ export default function AIAssistantsPage() {
                 <h2 className='text-lg font-medium text-gray-900 dark:text-white'>
                   Общие настройки
                 </h2>
-                <Button className='bg-blue-500 text-white hover:bg-blue-600'>
-                  Сохранить
-                </Button>
               </div>
-
-              {/* Память контекста */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>Память контекста</Label>
-                <div className='flex items-center gap-2'>
-                  <Input
-                    type='number'
-                    value={generalSettings.contextMemory}
-                    onChange={(e) =>
-                      handleGeneralSettingChange(
-                        'contextMemory',
-                        parseInt(e.target.value)
-                      )
-                    }
-                    className='w-20 text-center'
-                  />
-                  <span className='text-sm text-gray-500'>сообщений</span>
-                  <Switch
-                    checked={true}
-                    className='data-[state=checked]:bg-green-500'
-                  />
+              {/* Уведомление о недоступности */}
+              <div className='mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm dark:border-yellow-700 dark:bg-yellow-900/20'>
+                <p className='font-medium text-yellow-800 dark:text-yellow-200'>
+                  📢 Функционал будет доступен в ближайших версиях
+                </p>
+                <p className='mt-1 text-yellow-700 dark:text-yellow-300'>
+                  Системные настройки находятся в разработке и скоро будут
+                  добавлены.
+                </p>
+              </div>
+              {/* Контейнер с полупрозрачностью для всех настроек */}
+              <div className='space-y-4 opacity-50'>
+                {/* Память контекста */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    Память контекста
+                  </Label>
+                  <div className='flex items-center gap-2'>
+                    <Input
+                      type='number'
+                      value={generalSettings.contextMemory}
+                      onChange={(e) =>
+                        handleGeneralSettingChange(
+                          'contextMemory',
+                          parseInt(e.target.value)
+                        )
+                      }
+                      className='w-20 cursor-not-allowed text-center opacity-50'
+                      disabled={true}
+                      title='Функционал будет доступен в ближайших версиях'
+                      style={{ cursor: 'not-allowed' }}
+                    />
+                    <span className='text-sm text-gray-500'>сообщений</span>
+                    <Switch
+                      checked={true}
+                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                      disabled={true}
+                      style={{ cursor: 'not-allowed' }}
+                      title='Функционал будет доступен в ближайших версиях'
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Сбор массива */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>Сбор массива</Label>
-                <div className='flex items-center gap-2'>
-                  <Input
-                    type='number'
-                    value={generalSettings.batchCollection}
-                    onChange={(e) =>
-                      handleGeneralSettingChange(
-                        'batchCollection',
-                        parseInt(e.target.value)
-                      )
-                    }
-                    className='w-20 text-center'
-                  />
-                  <span className='text-sm text-gray-500'>сек</span>
-                  <Switch
-                    checked={true}
-                    className='data-[state=checked]:bg-green-500'
-                  />
+                {/* Сбор массива */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>Сбор массива</Label>
+                  <div className='flex items-center gap-2'>
+                    <Input
+                      type='number'
+                      value={generalSettings.batchCollection}
+                      onChange={(e) =>
+                        handleGeneralSettingChange(
+                          'batchCollection',
+                          parseInt(e.target.value)
+                        )
+                      }
+                      className='w-20 cursor-not-allowed text-center opacity-50'
+                      disabled={true}
+                      title='Функционал будет доступен в ближайших версиях'
+                      style={{ cursor: 'not-allowed' }}
+                    />
+                    <span className='text-sm text-gray-500'>сек</span>
+                    <Switch
+                      checked={true}
+                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                      disabled={true}
+                      style={{ cursor: 'not-allowed' }}
+                      title='Функционал будет доступен в ближайших версиях'
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Остановка агента при вмешательстве оператора */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>
-                  Остановка агента при вмешательстве оператора
-                </Label>
-                <Switch
-                  checked={generalSettings.agentPause}
-                  onCheckedChange={(checked) =>
-                    handleGeneralSettingChange('agentPause', checked)
-                  }
-                  className='data-[state=checked]:bg-green-500'
-                />
-              </div>
-
-              {/* Не ставить на паузу при первой отправке */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>
-                  Не ставить на паузу при первой отправке (для рассылок)
-                </Label>
-                <Switch
-                  checked={generalSettings.pauseOnFirstSend}
-                  onCheckedChange={(checked) =>
-                    handleGeneralSettingChange('pauseOnFirstSend', checked)
-                  }
-                  className='data-[state=checked]:bg-green-500'
-                />
-              </div>
-
-              {/* Возобновить после паузы через */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>
-                  Возобновить после паузы через
-                </Label>
-                <Switch
-                  checked={generalSettings.resumeAfterPause}
-                  onCheckedChange={(checked) =>
-                    handleGeneralSettingChange('resumeAfterPause', checked)
-                  }
-                  className='data-[state=checked]:bg-green-500'
-                />
-              </div>
-
-              {/* Защита от спама по достижению N сообщений */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>
-                  Защита от спама по достижению N сообщений
-                </Label>
-                <Switch
-                  checked={generalSettings.spamProtection}
-                  onCheckedChange={(checked) =>
-                    handleGeneralSettingChange('spamProtection', checked)
-                  }
-                  className='data-[state=checked]:bg-green-500'
-                />
-              </div>
-
-              {/* Зона работы агента */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>
-                  Зона работы агента
-                </Label>
-                <div className='flex items-center gap-2'>
-                  <Input
-                    value={generalSettings.workZone}
-                    onChange={(e) =>
-                      handleGeneralSettingChange('workZone', e.target.value)
-                    }
-                    className='w-24'
-                  />
+                {/* Остановка агента при вмешательстве оператора */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    Остановка агента при вмешательстве оператора
+                  </Label>
                   <Switch
-                    checked={true}
-                    className='data-[state=checked]:bg-green-500'
-                  />
-                </div>
-              </div>
-
-              {/* Голосовые запросы и ответы */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>
-                  Голосовые запросы и ответы
-                </Label>
-                <Switch
-                  checked={generalSettings.voiceQuestions}
-                  onCheckedChange={(checked) =>
-                    handleGeneralSettingChange('voiceQuestions', checked)
-                  }
-                  className='data-[state=checked]:bg-green-500'
-                />
-              </div>
-
-              {/* База знаний агента */}
-              <div className='flex items-center justify-between'>
-                <Label className='text-sm font-medium'>
-                  База знаний агента
-                </Label>
-                <Switch
-                  checked={generalSettings.knowledgeBase}
-                  onCheckedChange={(checked) =>
-                    handleGeneralSettingChange('knowledgeBase', checked)
-                  }
-                  className='data-[state=checked]:bg-green-500'
-                />
-              </div>
-
-              {/* Chunk секция */}
-              <div className='mt-8 rounded-lg bg-gray-50 p-4 dark:bg-gray-800'>
-                <div className='mb-4 flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>Chunk</Label>
-                  <Switch
-                    checked={generalSettings.chunkEnabled}
+                    checked={generalSettings.agentPause}
                     onCheckedChange={(checked) =>
-                      handleGeneralSettingChange('chunkEnabled', checked)
+                      handleGeneralSettingChange('agentPause', checked)
                     }
-                    className='data-[state=checked]:bg-green-500'
+                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                    disabled={true}
+                    style={{ cursor: 'not-allowed' }}
+                    title='Функционал будет доступен в ближайших версиях'
                   />
                 </div>
-                <div className='text-sm text-gray-600 dark:text-gray-400'>
-                  {generalSettings.chunkSettings}
+
+                {/* Не ставить на паузу при первой отправке */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    Не ставить на паузу при первой отправке (для рассылок)
+                  </Label>
+                  <Switch
+                    checked={generalSettings.pauseOnFirstSend}
+                    onCheckedChange={(checked) =>
+                      handleGeneralSettingChange('pauseOnFirstSend', checked)
+                    }
+                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                    disabled={true}
+                    style={{ cursor: 'not-allowed' }}
+                    title='Функционал будет доступен в ближайших версиях'
+                  />
                 </div>
-              </div>
+
+                {/* Возобновить после паузы через */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    Возобновить после паузы через
+                  </Label>
+                  <Switch
+                    checked={generalSettings.resumeAfterPause}
+                    onCheckedChange={(checked) =>
+                      handleGeneralSettingChange('resumeAfterPause', checked)
+                    }
+                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                    disabled={true}
+                    style={{ cursor: 'not-allowed' }}
+                    title='Функционал будет доступен в ближайших версиях'
+                  />
+                </div>
+
+                {/* Защита от спама по достижению N сообщений */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    Защита от спама по достижению N сообщений
+                  </Label>
+                  <Switch
+                    checked={generalSettings.spamProtection}
+                    onCheckedChange={(checked) =>
+                      handleGeneralSettingChange('spamProtection', checked)
+                    }
+                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                    disabled={true}
+                    style={{ cursor: 'not-allowed' }}
+                    title='Функционал будет доступен в ближайших версиях'
+                  />
+                </div>
+
+                {/* Зона работы агента */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    Зона работы агента
+                  </Label>
+                  <div className='flex items-center gap-2'>
+                    <Input
+                      value={generalSettings.workZone}
+                      onChange={(e) =>
+                        handleGeneralSettingChange('workZone', e.target.value)
+                      }
+                      className='w-24 cursor-not-allowed opacity-50'
+                      disabled={true}
+                      title='Функционал будет доступен в ближайших версиях'
+                      style={{ cursor: 'not-allowed' }}
+                    />
+                    <Switch
+                      checked={true}
+                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                      disabled={true}
+                      style={{ cursor: 'not-allowed' }}
+                      title='Функционал будет доступен в ближайших версиях'
+                    />
+                  </div>
+                </div>
+
+                {/* Голосовые запросы и ответы */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    Голосовые запросы и ответы
+                  </Label>
+                  <Switch
+                    checked={generalSettings.voiceQuestions}
+                    onCheckedChange={(checked) =>
+                      handleGeneralSettingChange('voiceQuestions', checked)
+                    }
+                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                    disabled={true}
+                    style={{ cursor: 'not-allowed' }}
+                    title='Функционал будет доступен в ближайших версиях'
+                  />
+                </div>
+
+                {/* База знаний агента */}
+                <div className='flex items-center justify-between'>
+                  <Label className='text-sm font-medium'>
+                    База знаний агента
+                  </Label>
+                  <Switch
+                    checked={generalSettings.knowledgeBase}
+                    onCheckedChange={(checked) =>
+                      handleGeneralSettingChange('knowledgeBase', checked)
+                    }
+                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                    disabled={true}
+                    style={{ cursor: 'not-allowed' }}
+                    title='Функционал будет доступен в ближайших версиях'
+                  />
+                </div>
+
+                {/* Chunk секция */}
+                <div className='mt-8 rounded-lg bg-gray-50 p-4 dark:bg-gray-800'>
+                  <div className='mb-4 flex items-center justify-between'>
+                    <Label className='text-sm font-medium'>Chunk</Label>
+                    <Switch
+                      checked={generalSettings.chunkEnabled}
+                      onCheckedChange={(checked) =>
+                        handleGeneralSettingChange('chunkEnabled', checked)
+                      }
+                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
+                      disabled={true}
+                      style={{ cursor: 'not-allowed' }}
+                      title='Функционал будет доступен в ближайших версиях'
+                    />
+                  </div>
+                  <div className='text-sm text-gray-600 dark:text-gray-400'>
+                    {generalSettings.chunkSettings}
+                  </div>
+                </div>
+              </div>{' '}
+              {/* Закрываем полупрозрачный контейнер */}
             </div>
           </div>
         </div>
@@ -405,17 +558,17 @@ export default function AIAssistantsPage() {
 
             {/* Этапы */}
             <div className='flex flex-wrap gap-2'>
-              {stages.map((stage) => (
-                <div key={stage.id} className='relative'>
-                  {editingStageId === stage.id ? (
+              {currentFunnelData?.stages?.map((stage: any, index: number) => (
+                <div key={stage.name || index} className='relative'>
+                  {editingStageId === index + 1 ? (
                     <Input
                       defaultValue={stage.name}
                       autoFocus
                       className='h-8 min-w-[80px] text-sm'
-                      onBlur={(e) => saveInlineEdit(stage.id, e.target.value)}
+                      onBlur={(e) => saveInlineEdit(index + 1, e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          saveInlineEdit(stage.id, e.currentTarget.value);
+                          saveInlineEdit(index + 1, e.currentTarget.value);
                         }
                         if (e.key === 'Escape') {
                           cancelInlineEdit();
@@ -427,20 +580,20 @@ export default function AIAssistantsPage() {
                       <Button
                         variant='ghost'
                         size='sm'
-                        onClick={() => selectStage(stage.id)}
+                        onClick={() => selectStage(index + 1)}
                         className={`${
-                          activeStageId === stage.id
+                          activeStageId === index + 1
                             ? 'bg-blue-500 text-white hover:bg-blue-600'
                             : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                         } h-8 rounded-none border-0 px-3`}
                       >
-                        {stage.name}
+                        {stage.name || `Этап ${index + 1}`}
                       </Button>
                       <div className='h-6 w-px bg-gray-200 dark:bg-gray-700'></div>
                       <Button
                         variant='ghost'
                         size='sm'
-                        onClick={() => startInlineEdit(stage.id)}
+                        onClick={() => startInlineEdit(index + 1)}
                         className='h-8 w-8 rounded-none border-0 p-0 hover:bg-gray-100 dark:hover:bg-gray-800'
                       >
                         <IconEdit className='h-3 w-3' />
@@ -448,19 +601,28 @@ export default function AIAssistantsPage() {
                     </div>
                   )}
                 </div>
-              ))}
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={addStage}
-                className='border-dashed'
-              >
-                +
-              </Button>
+              )) || (
+                // Показываем сообщение если нет этапов
+                <div className='flex w-full items-center justify-center py-4 text-sm text-gray-500 dark:text-gray-400'>
+                  {currentFunnelLoading
+                    ? 'Загрузка этапов...'
+                    : 'Нет этапов в воронке'}
+                </div>
+              )}
+              {currentFunnelData?.stages?.length > 0 && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={addStage}
+                  className='border-dashed'
+                >
+                  +
+                </Button>
+              )}
             </div>
 
             {/* Настройки активного этапа */}
-            {activeStage && (
+            {activeStage && currentFunnelData?.stages && (
               <div className='flex flex-1 flex-col space-y-4'>
                 {/* Упрощенная строка с настройками */}
                 <div className='grid grid-cols-3 gap-4'>
@@ -547,7 +709,10 @@ export default function AIAssistantsPage() {
                     Промпт для AI подагента {activeStage.id}
                   </Label>
                   <Textarea
-                    value={activeStage.prompt}
+                    value={
+                      currentFunnelData.stages?.[activeStageId - 1]?.prompt ||
+                      activeStage.prompt
+                    }
                     onChange={(e) =>
                       handleStageChange(
                         activeStage.id,
@@ -583,38 +748,6 @@ export default function AIAssistantsPage() {
           </div>
         </div>
       </div>
-
-      {/* Диалог редактирования этапа */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className='sm:max-w-[425px]'>
-          <DialogHeader>
-            <DialogTitle>Редактирование этапа</DialogTitle>
-          </DialogHeader>
-          <div className='grid gap-4 py-4'>
-            <div className='grid grid-cols-4 items-center gap-4'>
-              <Label htmlFor='name' className='text-right'>
-                Название
-              </Label>
-              <Input
-                id='name'
-                value={editingStage?.name || ''}
-                onChange={(e) =>
-                  setEditingStage((prev) =>
-                    prev ? { ...prev, name: e.target.value } : null
-                  )
-                }
-                className='col-span-3'
-              />
-            </div>
-          </div>
-          <div className='flex justify-end gap-2'>
-            <Button variant='outline' onClick={() => setEditDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button onClick={saveStageEdit}>Сохранить</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </PageContainer>
   );
 }

@@ -130,17 +130,35 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
     // Формируем тело запроса согласно требуемой структуре API
     const funnelPayload = {
       display_name: newFunnelName.trim(),
-      stages: stages.map((stage) => ({
-        name: stage.name.trim(),
-        assistant_code_name: stage.name
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, '_'),
-        followups: stage.followups.map((delay: number) => ({
-          delay_minutes: Number(delay),
-          assistant_code_name: 'follow_up'
-        }))
-      }))
+      stages: stages.map((stage) => {
+        // Мапим названия этапов к их кодам
+        let assistant_code_name;
+        const stageName = stage.name.trim();
+
+        switch (stageName) {
+          case 'Квалификация':
+            assistant_code_name = 'qualification';
+            break;
+          case 'Презентация':
+            assistant_code_name = 'presentation';
+            break;
+          case 'Закрытие':
+            assistant_code_name = 'closing';
+            break;
+          default:
+            // Для других этапов используем стандартную генерацию
+            assistant_code_name = stageName.toLowerCase().replace(/\s+/g, '_');
+        }
+
+        return {
+          name: stageName,
+          assistant_code_name,
+          followups: stage.followups.map((delay: number) => ({
+            delay_minutes: Number(delay),
+            assistant_code_name: 'follow_up'
+          }))
+        };
+      })
     };
 
     console.log(
@@ -262,11 +280,17 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.25 }}
-                  className={`bg-background relative flex max-w-[340px] min-w-[340px] flex-col gap-4 rounded-xl border border-gray-200 p-6 shadow dark:border-gray-700 ${isAccordionOpen ? 'max-h-[320px] overflow-y-auto' : ''}`}
+                  className={`bg-background relative flex max-w-[340px] min-w-[340px] flex-col gap-4 rounded-xl border border-gray-200 p-6 shadow dark:border-gray-700 ${isAccordionOpen ? 'max-h-[320px] overflow-y-auto' : ''} transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50`}
                 >
                   <div className='mb-2 flex items-center justify-between'>
-                    <span className='text-foreground text-lg font-semibold'>
+                    <span className='text-foreground flex items-center gap-2 text-lg font-semibold'>
                       Этап {idx + 1}
+                      <span
+                        className='cursor-help text-xs font-normal text-gray-500 dark:text-gray-400'
+                        title='Этап заблокирован для редактирования'
+                      >
+                        🔒
+                      </span>
                     </span>
                     <div className='flex gap-1'>
                       {stages.length > 1 && (
@@ -274,8 +298,10 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
                           size='icon'
                           variant='ghost'
                           onClick={() => handleRemoveStage(stage.id)}
-                          title='Удалить этап'
-                          className='text-xl'
+                          title='Удаление этапов недоступно'
+                          className='cursor-not-allowed text-xl opacity-50 hover:bg-transparent hover:opacity-40 disabled:cursor-not-allowed'
+                          disabled={true}
+                          style={{ cursor: 'not-allowed' }}
                         >
                           ×
                         </Button>
@@ -298,14 +324,17 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
                             ...prev.slice(idxInArr + 1)
                           ]);
                         }}
-                        title='Добавить этап'
+                        title='Добавление этапов недоступно'
+                        className='cursor-not-allowed opacity-50 hover:bg-transparent hover:opacity-40 disabled:cursor-not-allowed'
+                        disabled={true}
+                        style={{ cursor: 'not-allowed' }}
                       >
                         +
                       </Button>
                     </div>
                   </div>
                   <div className='flex flex-col gap-2'>
-                    <label className='text-foreground text-sm font-medium'>
+                    <label className='text-foreground flex cursor-not-allowed items-center gap-2 text-sm font-medium'>
                       Название этапа
                     </label>
                     <Input
@@ -314,7 +343,9 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
                         handleStageChange(stage.id, 'name', e.target.value)
                       }
                       placeholder='Название этапа'
-                      className={`text-foreground bg-background h-10 text-base ${stageErr.name ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                      className={`text-foreground bg-background h-10 cursor-not-allowed text-base opacity-60 disabled:cursor-not-allowed ${stageErr.name ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                      disabled={true}
+                      style={{ cursor: 'not-allowed' }}
                     />
                   </div>
                   {/* Аккордеон для follow-up */}

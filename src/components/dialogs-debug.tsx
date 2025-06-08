@@ -47,6 +47,30 @@ export function DialogsDebug() {
     string | null
   >(null);
 
+  // Состояние для кнопки "Create Dialog"
+  const [createDialogData, setCreateDialogData] = useState<any>(null);
+  const [createDialogLoading, setCreateDialogLoading] = useState(false);
+  const [createDialogError, setCreateDialogError] = useState<string | null>(
+    null
+  );
+  const [createDialogSuccessMessage, setCreateDialogSuccessMessage] = useState<
+    string | null
+  >(null);
+
+  // Состояние для кнопки "Get Client Dialogs"
+  const [clientDialogsData, setClientDialogsData] = useState<any>(null);
+  const [clientDialogsLoading, setClientDialogsLoading] = useState(false);
+  const [clientDialogsError, setClientDialogsError] = useState<string | null>(
+    null
+  );
+  const [clientDialogsSuccessMessage, setClientDialogsSuccessMessage] =
+    useState<string | null>(null);
+
+  // Состояние для модального окна выбора клиента
+  const [isClientSelectModalOpen, setIsClientSelectModalOpen] = useState(false);
+  const [selectedClientForDialogs, setSelectedClientForDialogs] = useState('');
+  const [availableClients, setAvailableClients] = useState<any[]>([]);
+
   // Состояние для модального окна просмотра сообщений
   const [isMessagesModalOpen, setIsMessagesModalOpen] = useState(false);
   const [selectedDialogForMessages, setSelectedDialogForMessages] =
@@ -101,12 +125,18 @@ export function DialogsDebug() {
     setAllDialogsData(null);
     setAllDialogsError(null);
     setAllDialogsSuccessMessage(null);
+    setCreateDialogData(null);
+    setCreateDialogError(null);
+    setCreateDialogSuccessMessage(null);
     setDialogMessagesData(null);
     setDialogMessagesError(null);
     setDialogMessagesSuccessMessage(null);
     setDeleteDialogData(null);
     setDeleteDialogError(null);
     setDeleteDialogSuccessMessage(null);
+    setClientDialogsData(null);
+    setClientDialogsError(null);
+    setClientDialogsSuccessMessage(null);
   }, [backendOrgId]);
 
   // Очищаем данные при смене воронки
@@ -114,12 +144,18 @@ export function DialogsDebug() {
     setAllDialogsData(null);
     setAllDialogsError(null);
     setAllDialogsSuccessMessage(null);
+    setCreateDialogData(null);
+    setCreateDialogError(null);
+    setCreateDialogSuccessMessage(null);
     setDialogMessagesData(null);
     setDialogMessagesError(null);
     setDialogMessagesSuccessMessage(null);
     setDeleteDialogData(null);
     setDeleteDialogError(null);
     setDeleteDialogSuccessMessage(null);
+    setClientDialogsData(null);
+    setClientDialogsError(null);
+    setClientDialogsSuccessMessage(null);
   }, [localStorageFunnel?.id]);
 
   const handleFetchAllDialogs = async () => {
@@ -212,6 +248,142 @@ export function DialogsDebug() {
       setAllDialogsError(error.message || 'Unknown error occurred');
     } finally {
       setAllDialogsLoading(false);
+    }
+  };
+
+  const handleCreateDialog = async () => {
+    console.log('=== CREATE DIALOG REQUEST START ===');
+    console.log('Create Dialog button clicked!');
+    console.log('Timestamp:', new Date().toISOString());
+
+    // Получаем токен из cookie
+    const tokenFromCookie = getClerkTokenFromClientCookie();
+    console.log('=== AUTHENTICATION INFO ===');
+    console.log('Token from cookie available:', !!tokenFromCookie);
+    console.log('Token length:', tokenFromCookie ? tokenFromCookie.length : 0);
+    console.log(
+      'Token preview (first 20 chars):',
+      tokenFromCookie ? tokenFromCookie.substring(0, 20) + '...' : 'N/A'
+    );
+
+    if (!tokenFromCookie) {
+      console.error(
+        '❌ AUTHENTICATION FAILED: No token available in __session cookie'
+      );
+      setCreateDialogError('No token available in __session cookie');
+      return;
+    }
+
+    console.log('=== ORGANIZATION INFO ===');
+    console.log('Backend Org ID:', backendOrgId);
+    if (!backendOrgId) {
+      console.error(
+        '❌ ORGANIZATION VALIDATION FAILED: No backend organization ID found in metadata'
+      );
+      setCreateDialogError('No backend organization ID found in metadata');
+      return;
+    }
+
+    console.log('=== FUNNEL INFO ===');
+    console.log('Current Funnel:', localStorageFunnel);
+    console.log('Current Funnel ID:', localStorageFunnel?.id);
+    if (!localStorageFunnel?.id) {
+      console.error('❌ FUNNEL VALIDATION FAILED: No current funnel selected');
+      setCreateDialogError('No current funnel selected');
+      return;
+    }
+
+    setCreateDialogLoading(true);
+    setCreateDialogError(null);
+    setCreateDialogSuccessMessage(null);
+
+    try {
+      const postUrl = `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog`;
+      console.log('=== API REQUEST INFO ===');
+      console.log('POST URL:', postUrl);
+      console.log('Request Method: POST');
+      console.log('Request Body: {}'); // Пустое тело запроса
+
+      console.log('=== MAKING POST REQUEST ===');
+      const response = await fetch(postUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenFromCookie}`
+        },
+        body: JSON.stringify({}) // Пустое тело запроса как запрашивал пользователь
+      });
+
+      console.log('=== RESPONSE INFO ===');
+      console.log('Response status:', response.status);
+      console.log('Response statusText:', response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers));
+
+      if (!response.ok) {
+        console.log('❌ RESPONSE NOT OK - Processing error...');
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          console.log('Failed to parse error as JSON, trying text...');
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            console.log('Failed to read error response as text');
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        console.error('Final error message:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('=== SUCCESS ===');
+      console.log('✅ Successfully created dialog:', data);
+      console.log('Response data type:', typeof data);
+      console.log('Response data:', JSON.stringify(data, null, 2));
+
+      setCreateDialogData(data);
+      setCreateDialogSuccessMessage(
+        'Запрос успешно отправлен и диалог создан!'
+      );
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setCreateDialogSuccessMessage(null);
+      }, 3000);
+
+      console.log('=== CREATE DIALOG REQUEST SUCCESS ===');
+    } catch (error: any) {
+      console.log('=== ERROR HANDLING ===');
+      console.error('❌ Error creating dialog:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      const errorMessage = error.message || 'Unknown error occurred';
+      console.log('Setting error state with message:', errorMessage);
+      setCreateDialogError(errorMessage);
+
+      console.log('=== CREATE DIALOG REQUEST FAILED ===');
+    } finally {
+      console.log('=== CLEANUP ===');
+      console.log('Setting loading state to false');
+      setCreateDialogLoading(false);
+      console.log('=== CREATE DIALOG REQUEST END ===');
     }
   };
 
@@ -446,6 +618,152 @@ export function DialogsDebug() {
     setDeleteDialogError(null);
   };
 
+  // Функция для получения диалогов клиента
+  const handleGetClientDialogs = async () => {
+    console.log('Get Client Dialogs button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setClientDialogsError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setClientDialogsError('No backend organization ID found in metadata');
+      return;
+    }
+
+    if (!selectedClientForDialogs) {
+      setClientDialogsError('Please select a client to get dialogs');
+      return;
+    }
+
+    setClientDialogsLoading(true);
+    setClientDialogsError(null);
+    setClientDialogsSuccessMessage(null);
+
+    try {
+      console.log(
+        'Making request to /api/organization/' +
+          backendOrgId +
+          '/client/' +
+          selectedClientForDialogs +
+          '/dialogs'
+      );
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/client/${selectedClientForDialogs}/dialogs`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully fetched client dialogs:', data);
+      setClientDialogsData(data);
+      setClientDialogsSuccessMessage(
+        `Запрос успешно отправлен и диалоги клиента получены!`
+      );
+
+      // Закрываем модальное окно и очищаем выбор
+      setIsClientSelectModalOpen(false);
+      setSelectedClientForDialogs('');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setClientDialogsSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error fetching client dialogs:', error);
+      setClientDialogsError(error.message || 'Unknown error occurred');
+    } finally {
+      setClientDialogsLoading(false);
+    }
+  };
+
+  // Функции для управления модальным окном выбора клиента
+  const handleOpenClientSelectModal = async () => {
+    setIsClientSelectModalOpen(true);
+    setClientDialogsError(null);
+    setClientDialogsSuccessMessage(null);
+
+    // Загружаем список клиентов с сервера
+    if (!backendOrgId) {
+      setClientDialogsError('No backend organization ID found');
+      return;
+    }
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setClientDialogsError('No token available');
+      return;
+    }
+
+    try {
+      console.log('Fetching clients list for modal...');
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/clients`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const clients = await response.json();
+        setAvailableClients(Array.isArray(clients) ? clients : []);
+        console.log('Clients loaded for modal:', clients.length);
+      } else {
+        console.error('Failed to fetch clients for modal');
+        setAvailableClients([]);
+      }
+    } catch (error) {
+      console.error('Error fetching clients for modal:', error);
+      setAvailableClients([]);
+    }
+  };
+
+  const handleCloseClientSelectModal = () => {
+    setIsClientSelectModalOpen(false);
+    setSelectedClientForDialogs('');
+    setClientDialogsError(null);
+  };
+
   // Получаем список диалогов для селектов
   const availableDialogs =
     allDialogsData && Array.isArray(allDialogsData) ? allDialogsData : [];
@@ -491,6 +809,19 @@ export function DialogsDebug() {
             </Button>
 
             <Button
+              onClick={handleCreateDialog}
+              disabled={
+                createDialogLoading || !backendOrgId || !localStorageFunnel?.id
+              }
+              variant='outline'
+              size='sm'
+              className='w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
+            >
+              <MessageCircle className='mr-2 h-4 w-4' />
+              {createDialogLoading ? 'Creating...' : 'Create Dialog'}
+            </Button>
+
+            <Button
               onClick={handleOpenMessagesModal}
               disabled={
                 !backendOrgId ||
@@ -519,12 +850,30 @@ export function DialogsDebug() {
               <Trash2 className='mr-2 h-4 w-4' />
               Delete Dialog
             </Button>
+
+            <Button
+              onClick={handleOpenClientSelectModal}
+              disabled={!backendOrgId || clientDialogsLoading}
+              variant='outline'
+              size='sm'
+              className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
+            >
+              <MessageCircle className='mr-2 h-4 w-4' />
+              {clientDialogsLoading ? 'Loading...' : 'Get Client Dialogs'}
+            </Button>
           </div>
 
           {/* Сообщения об успехе */}
           {allDialogsSuccessMessage && (
             <div className='mt-2 rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
               <strong>Успех (All Dialogs):</strong> {allDialogsSuccessMessage}
+            </div>
+          )}
+
+          {createDialogSuccessMessage && (
+            <div className='mt-2 rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
+              <strong>Успех (Create Dialog):</strong>{' '}
+              {createDialogSuccessMessage}
             </div>
           )}
 
@@ -542,12 +891,28 @@ export function DialogsDebug() {
             </div>
           )}
 
+          {clientDialogsSuccessMessage && (
+            <div className='mt-2 rounded bg-blue-100 p-2 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'>
+              <strong>Успех (Client Dialogs):</strong>{' '}
+              {clientDialogsSuccessMessage}
+            </div>
+          )}
+
           {/* Ошибки */}
           {allDialogsError && (
             <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
               <strong>Ошибка (All Dialogs):</strong>
               <pre className='mt-1 text-sm whitespace-pre-wrap'>
                 {allDialogsError}
+              </pre>
+            </div>
+          )}
+
+          {createDialogError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Create Dialog):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {createDialogError}
               </pre>
             </div>
           )}
@@ -570,6 +935,15 @@ export function DialogsDebug() {
             </div>
           )}
 
+          {clientDialogsError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Client Dialogs):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {clientDialogsError}
+              </pre>
+            </div>
+          )}
+
           {/* Результаты API запросов */}
           {allDialogsData && (
             <details className='mt-2'>
@@ -578,6 +952,17 @@ export function DialogsDebug() {
               </summary>
               <pre className='mt-2 max-h-64 overflow-auto rounded bg-orange-100 p-2 text-xs dark:bg-orange-900/30 dark:text-orange-200'>
                 {JSON.stringify(allDialogsData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {createDialogData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-orange-600 dark:text-orange-400'>
+                View Create Dialog API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-green-100 p-2 text-xs dark:bg-green-900/30 dark:text-green-200'>
+                {JSON.stringify(createDialogData, null, 2)}
               </pre>
             </details>
           )}
@@ -600,6 +985,17 @@ export function DialogsDebug() {
               </summary>
               <pre className='mt-2 max-h-64 overflow-auto rounded bg-red-100 p-2 text-xs dark:bg-red-900/30 dark:text-red-200'>
                 {JSON.stringify(deleteDialogData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {clientDialogsData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-orange-600 dark:text-orange-400'>
+                View Client Dialogs API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-blue-100 p-2 text-xs dark:bg-blue-900/30 dark:text-blue-200'>
+                {JSON.stringify(clientDialogsData, null, 2)}
               </pre>
             </details>
           )}
@@ -664,7 +1060,7 @@ export function DialogsDebug() {
                   <SelectContent>
                     {availableDialogs.map((dialog: any) => (
                       <SelectItem key={dialog.uuid} value={dialog.uuid}>
-                        {dialog.uuid} (Thread: {dialog.thread_id})
+                        {dialog.thread_id}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -787,6 +1183,100 @@ export function DialogsDebug() {
                 >
                   <Trash2 className='mr-2 h-4 w-4' />
                   {deleteDialogLoading ? 'Deleting...' : 'Delete Dialog'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для выбора клиента */}
+      {isClientSelectModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Get Client Dialogs
+              </h2>
+              <button
+                onClick={handleCloseClientSelectModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='client_select_dialogs'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Client to Get Dialogs
+                </Label>
+                <Select
+                  value={selectedClientForDialogs}
+                  onValueChange={setSelectedClientForDialogs}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose a client to get dialogs' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableClients.map((client: any) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name} ({client.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {availableClients.length === 0 && (
+                <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
+                  <strong>Информация:</strong> Список клиентов загружается...
+                  <br />
+                  <small>
+                    Если список не загружается, сначала выполните "Get All
+                    Clients" в Clients Debug Info
+                  </small>
+                </div>
+              )}
+
+              {clientDialogsError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {clientDialogsError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseClientSelectModal}
+                  variant='outline'
+                  disabled={clientDialogsLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGetClientDialogs}
+                  disabled={clientDialogsLoading || !selectedClientForDialogs}
+                >
+                  <MessageCircle className='mr-2 h-4 w-4' />
+                  {clientDialogsLoading ? 'Loading...' : 'Get Dialogs'}
                 </Button>
               </div>
             </div>

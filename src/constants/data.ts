@@ -55,6 +55,14 @@ export const navItems: NavItem[] = [
     isActive: true,
     shortcut: ['m', 'n'],
     items: []
+  },
+  {
+    title: 'Интеграции',
+    url: '/dashboard/integrations',
+    icon: 'integrations',
+    isActive: true,
+    shortcut: ['i', 't'],
+    items: []
   }
 ];
 

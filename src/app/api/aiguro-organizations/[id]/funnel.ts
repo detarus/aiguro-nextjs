@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+interface FunnelStage {
+  name: string;
+  assistant_code_name: string;
+  followups?: Array<{
+    delay_minutes: number;
+    assistant_code_name: string;
+  }>;
+}
+
+interface CreateFunnelRequest {
+  display_name: string;
+  stages: FunnelStage[];
+}
+
+interface CreateFunnelResponse {
+  display_name: string;
+  stages: FunnelStage[];
+}
 
 export async function POST(
   req: NextRequest,
-  { params: _params }: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   // Organization ID from params: params.id (for future use)
   try {

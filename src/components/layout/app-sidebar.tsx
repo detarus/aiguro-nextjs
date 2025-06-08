@@ -119,10 +119,10 @@ export default function AppSidebar() {
       disabled: false
     },
     {
-      title: 'Пользователи и Роли',
-      url: '#',
-      icon: 'users',
-      isActive: false,
+      title: 'Интеграции',
+      url: '/dashboard/integrations',
+      icon: 'integrations',
+      isActive: pathname === '/dashboard/integrations',
       disabled: false
     },
     {
@@ -130,14 +130,14 @@ export default function AppSidebar() {
       url: '#',
       icon: 'userPen',
       isActive: false,
-      disabled: false
+      disabled: true
     },
     {
       title: 'API-ключи',
       url: '#',
       icon: 'apiKeys',
       isActive: false,
-      disabled: false
+      disabled: true
     }
   ];
 
@@ -193,6 +193,23 @@ export default function AppSidebar() {
               const Icon = item.icon
                 ? Icons[item.icon as keyof typeof Icons]
                 : Icons.logo;
+
+              if (item.disabled) {
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      tooltip={item.title}
+                      isActive={false}
+                      className='cursor-not-allowed opacity-50'
+                      disabled
+                    >
+                      {Icon ? <Icon /> : <Icons.logo />}
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              }
+
               return (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton

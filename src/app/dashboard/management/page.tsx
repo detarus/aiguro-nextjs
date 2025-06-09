@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { PageSkeleton } from '@/components/page-skeleton';
 import {
   Card,
@@ -13,8 +13,81 @@ import { IconAdjustments } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/ui/page-container';
 import Link from 'next/link';
+import { useOrganization } from '@clerk/nextjs';
+import { useFunnels } from '@/hooks/useFunnels';
+import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
 export default function ManagementPage() {
+  const { organization } = useOrganization();
+  const { currentFunnel } = useFunnels(
+    organization?.publicMetadata?.id_backend as string
+  );
+
+  const [assistantsCount, setAssistantsCount] = useState<number | null>(null);
+  const [assistantsLoading, setAssistantsLoading] = useState(false);
+
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+
+  // Функция для загрузки количества ассистентов по этапам из воронки
+  const fetchAssistantsCount = async () => {
+    if (!backendOrgId || !currentFunnel?.id) {
+      return;
+    }
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      return;
+    }
+
+    setAssistantsLoading(true);
+
+    try {
+      // Получаем данные воронки, которая содержит этапы
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const funnelData = await response.json();
+        console.log('Funnel data:', funnelData);
+
+        // Подсчитываем количество этапов с ассистентами
+        if (funnelData.stages && Array.isArray(funnelData.stages)) {
+          const stagesWithAssistants = funnelData.stages.filter(
+            (stage: any) =>
+              stage.assistant_code_name &&
+              stage.assistant_code_name.trim() !== ''
+          );
+          setAssistantsCount(stagesWithAssistants.length);
+        } else {
+          setAssistantsCount(0);
+        }
+      } else {
+        console.error('Failed to fetch funnel data:', response.status);
+        setAssistantsCount(0);
+      }
+    } catch (error) {
+      console.error('Error fetching funnel data:', error);
+      setAssistantsCount(0);
+    } finally {
+      setAssistantsLoading(false);
+    }
+  };
+
+  // Загружаем данные при монтировании и изменении организации/воронки
+  useEffect(() => {
+    if (organization && currentFunnel) {
+      fetchAssistantsCount();
+    }
+  }, [backendOrgId, currentFunnel?.id]);
+
   return (
     <Suspense fallback={<PageSkeleton />}>
       <PageContainer scrollable={true}>
@@ -93,7 +166,13 @@ export default function ManagementPage() {
                       <IconAdjustments className='text-primary h-6 w-6' />
                     </div>
                     <div>
-                      <h3 className='font-medium'>11 ассистентов</h3>
+                      <h3 className='font-medium'>
+                        {assistantsLoading
+                          ? 'Загрузка...'
+                          : assistantsCount !== null
+                            ? `${assistantsCount} ${assistantsCount === 1 ? 'ассистент' : assistantsCount >= 2 && assistantsCount <= 4 ? 'ассистента' : 'ассистентов'} этапов`
+                            : 'Ассистенты этапов не найдены'}
+                      </h3>
                       <p className='text-muted-foreground text-sm'>
                         Просмотр и редактирование
                       </p>

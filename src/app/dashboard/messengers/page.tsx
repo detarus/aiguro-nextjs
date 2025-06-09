@@ -64,7 +64,7 @@ interface Dialog {
 interface Message {
   id: string;
   text: string;
-  sender: 'client' | 'ai' | 'assistant' | 'user';
+  role: 'user' | 'assistant';
   timestamp: string;
   time?: string;
 }
@@ -291,24 +291,48 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
     const messagesData = await response.json();
     console.log(`Fetched messages for dialog ${dialogUuid}:`, messagesData);
 
+    // Логируем каждое сообщение для отладки
+    messagesData.forEach((msg: any, index: number) => {
+      console.log(`Message ${index}:`, {
+        original_sender: msg.sender,
+        original_role: msg.role,
+        text_preview: msg.text?.substring(0, 50) + '...',
+        all_fields: Object.keys(msg)
+      });
+    });
+
     // Преобразуем сообщения в нужный формат
     const transformedMessages: Message[] = messagesData.map(
-      (msg: any, index: number) => ({
-        id: msg.id || `msg_${index}`,
-        text: msg.text || msg.content || 'Сообщение без текста',
-        sender:
-          msg.sender === 'user'
-            ? 'client'
-            : msg.sender === 'assistant'
-              ? 'ai'
-              : 'client',
-        timestamp: msg.timestamp || msg.created_at || new Date().toISOString(),
-        time:
-          msg.time ||
-          new Date(
-            msg.timestamp || msg.created_at || Date.now()
-          ).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-      })
+      (msg: any, index: number) => {
+        // Проверяем и поле role, и поле sender для совместимости
+        const originalRole = msg.role || msg.sender;
+        const role =
+          originalRole === 'user' || originalRole === 'client'
+            ? 'user'
+            : 'assistant';
+        console.log(
+          `Transforming message ${index}: ${originalRole} -> ${role}`
+        );
+
+        return {
+          id: msg.id || `msg_${index}`,
+          text: msg.text || msg.content || 'Сообщение без текста',
+          role: role,
+          timestamp:
+            msg.timestamp ||
+            msg.created_at ||
+            msg.time ||
+            new Date().toISOString(),
+          time:
+            msg.time ||
+            new Date(
+              msg.timestamp || msg.created_at || msg.time || Date.now()
+            ).toLocaleTimeString('ru-RU', {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+        };
+      }
     );
 
     return transformedMessages;
@@ -518,6 +542,19 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
       .slice(0, 2);
   };
 
+  const formatDateTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const time = date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const dateFormatted = date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long'
+    });
+    return `${time}, ${dateFormatted}`;
+  };
+
   const handleSendMessage = () => {
     if (newMessage.trim()) {
       console.log('Sending message:', newMessage);
@@ -704,22 +741,33 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   [...selectedDialogMessages].reverse().map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${
-                        message.sender === 'user'
-                          ? 'justify-end' // User - справа
-                          : 'justify-start' // Assistant/AI/Client - слева
-                      }`}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[70%] rounded-lg p-3 ${
-                          message.sender === 'user'
-                            ? 'bg-primary text-primary-foreground' // User - синий фон
-                            : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100' // Assistant/AI/Client - светлый фон
+                        className={`max-w-[70%] min-w-[180px] rounded-lg border p-3 ${
+                          message.role === 'user'
+                            ? 'border-gray-600 bg-gray-700 text-white dark:border-gray-500 dark:bg-gray-600'
+                            : 'border-gray-200 bg-gray-100 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'
                         }`}
                       >
-                        <div className='text-sm'>{message.text}</div>
-                        <div className='mt-1 text-right text-xs opacity-70'>
-                          {message.time}
+                        <div className='text-sm whitespace-pre-wrap'>
+                          {message.text}
+                        </div>
+                        <div
+                          className={`mt-2 flex items-center justify-between text-xs ${
+                            message.role === 'user'
+                              ? 'text-gray-300 dark:text-gray-400'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          <span>
+                            {message.role === 'user'
+                              ? 'Клиент'
+                              : 'AI-ассистент'}
+                          </span>
+                          <span className='opacity-70'>
+                            {formatDateTime(message.timestamp)}
+                          </span>
                         </div>
                       </div>
                     </div>

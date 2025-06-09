@@ -53,6 +53,49 @@ interface StageSettings {
 export default function AIAssistantsPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
+
+  // Константы для localStorage
+  const getAssistantsStorageKey = () =>
+    `assistants_data_${backendOrgId}_${currentFunnel?.id}`;
+
+  // Функции для работы с localStorage
+  const saveAssistantsToStorage = (assistants: any[]) => {
+    try {
+      localStorage.setItem(
+        getAssistantsStorageKey(),
+        JSON.stringify(assistants)
+      );
+    } catch (error) {
+      console.error('Error saving assistants to localStorage:', error);
+    }
+  };
+
+  const loadAssistantsFromStorage = (): any[] => {
+    try {
+      const stored = localStorage.getItem(getAssistantsStorageKey());
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error loading assistants from localStorage:', error);
+      return [];
+    }
+  };
+
+  const clearAssistantsFromStorage = () => {
+    try {
+      // Очищаем данные для текущей воронки
+      localStorage.removeItem(getAssistantsStorageKey());
+
+      // Очищаем все данные ассистентов (при смене компании)
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (key.startsWith('assistants_data_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.error('Error clearing assistants from localStorage:', error);
+    }
+  };
   const { currentFunnel } = useFunnels(backendOrgId);
 
   // Состояние для загрузки данных текущей воронки
@@ -61,6 +104,20 @@ export default function AIAssistantsPage() {
   const [currentFunnelError, setCurrentFunnelError] = useState<string | null>(
     null
   );
+
+  // Состояния для обновления промпта
+  const [updatePromptLoading, setUpdatePromptLoading] = useState(false);
+  const [updatePromptError, setUpdatePromptError] = useState<string | null>(
+    null
+  );
+  const [updatePromptSuccess, setUpdatePromptSuccess] = useState<string | null>(
+    null
+  );
+
+  // Состояния для данных ассистентов
+  const [assistantsData, setAssistantsData] = useState<any[]>([]);
+  const [assistantsLoading, setAssistantsLoading] = useState(false);
+  const [assistantsError, setAssistantsError] = useState<string | null>(null);
 
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
     contextMemory: 50,
@@ -155,6 +212,9 @@ export default function AIAssistantsPage() {
 
   const selectStage = (stageId: number) => {
     setActiveStageId(stageId);
+    // Очищаем сообщения при смене этапа
+    setUpdatePromptError(null);
+    setUpdatePromptSuccess(null);
   };
 
   const saveSettings = () => {
@@ -182,6 +242,65 @@ export default function AIAssistantsPage() {
 
   const cancelInlineEdit = () => {
     setEditingStageId(null);
+  };
+
+  // Функция для загрузки всех ассистентов (Get All Assistants)
+  const fetchAllAssistants = async () => {
+    if (!backendOrgId || !currentFunnel?.id) {
+      return;
+    }
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setAssistantsError('Отсутствует токен аутентификации');
+      return;
+    }
+
+    console.log('Fetching all assistants for funnel:', currentFunnel.id);
+    setAssistantsLoading(true);
+    setAssistantsError(null);
+
+    try {
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistants`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully fetched assistants:', data);
+
+      const assistants = Array.isArray(data) ? data : [];
+      setAssistantsData(assistants);
+      saveAssistantsToStorage(assistants);
+    } catch (error: any) {
+      console.error('Error fetching assistants:', error);
+      setAssistantsError(error.message || 'Ошибка загрузки ассистентов');
+
+      // Пытаемся загрузить из localStorage при ошибке
+      const storedAssistants = loadAssistantsFromStorage();
+      setAssistantsData(storedAssistants);
+    } finally {
+      setAssistantsLoading(false);
+    }
   };
 
   // Функция для загрузки данных текущей воронки (аналогично Get Current Funnel)
@@ -231,15 +350,157 @@ export default function AIAssistantsPage() {
     }
   };
 
-  // Загружаем данные воронки при изменении currentFunnel
+  // Загружаем данные воронки и ассистентов при изменении currentFunnel
   React.useEffect(() => {
-    if (currentFunnel?.id) {
+    if (currentFunnel?.id && backendOrgId) {
+      // Загружаем данные воронки
       fetchCurrentFunnelData();
+
+      // Сначала пытаемся загрузить из localStorage
+      const storedAssistants = loadAssistantsFromStorage();
+      if (storedAssistants.length > 0) {
+        console.log('Loading assistants from localStorage');
+        setAssistantsData(storedAssistants);
+      } else {
+        // Если данных в localStorage нет, загружаем с сервера
+        console.log('No assistants in localStorage, fetching from server');
+        fetchAllAssistants();
+      }
     } else {
       setCurrentFunnelData(null);
       setCurrentFunnelError(null);
+      setAssistantsData([]);
+      setAssistantsError(null);
     }
   }, [currentFunnel?.id, backendOrgId]);
+
+  // Очищаем localStorage при смене организации
+  React.useEffect(() => {
+    if (backendOrgId) {
+      // При смене организации очищаем все данные ассистентов
+      clearAssistantsFromStorage();
+      setAssistantsData([]);
+    }
+  }, [backendOrgId]);
+
+  // Функция для получения промпта ассистента по code_name
+  const getAssistantPrompt = (codeName: string): string => {
+    const assistant = assistantsData.find((a) => a.code_name === codeName);
+    return assistant?.text || '';
+  };
+
+  // Функция для обновления данных ассистента в localStorage
+  const updateAssistantInStorage = (codeName: string, newText: string) => {
+    const updatedAssistants = assistantsData.map((assistant) =>
+      assistant.code_name === codeName
+        ? { ...assistant, text: newText }
+        : assistant
+    );
+    setAssistantsData(updatedAssistants);
+    saveAssistantsToStorage(updatedAssistants);
+  };
+
+  // Функция для обновления промпта ассистента этапа
+  const handleUpdateStagePrompt = async () => {
+    console.log('=== UPDATE STAGE PROMPT START ===');
+
+    if (!backendOrgId || !currentFunnel?.id) {
+      setUpdatePromptError('Отсутствует организация или воронка');
+      return;
+    }
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setUpdatePromptError('Отсутствует токен аутентификации');
+      return;
+    }
+
+    const currentStage = currentFunnelData?.stages?.[activeStageId - 1];
+    if (!currentStage) {
+      setUpdatePromptError('Этап не найден');
+      return;
+    }
+
+    const assistant_code_name = currentStage.assistant_code_name;
+    if (!assistant_code_name) {
+      setUpdatePromptError('У этапа нет назначенного ассистента');
+      return;
+    }
+
+    // Получаем текущий промпт из ассистентов или из данных воронки
+    let promptText = '';
+    if (assistantsData.length > 0) {
+      promptText = getAssistantPrompt(assistant_code_name);
+    }
+
+    // Если промпт не найден в ассистентах, берём из currentFunnelData
+    if (!promptText) {
+      promptText = currentStage.prompt || '';
+    }
+
+    if (!promptText || !promptText.trim()) {
+      setUpdatePromptError('Промпт не может быть пустым');
+      return;
+    }
+
+    setUpdatePromptLoading(true);
+    setUpdatePromptError(null);
+    setUpdatePromptSuccess(null);
+
+    try {
+      const requestBody = {
+        code_name: assistant_code_name,
+        text: promptText.trim()
+      };
+
+      console.log('Updating assistant:', requestBody);
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully updated stage prompt:', data);
+
+      // Обновляем данные в localStorage
+      updateAssistantInStorage(assistant_code_name, promptText.trim());
+
+      setUpdatePromptSuccess(
+        `Промпт для этапа "${currentStage.name}" успешно обновлён!`
+      );
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setUpdatePromptSuccess(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error updating stage prompt:', error);
+      setUpdatePromptError(error.message || 'Произошла ошибка при обновлении');
+    } finally {
+      setUpdatePromptLoading(false);
+    }
+  };
 
   // Синхронизируем локальные этапы с данными из API
   React.useEffect(() => {
@@ -533,7 +794,7 @@ export default function AIAssistantsPage() {
         <div className='w-1/2 pl-4'>
           <div className='flex h-full flex-col space-y-4'>
             <h2 className='text-lg font-semibold text-gray-900 dark:text-white'>
-              Настройка расширенные мультиагента
+              Расширенные настройки мультиагента
             </h2>
 
             {/* Этапы */}
@@ -573,8 +834,8 @@ export default function AIAssistantsPage() {
                       <Button
                         variant='ghost'
                         size='sm'
-                        onClick={() => startInlineEdit(index + 1)}
-                        className='h-8 w-8 rounded-none border-0 p-0 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        disabled
+                        className='h-8 w-8 cursor-not-allowed rounded-none border-0 p-0 opacity-50'
                       >
                         <IconEdit className='h-3 w-3' />
                       </Button>
@@ -588,16 +849,6 @@ export default function AIAssistantsPage() {
                     ? 'Загрузка этапов...'
                     : 'Нет этапов в воронке'}
                 </div>
-              )}
-              {currentFunnelData?.stages?.length > 0 && (
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={addStage}
-                  className='border-dashed'
-                >
-                  +
-                </Button>
               )}
             </div>
 
@@ -685,24 +936,93 @@ export default function AIAssistantsPage() {
 
                 {/* Промпт для AI подагента */}
                 <div className='flex flex-1 flex-col'>
-                  <Label className='mb-2 text-sm font-medium'>
-                    Промпт для AI подагента {activeStage.id}
-                  </Label>
+                  <div className='mb-2 flex items-center justify-between'>
+                    <Label className='text-sm font-medium'>
+                      Промпт для AI подагента {activeStage.id}
+                    </Label>
+                    {assistantsLoading && (
+                      <span className='text-xs text-gray-500'>
+                        Загрузка данных ассистентов...
+                      </span>
+                    )}
+                    {assistantsError && (
+                      <span className='text-xs text-red-500'>
+                        Ошибка загрузки ассистентов
+                      </span>
+                    )}
+                  </div>
                   <Textarea
-                    value={
-                      currentFunnelData.stages?.[activeStageId - 1]?.prompt ||
-                      activeStage.prompt
-                    }
-                    onChange={(e) =>
-                      handleStageChange(
-                        activeStage.id,
-                        'prompt',
-                        e.target.value
-                      )
-                    }
+                    value={(() => {
+                      const currentStage =
+                        currentFunnelData.stages?.[activeStageId - 1];
+                      const assistantCodeName =
+                        currentStage?.assistant_code_name;
+
+                      // Получаем промпт из данных ассистентов, если есть assistant_code_name
+                      if (assistantCodeName && assistantsData.length > 0) {
+                        return getAssistantPrompt(assistantCodeName);
+                      }
+
+                      // Fallback на промпт из данных воронки
+                      return currentStage?.prompt || '';
+                    })()}
+                    onChange={(e) => {
+                      const currentStage =
+                        currentFunnelData.stages?.[activeStageId - 1];
+                      const assistantCodeName =
+                        currentStage?.assistant_code_name;
+
+                      if (assistantCodeName && assistantsData.length > 0) {
+                        // Если есть данные ассистентов, обновляем их
+                        const updatedAssistants = assistantsData.map(
+                          (assistant) =>
+                            assistant.code_name === assistantCodeName
+                              ? { ...assistant, text: e.target.value }
+                              : assistant
+                        );
+                        setAssistantsData(updatedAssistants);
+                      } else {
+                        // Fallback: обновляем данные в currentFunnelData
+                        const updatedStages = [
+                          ...(currentFunnelData.stages || [])
+                        ];
+                        if (updatedStages[activeStageId - 1]) {
+                          updatedStages[activeStageId - 1].prompt =
+                            e.target.value;
+                          setCurrentFunnelData({
+                            ...currentFunnelData,
+                            stages: updatedStages
+                          });
+                        }
+                      }
+                    }}
                     placeholder='Введите промпт для AI ассистента...'
                     className='max-h-[100px] min-h-[100px] flex-1 resize-none'
+                    disabled={assistantsLoading}
                   />
+
+                  {/* Сообщения об ошибках и успехе */}
+                  {updatePromptError && (
+                    <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                      <strong>Ошибка:</strong> {updatePromptError}
+                    </div>
+                  )}
+
+                  {updatePromptSuccess && (
+                    <div className='mt-2 rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
+                      <strong>Успешно:</strong> {updatePromptSuccess}
+                    </div>
+                  )}
+
+                  {/* Кнопка сохранения */}
+                  <Button
+                    onClick={handleUpdateStagePrompt}
+                    disabled={updatePromptLoading}
+                    className='mt-2 w-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50'
+                    size='sm'
+                  >
+                    {updatePromptLoading ? 'Сохранение...' : 'Сохранить промпт'}
+                  </Button>
                 </div>
 
                 {/* Тестовая площадка этапа */}

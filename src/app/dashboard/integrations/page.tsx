@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
   IconTrash,
@@ -43,6 +44,8 @@ interface MessengerConnection {
   is_active: boolean;
   funnel_id?: string; // Может отсутствовать
   connection_data?: any; // Может отсутствовать
+  funnel_name?: string; // Название воронки
+  funnel_info?: Funnel; // Полная информация о воронке
 }
 
 // Integration services configuration
@@ -234,6 +237,10 @@ function IntegrationsPage() {
     return initialStatuses;
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('');
+  const [organizationConnections, setOrganizationConnections] = useState<
+    MessengerConnection[]
+  >([]);
 
   // Функция загрузки воронок
   const fetchFunnels = async () => {
@@ -289,6 +296,28 @@ function IntegrationsPage() {
     }
   };
 
+  // Функция загрузки всех подключений организации
+  const fetchAllOrganizationConnections = async () => {
+    if (!backendOrgId) return [];
+
+    try {
+      // Загружаем воронки, если они еще не загружены
+      const funnelsData = funnels.length > 0 ? funnels : await fetchFunnels();
+
+      // Загружаем интеграции для каждой воронки
+      const allConnections: MessengerConnection[] = [];
+      for (const funnel of funnelsData) {
+        const connections = await fetchMessengerConnections(funnel.id);
+        allConnections.push(...connections);
+      }
+
+      return allConnections;
+    } catch (error) {
+      console.error('Error fetching all organization connections:', error);
+      return [];
+    }
+  };
+
   // Функция загрузки всех данных
   const loadData = useCallback(async () => {
     if (!backendOrgId) return;
@@ -305,10 +334,27 @@ function IntegrationsPage() {
       const allConnections: MessengerConnection[] = [];
       for (const funnel of funnelsData) {
         const connections = await fetchMessengerConnections(funnel.id);
-        allConnections.push(...connections);
+        // Добавляем информацию о воронке в каждое подключение
+        const connectionsWithFunnelInfo = connections.map((conn: any) => ({
+          ...conn,
+          funnel_id: funnel.id,
+          funnel_name:
+            funnel.display_name || funnel.name || `Воронка ${funnel.id}`,
+          funnel_info: funnel // Полная информация о воронке
+        }));
+        console.log(
+          `Loaded connections for funnel ${funnel.id} (${funnel.name || funnel.display_name}):`,
+          connectionsWithFunnelInfo
+        );
+        allConnections.push(...connectionsWithFunnelInfo);
       }
 
+      console.log('All connections with funnel info:', allConnections);
       setMessengerConnections(allConnections);
+
+      // Загружаем все подключения организации для отображения в модальном окне
+      // Используем уже загруженные allConnections
+      setOrganizationConnections(allConnections);
 
       // Обновляем данные интеграций
       updateIntegrationData(funnelsData, allConnections);
@@ -396,6 +442,10 @@ function IntegrationsPage() {
     if (integration && integration.clickable) {
       setSelectedIntegration(integrationId);
       setIsDialogOpen(true);
+      // Устанавливаем первую воронку как активную вкладку
+      if (funnels.length > 0) {
+        setActiveTab(funnels[0].id);
+      }
     }
   };
 
@@ -412,10 +462,41 @@ function IntegrationsPage() {
   };
 
   // Функция для удаления подключения
-  const handleDeleteConnection = (connectionId: string) => {
-    setMessengerConnections((prev) =>
-      prev.filter((conn) => conn.id !== connectionId)
-    );
+  const handleDeleteConnection = async (connectionId: string) => {
+    if (!backendOrgId) return;
+
+    try {
+      // Находим подключение для определения funnel_id
+      const connection = messengerConnections.find(
+        (conn) => conn.id === connectionId
+      );
+      if (!connection?.funnel_id) {
+        console.error('Connection or funnel_id not found');
+        return;
+      }
+
+      const token = getClerkTokenFromClientCookie();
+      if (!token) throw new Error('No token available');
+
+      // TODO: Реализовать DELETE endpoint
+      console.log(
+        'Delete connection:',
+        connectionId,
+        'from funnel:',
+        connection.funnel_id
+      );
+
+      // Временно удаляем из локального состояния
+      setOrganizationConnections((prev) =>
+        prev.filter((conn) => conn.id !== connectionId)
+      );
+
+      setMessengerConnections((prev) =>
+        prev.filter((conn) => conn.id !== connectionId)
+      );
+    } catch (error) {
+      console.error('Error deleting connection:', error);
+    }
   };
 
   // Функция для обработки изменений подключений воронок
@@ -660,110 +741,207 @@ function IntegrationsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            {selectedIntegration && (
-              <div className='space-y-4'>
-                {/* Показываем воронки с их подключениями */}
+            {selectedIntegration && funnels.length > 0 && (
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className='w-full'
+              >
+                <TabsList className='grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'>
+                  {funnels.map((funnel) => (
+                    <TabsTrigger
+                      key={funnel.id}
+                      value={funnel.id}
+                      className='text-sm'
+                    >
+                      {funnel.display_name || funnel.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
                 {funnels.map((funnel) => {
-                  // Находим подключение для этой воронки
-                  const connection = messengerConnections.find(
-                    (conn) =>
-                      conn.messenger_type === selectedIntegration &&
-                      (conn.funnel_id === funnel.id ||
-                        conn.funnel_id === funnel.id.toString())
+                  // Отладочная информация
+                  console.log(
+                    'Funnel:',
+                    funnel.id,
+                    funnel.name || funnel.display_name
                   );
-
-                  // Проверяем, активно ли подключение
-                  const isConnectionActive = connection?.is_active === true;
-
-                  const connectionValue =
-                    connection?.connection_data?.account ||
-                    connection?.connection_data?.username ||
-                    connection?.connection_data?.token ||
-                    connection?.name ||
-                    '';
+                  console.log(
+                    'All messengerConnections:',
+                    messengerConnections
+                  );
+                  console.log('Selected integration:', selectedIntegration);
 
                   return (
-                    <div key={funnel.id} className='space-y-2'>
-                      <div className='flex items-center justify-between'>
-                        <Label
-                          htmlFor={`funnel-${funnel.id}`}
-                          className='text-sm font-medium'
-                        >
-                          {funnel.display_name || funnel.name}
-                          {isConnectionActive && (
-                            <span className='ml-2 text-xs font-normal text-green-600'>
-                              (Активное подключение)
-                            </span>
-                          )}
-                        </Label>
-                        {connection && (
-                          <Button
-                            variant='ghost'
-                            size='sm'
-                            onClick={() =>
-                              handleDeleteConnection(connection.id)
-                            }
-                            className='h-6 w-6 p-0 text-red-500 hover:text-red-700'
-                          >
-                            <IconTrash size={14} />
-                          </Button>
-                        )}
-                      </div>
-                      <Input
-                        id={`funnel-${funnel.id}`}
-                        value={connectionValue}
-                        onChange={(e) =>
-                          handleFunnelConnectionChange(
-                            funnel.id,
-                            e.target.value
-                          )
-                        }
-                        placeholder={
-                          isConnectionActive
-                            ? 'Активное подключение'
-                            : `Введите данные интеграции для ${funnel.display_name || funnel.name}`
-                        }
-                        className={cn(
-                          'w-full',
-                          isConnectionActive && 'border-green-200 bg-green-50'
-                        )}
-                        disabled={isConnectionActive}
-                        readOnly={isConnectionActive}
-                      />
-                      {connection && (
-                        <div
-                          className={cn(
-                            'text-xs',
-                            isConnectionActive
-                              ? 'text-green-600'
-                              : 'text-blue-600'
-                          )}
-                        >
-                          {isConnectionActive
-                            ? '✓ Активная интеграция'
-                            : '○ Неактивная интеграция'}
+                    <TabsContent
+                      key={funnel.id}
+                      value={funnel.id}
+                      className='mt-4 space-y-4'
+                    >
+                      <div className='space-y-4'>
+                        <h3 className='text-lg font-medium'>
+                          Подключения для воронки "
+                          {funnel.display_name || funnel.name}"
+                        </h3>
+
+                        {/* Добавление нового подключения */}
+                        <div className='space-y-3 border-t pt-4'>
+                          <div className='space-y-2'>
+                            <Label
+                              htmlFor={`new-connection-${funnel.id}`}
+                              className='text-sm'
+                            >
+                              Введите уникальный токен бота:
+                            </Label>
+                            <Input
+                              id={`new-connection-${funnel.id}`}
+                              placeholder={`Введите данные для подключения ${selectedIntegration} к воронке "${funnel.display_name || funnel.name}"`}
+                              onChange={(e) =>
+                                handleFunnelConnectionChange(
+                                  funnel.id,
+                                  e.target.value
+                                )
+                              }
+                              className='w-full'
+                            />
+                            <p className='text-xs text-gray-500'>
+                              После ввода данных подключение будет создано и
+                              сможет быть активировано.
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </div>
+
+                        {/* Существующие подключения для этой воронки */}
+                        {(() => {
+                          // Находим подключения для этой воронки из основного массива messengerConnections
+                          const funnelConnections = messengerConnections.filter(
+                            (conn) => {
+                              const matches =
+                                conn.messenger_type === selectedIntegration &&
+                                (conn.funnel_id === funnel.id ||
+                                  conn.funnel_id === funnel.id.toString());
+
+                              // Отладочная информация для каждого подключения
+                              if (conn.messenger_type === selectedIntegration) {
+                                console.log(`Checking connection ${conn.id}:`, {
+                                  messenger_type: conn.messenger_type,
+                                  funnel_id: conn.funnel_id,
+                                  funnel_name: conn.funnel_name,
+                                  target_funnel_id: funnel.id,
+                                  matches
+                                });
+                              }
+
+                              return matches;
+                            }
+                          );
+
+                          if (funnelConnections.length === 0) {
+                            return (
+                              <div className='rounded-lg border bg-gray-50 py-6 text-center text-gray-500 dark:bg-gray-800/50'>
+                                <p className='text-sm'>
+                                  Нет подключений{' '}
+                                  {
+                                    integrationServices.find(
+                                      (s) => s.id === selectedIntegration
+                                    )?.name
+                                  }{' '}
+                                  для воронки "
+                                  {funnel.display_name || funnel.name}"
+                                </p>
+                                <p className='mt-1 text-xs text-gray-400'>
+                                  Используйте поле ниже для создания нового
+                                  подключения
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className='space-y-3'>
+                              <h4 className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                                Подключения{' '}
+                                {
+                                  integrationServices.find(
+                                    (s) => s.id === selectedIntegration
+                                  )?.name
+                                }{' '}
+                                для воронки "
+                                {funnel.display_name || funnel.name}" (
+                                {funnelConnections.length}):
+                              </h4>
+                              {funnelConnections.map((connection) => {
+                                const isConnectionActive =
+                                  connection.is_active === true;
+                                const connectionName =
+                                  connection.name ||
+                                  connection.connection_data?.account ||
+                                  connection.connection_data?.username ||
+                                  connection.connection_data?.token ||
+                                  `Подключение для ${connection.funnel_name || 'воронки'}`;
+
+                                return (
+                                  <div
+                                    key={connection.id}
+                                    className='space-y-2 rounded-lg border bg-blue-50 p-3 dark:bg-blue-900/20'
+                                  >
+                                    <div className='flex items-center justify-between'>
+                                      <div className='flex items-center gap-2'>
+                                        <span className='text-sm font-medium'>
+                                          {connectionName}
+                                        </span>
+                                        {isConnectionActive && (
+                                          <Badge
+                                            variant='default'
+                                            className='bg-green-500 text-xs'
+                                          >
+                                            Активно
+                                          </Badge>
+                                        )}
+                                        {!isConnectionActive && (
+                                          <Badge
+                                            variant='secondary'
+                                            className='text-xs'
+                                          >
+                                            Неактивно
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <Button
+                                        variant='ghost'
+                                        size='sm'
+                                        onClick={() =>
+                                          handleDeleteConnection(connection.id)
+                                        }
+                                        className='h-6 w-6 p-0 text-red-500 hover:text-red-700'
+                                      >
+                                        <IconTrash size={14} />
+                                      </Button>
+                                    </div>
+                                    <div
+                                      className={cn(
+                                        'rounded px-2 py-1 text-xs',
+                                        isConnectionActive
+                                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                      )}
+                                    >
+                                      {isConnectionActive
+                                        ? '✓ Подключение активно для этой воронки'
+                                        : '○ Подключение настроено для этой воронки'}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </TabsContent>
                   );
                 })}
 
-                {/* Если нет подключений для данного типа */}
-                {messengerConnections.filter(
-                  (conn) => conn.messenger_type === selectedIntegration
-                ).length === 0 && (
-                  <div className='text-muted-foreground py-4 text-center text-sm'>
-                    Подключения для{' '}
-                    {
-                      integrationServices.find(
-                        (s) => s.id === selectedIntegration
-                      )?.name
-                    }{' '}
-                    не найдены
-                  </div>
-                )}
-
-                <div className='flex justify-end gap-2 border-t pt-4'>
+                <div className='mt-6 flex justify-end gap-2 border-t pt-4'>
                   <Button
                     variant='outline'
                     onClick={() => setIsDialogOpen(false)}
@@ -774,6 +952,14 @@ function IntegrationsPage() {
                     Сохранить
                   </Button>
                 </div>
+              </Tabs>
+            )}
+
+            {selectedIntegration && funnels.length === 0 && (
+              <div className='py-8 text-center'>
+                <p className='text-muted-foreground'>
+                  В организации нет воронок для настройки интеграций
+                </p>
               </div>
             )}
           </DialogContent>

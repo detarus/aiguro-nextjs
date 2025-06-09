@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string; clientId: string } }
-): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   console.log('=== GET CLIENT DIALOGS API START ===');
-  console.log('Organization ID:', params.id);
-  console.log('Client ID:', params.clientId);
   console.log('Method: GET');
   console.log('URL:', request.url);
   console.log('Timestamp:', new Date().toISOString());
 
   try {
+    // Extract parameters from URL
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const orgIdIndex = pathSegments.indexOf('organization') + 1;
+    const clientIdIndex = pathSegments.indexOf('client') + 1;
+    const orgId = pathSegments[orgIdIndex];
+    const clientId = pathSegments[clientIdIndex];
+
+    console.log('Organization ID:', orgId);
+    console.log('Client ID:', clientId);
+
     // Проверяем авторизацию
     console.log('=== AUTHORIZATION CHECK ===');
     const token = getClerkTokenFromCookie(request);
@@ -30,7 +36,7 @@ export async function GET(
 
     // Валидация параметров
     console.log('=== PARAMETER VALIDATION ===');
-    if (!params.id) {
+    if (!orgId) {
       console.error('❌ VALIDATION FAILED: Organization ID is required');
       return NextResponse.json(
         { error: 'Organization ID is required' },
@@ -38,7 +44,7 @@ export async function GET(
       );
     }
 
-    if (!params.clientId) {
+    if (!clientId) {
       console.error('❌ VALIDATION FAILED: Client ID is required');
       return NextResponse.json(
         { error: 'Client ID is required' },
@@ -50,7 +56,7 @@ export async function GET(
 
     // Делаем запрос к backend API
     console.log('=== BACKEND REQUEST PREPARATION ===');
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${params.id}/client/${params.clientId}/dialogs`;
+    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/client/${clientId}/dialogs`;
     console.log('Making GET request to:', apiUrl);
 
     // Выполняем запрос к backend

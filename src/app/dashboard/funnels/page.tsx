@@ -57,68 +57,71 @@ export default function FunnelsPage() {
   const getFunnelsCacheKey = () => `funnels_${backendOrgId}`;
   const getLastUpdatedKey = () => `funnels_last_updated_${backendOrgId}`;
 
-  // Функция проверки валидности кэша (10 минут)
-  const isCacheValid = () => {
-    const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
-    if (!lastUpdatedStr) return false;
+  // Общая функция сохранения в localStorage (используется вне fetchFunnels)
+  const saveToCache = useCallback(
+    (data: ApiFunnel[]) => {
+      if (!backendOrgId) return;
 
-    const lastUpdatedTime = new Date(lastUpdatedStr);
-    const now = new Date();
-    const diffMinutes =
-      (now.getTime() - lastUpdatedTime.getTime()) / (1000 * 60);
-
-    return diffMinutes < 10;
-  };
-
-  // Функция загрузки из localStorage
-  const loadFromCache = () => {
-    if (!backendOrgId) return null;
-
-    try {
-      const cachedData = localStorage.getItem(getFunnelsCacheKey());
-      const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
-
-      if (cachedData && lastUpdatedStr && isCacheValid()) {
-        const data = JSON.parse(cachedData);
-        setLastUpdated(new Date(lastUpdatedStr));
-        console.log('Loaded funnels from cache:', data);
-        return data;
+      try {
+        const now = new Date();
+        localStorage.setItem(getFunnelsCacheKey(), JSON.stringify(data));
+        localStorage.setItem(getLastUpdatedKey(), now.toISOString());
+        setLastUpdated(now);
+        console.log('Saved funnels to cache:', data);
+      } catch (error) {
+        console.error('Error saving to cache:', error);
       }
-    } catch (error) {
-      console.error('Error loading from cache:', error);
-    }
-
-    return null;
-  };
-
-  // Функция сохранения в localStorage
-  const saveToCache = (data: ApiFunnel[]) => {
-    if (!backendOrgId) return;
-
-    try {
-      const now = new Date();
-      localStorage.setItem(getFunnelsCacheKey(), JSON.stringify(data));
-      localStorage.setItem(getLastUpdatedKey(), now.toISOString());
-      setLastUpdated(now);
-      console.log('Saved funnels to cache:', data);
-    } catch (error) {
-      console.error('Error saving to cache:', error);
-    }
-  };
-
-  // Функция обработки данных воронок (активация по умолчанию и конверсия 50%)
-  const processFunnelsData = (rawFunnels: ApiFunnel[]): ApiFunnel[] => {
-    return rawFunnels.map((funnel) => ({
-      ...funnel,
-      is_active: funnel.is_active !== undefined ? funnel.is_active : true, // Активируем по умолчанию
-      conversion: 50 // Устанавливаем конверсию 50%
-    }));
-  };
+    },
+    [backendOrgId]
+  );
 
   // Функция загрузки воронок
   const fetchFunnels = useCallback(
     async (isRefresh = false) => {
       if (!backendOrgId) return;
+
+      // Функция проверки валидности кэша (10 минут)
+      const isCacheValid = () => {
+        const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
+        if (!lastUpdatedStr) return false;
+
+        const lastUpdatedTime = new Date(lastUpdatedStr);
+        const now = new Date();
+        const diffMinutes =
+          (now.getTime() - lastUpdatedTime.getTime()) / (1000 * 60);
+
+        return diffMinutes < 10;
+      };
+
+      // Функция загрузки из localStorage
+      const loadFromCache = () => {
+        if (!backendOrgId) return null;
+
+        try {
+          const cachedData = localStorage.getItem(getFunnelsCacheKey());
+          const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
+
+          if (cachedData && lastUpdatedStr && isCacheValid()) {
+            const data = JSON.parse(cachedData);
+            setLastUpdated(new Date(lastUpdatedStr));
+            console.log('Loaded funnels from cache:', data);
+            return data;
+          }
+        } catch (error) {
+          console.error('Error loading from cache:', error);
+        }
+
+        return null;
+      };
+
+      // Функция обработки данных воронок (активация по умолчанию и конверсия 50%)
+      const processFunnelsData = (rawFunnels: ApiFunnel[]): ApiFunnel[] => {
+        return rawFunnels.map((funnel) => ({
+          ...funnel,
+          is_active: funnel.is_active !== undefined ? funnel.is_active : true, // Активируем по умолчанию
+          conversion: 50 // Устанавливаем конверсию 50%
+        }));
+      };
 
       // Пытаемся загрузить из кэша если это не принудительное обновление
       if (!isRefresh) {
@@ -185,7 +188,7 @@ export default function FunnelsPage() {
         setIsRefreshing(false);
       }
     },
-    [backendOrgId]
+    [backendOrgId, saveToCache]
   );
 
   // Загрузка при изменении организации

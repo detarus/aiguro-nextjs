@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
-interface RouteParams {
-  params: {
-    id: string;
-    clientId: string;
-  };
-}
-
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams
+  { params }: { params: { id: string; clientId: string } }
 ): Promise<NextResponse> {
   console.log('=== GET CLIENT DIALOGS API START ===');
   console.log('Organization ID:', params.id);

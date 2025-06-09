@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
@@ -116,74 +116,77 @@ export default function FunnelsPage() {
   };
 
   // Функция загрузки воронок
-  const fetchFunnels = async (isRefresh = false) => {
-    if (!backendOrgId) return;
+  const fetchFunnels = useCallback(
+    async (isRefresh = false) => {
+      if (!backendOrgId) return;
 
-    // Пытаемся загрузить из кэша если это не принудительное обновление
-    if (!isRefresh) {
-      const cachedData = loadFromCache();
-      if (cachedData) {
-        setFunnels(cachedData);
-        setLoading(false);
-        return;
-      }
-    }
-
-    if (isRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      const token = getClerkTokenFromClientCookie();
-      if (!token) {
-        throw new Error('No token available in __session cookie');
+      // Пытаемся загрузить из кэша если это не принудительное обновление
+      if (!isRefresh) {
+        const cachedData = loadFromCache();
+        if (cachedData) {
+          setFunnels(cachedData);
+          setLoading(false);
+          return;
+        }
       }
 
-      console.log('Fetching funnels for organization:', backendOrgId);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
 
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnels`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+      try {
+        const token = getClerkTokenFromClientCookie();
+        if (!token) {
+          throw new Error('No token available in __session cookie');
+        }
+
+        console.log('Fetching funnels for organization:', backendOrgId);
+
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnels`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
           }
-        }
-      );
+        );
 
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          const errorText = await response.text();
-          errorMessage = errorText || errorMessage;
+        if (!response.ok) {
+          let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          }
+          throw new Error(errorMessage);
         }
-        throw new Error(errorMessage);
+
+        const rawData = await response.json();
+        console.log('Successfully fetched funnels from API:', rawData);
+
+        // Обрабатываем данные (активация по умолчанию, конверсия 50%)
+        const processedData = processFunnelsData(rawData);
+        console.log('Processed funnels data:', processedData);
+
+        setFunnels(processedData);
+        saveToCache(processedData);
+      } catch (error: any) {
+        console.error('Error fetching funnels:', error);
+        setError(error.message || 'Неизвестная ошибка');
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
       }
-
-      const rawData = await response.json();
-      console.log('Successfully fetched funnels from API:', rawData);
-
-      // Обрабатываем данные (активация по умолчанию, конверсия 50%)
-      const processedData = processFunnelsData(rawData);
-      console.log('Processed funnels data:', processedData);
-
-      setFunnels(processedData);
-      saveToCache(processedData);
-    } catch (error: any) {
-      console.error('Error fetching funnels:', error);
-      setError(error.message || 'Неизвестная ошибка');
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+    },
+    [backendOrgId]
+  );
 
   // Загрузка при изменении организации
   useEffect(() => {

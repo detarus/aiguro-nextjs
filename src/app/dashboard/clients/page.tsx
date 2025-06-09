@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
@@ -138,42 +138,45 @@ export default function ClientsPage() {
   };
 
   // Функция для полной загрузки данных
-  const fetchAllData = async (forceRefresh = false) => {
-    if (!backendOrgId || !currentFunnel?.id) {
-      console.log('Missing backendOrgId or currentFunnel.id, skipping fetch');
-      setLoading(false);
-      return;
-    }
+  const fetchAllData = useCallback(
+    async (forceRefresh = false) => {
+      if (!backendOrgId || !currentFunnel?.id) {
+        console.log('Missing backendOrgId or currentFunnel.id, skipping fetch');
+        setLoading(false);
+        return;
+      }
 
-    // Проверяем кэш только если не принудительное обновление
-    if (!forceRefresh && isCacheValid() && loadFromCache()) {
-      setLoading(false);
-      return;
-    }
+      // Проверяем кэш только если не принудительное обновление
+      if (!forceRefresh && isCacheValid() && loadFromCache()) {
+        setLoading(false);
+        return;
+      }
 
-    setError(null);
-    if (forceRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const clientsData = await fetchClientsFromServer();
-
-      // Сохраняем в кэш
-      saveToCache(clientsData);
-      setClients(clientsData);
       setError(null);
-    } catch (err) {
-      console.error('Error fetching clients:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setClients([]); // Очищаем клиентов при ошибке
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+      if (forceRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const clientsData = await fetchClientsFromServer();
+
+        // Сохраняем в кэш
+        saveToCache(clientsData);
+        setClients(clientsData);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching clients:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setClients([]); // Очищаем клиентов при ошибке
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [backendOrgId, currentFunnel?.id]
+  );
 
   // Функция обновления данных
   const handleRefresh = () => {
@@ -185,7 +188,7 @@ export default function ClientsPage() {
     if (organization && currentFunnel) {
       fetchAllData();
     }
-  }, [backendOrgId, currentFunnel?.id, fetchAllData, organization]);
+  }, [backendOrgId, currentFunnel?.id, organization, fetchAllData]);
 
   // Автоматическое обновление каждые 10 минут
   useEffect(() => {

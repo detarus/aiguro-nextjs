@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
@@ -249,49 +249,52 @@ export default function ClientDetailPage() {
   };
 
   // Функция для полной загрузки всех данных
-  const fetchAllData = async (forceRefresh = false) => {
-    if (!backendOrgId || !clientId) {
-      console.log('Missing backendOrgId or clientId, skipping fetch');
-      setLoading(false);
-      return;
-    }
+  const fetchAllData = useCallback(
+    async (forceRefresh = false) => {
+      if (!backendOrgId || !clientId) {
+        console.log('Missing backendOrgId or clientId, skipping fetch');
+        setLoading(false);
+        return;
+      }
 
-    // Проверяем кэш только если не принудительное обновление
-    if (!forceRefresh && isCacheValid() && loadFromCache()) {
-      setLoading(false);
-      return;
-    }
+      // Проверяем кэш только если не принудительное обновление
+      if (!forceRefresh && isCacheValid() && loadFromCache()) {
+        setLoading(false);
+        return;
+      }
 
-    setError(null);
-    if (forceRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+      setError(null);
+      if (forceRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-    try {
-      // Загружаем информацию о клиенте и его диалоги параллельно
-      const [clientInfoData, clientDialogsData] = await Promise.all([
-        fetchClientInfoFromServer(),
-        fetchClientDialogsFromServer()
-      ]);
+      try {
+        // Загружаем информацию о клиенте и его диалоги параллельно
+        const [clientInfoData, clientDialogsData] = await Promise.all([
+          fetchClientInfoFromServer(),
+          fetchClientDialogsFromServer()
+        ]);
 
-      // Сохраняем данные
-      setClientInfo(clientInfoData);
-      setDialogs(clientDialogsData);
+        // Сохраняем данные
+        setClientInfo(clientInfoData);
+        setDialogs(clientDialogsData);
 
-      // Сохраняем в кэш
-      saveToCache(clientDialogsData, clientInfoData);
-    } catch (err) {
-      console.error('Error fetching client data:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setClientInfo(null);
-      setDialogs([]);
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+        // Сохраняем в кэш
+        saveToCache(clientDialogsData, clientInfoData);
+      } catch (err) {
+        console.error('Error fetching client data:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setClientInfo(null);
+        setDialogs([]);
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [backendOrgId, clientId]
+  );
 
   // Функция обновления данных
   const handleRefresh = () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
@@ -290,7 +290,7 @@ function IntegrationsPage() {
   };
 
   // Функция загрузки всех данных
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!backendOrgId) return;
 
     setLoading(true);
@@ -318,7 +318,7 @@ function IntegrationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [backendOrgId]);
 
   // Функция обновления данных интеграций
   const updateIntegrationData = (

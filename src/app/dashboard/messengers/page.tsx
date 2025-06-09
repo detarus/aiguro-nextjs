@@ -64,7 +64,7 @@ interface Dialog {
 interface Message {
   id: string;
   text: string;
-  sender: 'client' | 'ai' | 'assistant';
+  sender: 'client' | 'ai' | 'assistant' | 'user';
   timestamp: string;
   time?: string;
 }
@@ -705,18 +705,16 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                     <div
                       key={message.id}
                       className={`flex ${
-                        message.sender === 'ai' ||
-                        message.sender === 'assistant'
-                          ? 'justify-start' // AI/assistant - слева
-                          : 'justify-end' // client - справа
+                        message.sender === 'user'
+                          ? 'justify-end' // User - справа
+                          : 'justify-start' // Assistant/AI/Client - слева
                       }`}
                     >
                       <div
                         className={`max-w-[70%] rounded-lg p-3 ${
-                          message.sender === 'ai' ||
-                          message.sender === 'assistant'
-                            ? 'bg-muted' // AI/assistant - серый фон
-                            : 'bg-primary text-primary-foreground' // client - синий фон
+                          message.sender === 'user'
+                            ? 'bg-primary text-primary-foreground' // User - синий фон
+                            : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100' // Assistant/AI/Client - светлый фон
                         }`}
                       >
                         <div className='text-sm'>{message.text}</div>

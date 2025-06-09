@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
@@ -64,7 +64,7 @@ interface Dialog {
 interface Message {
   id: string;
   text: string;
-  sender: 'client' | 'ai';
+  sender: 'client' | 'ai' | 'assistant';
   timestamp: string;
   time?: string;
 }
@@ -90,6 +90,9 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
     total: 0,
     status: ''
   });
+
+  // Ref для автоматической прокрутки к последнему сообщению
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { organization } = useOrganization();
   const { currentFunnel } = useFunnels(
@@ -498,6 +501,13 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 
   const selectedDialog = dialogs.find((d) => d.uuid === selectedDialogId);
 
+  // Автоматическая прокрутка к последнему сообщению при изменении сообщений
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [selectedDialogMessages]);
+
   const getInitials = (name: string) => {
     if (!name || name === 'Неизвестно') return '?';
     return name
@@ -690,16 +700,23 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                     </p>
                   </div>
                 ) : (
-                  selectedDialogMessages.map((message) => (
+                  // Показываем сообщения в порядке от старых к новым (reverse array)
+                  [...selectedDialogMessages].reverse().map((message) => (
                     <div
                       key={message.id}
-                      className={`flex ${message.sender === 'client' ? 'justify-start' : 'justify-end'}`}
+                      className={`flex ${
+                        message.sender === 'ai' ||
+                        message.sender === 'assistant'
+                          ? 'justify-start' // AI/assistant - слева
+                          : 'justify-end' // client - справа
+                      }`}
                     >
                       <div
                         className={`max-w-[70%] rounded-lg p-3 ${
-                          message.sender === 'client'
-                            ? 'bg-muted'
-                            : 'bg-primary text-primary-foreground'
+                          message.sender === 'ai' ||
+                          message.sender === 'assistant'
+                            ? 'bg-muted' // AI/assistant - серый фон
+                            : 'bg-primary text-primary-foreground' // client - синий фон
                         }`}
                       >
                         <div className='text-sm'>{message.text}</div>
@@ -710,6 +727,8 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                     </div>
                   ))
                 )}
+                {/* Элемент для автоматической прокрутки */}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Message input */}

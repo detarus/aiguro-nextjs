@@ -1248,8 +1248,8 @@ export function DialogsDebug() {
                   <strong>Информация:</strong> Список клиентов загружается...
                   <br />
                   <small>
-                    Если список не загружается, сначала выполните "Get All
-                    Clients" в Clients Debug Info
+                    Если список не загружается, сначала выполните &quot;Get All
+                    Clients&quot; в Clients Debug Info
                   </small>
                 </div>
               )}

@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { IconSettings } from '@tabler/icons-react';
+
 import { PageContainer } from '@/components/ui/page-container';
 
 export default function SettingsPage() {

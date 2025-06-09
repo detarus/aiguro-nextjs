@@ -1212,13 +1212,13 @@ export function ClientsDebug() {
               {selectedClientForDelete && (
                 <div className='rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-900/20'>
                   <p className='text-sm text-gray-600 dark:text-gray-300'>
-                    Are you sure you want to delete client "
+                    Are you sure you want to delete client &quot;
                     {
                       availableClients.find(
                         (c: any) => c.id === selectedClientForDelete
                       )?.name
                     }
-                    "?
+                    &quot;?
                   </p>
                 </div>
               )}

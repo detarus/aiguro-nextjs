@@ -9,10 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import {
-  IconPlus,
-  IconEdit,
   IconTrash,
-  IconChevronLeft,
   IconSettings,
   IconBrandTelegram,
   IconBrandWhatsapp,
@@ -27,8 +24,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger
+  DialogTitle
 } from '@/components/ui/dialog';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
@@ -392,7 +388,7 @@ function IntegrationsPage() {
     if (backendOrgId) {
       loadData();
     }
-  }, [backendOrgId]);
+  }, [backendOrgId, loadData]);
 
   const handleIntegrationClick = (integrationId: string) => {
     const integration = integrationServices.find((i) => i.id === integrationId);
@@ -678,7 +674,7 @@ function IntegrationsPage() {
                         Подключенные воронки:
                       </div>
                       <div className='space-y-1'>
-                        {firstThreeAccounts.map((account, index) => (
+                        {firstThreeAccounts.map((account) => (
                           <div
                             key={account.id}
                             className='flex items-center justify-between rounded bg-gray-50 p-2 text-xs dark:bg-gray-800'

@@ -185,7 +185,7 @@ export default function ClientsPage() {
     if (organization && currentFunnel) {
       fetchAllData();
     }
-  }, [backendOrgId, currentFunnel?.id]);
+  }, [backendOrgId, currentFunnel?.id, fetchAllData, organization]);
 
   // Автоматическое обновление каждые 10 минут
   useEffect(() => {
@@ -197,7 +197,7 @@ export default function ClientsPage() {
     }, CACHE_DURATION);
 
     return () => clearInterval(interval);
-  }, [backendOrgId, currentFunnel?.id]);
+  }, [backendOrgId, currentFunnel?.id, CACHE_DURATION, fetchAllData]);
 
   // Динамически рассчитываем max-width в зависимости от состояния сайдбара
   const getMaxWidth = () => {

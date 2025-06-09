@@ -6,7 +6,6 @@ import { OrganizationGuard } from '@/components/organization-guard';
 import { OrganizationCreationProvider } from '@/contexts/OrganizationCreationContext';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import OnboardingModalWrapper from '@/components/onboarding/onboarding-modal-wrapper';
 
 export const metadata: Metadata = {
   title: 'AI Guro Sales Platform',

@@ -4,13 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import { CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -309,7 +303,7 @@ export default function ClientDetailPage() {
     if (organization && clientId) {
       fetchAllData();
     }
-  }, [backendOrgId, clientId]);
+  }, [backendOrgId, clientId, fetchAllData, organization]);
 
   // Автообновление каждые 10 минут
   useEffect(() => {
@@ -323,7 +317,7 @@ export default function ClientDetailPage() {
     ); // 10 минут
 
     return () => clearInterval(interval);
-  }, [isRefreshing, loading]);
+  }, [isRefreshing, loading, fetchAllData]);
 
   // Сброс позиции прокрутки при изменении клиента
   useEffect(() => {

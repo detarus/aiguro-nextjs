@@ -8,21 +8,10 @@ interface FunnelStage {
   }>;
 }
 
-interface CreateFunnelRequest {
-  display_name: string;
-  stages: FunnelStage[];
-}
-
-interface CreateFunnelResponse {
-  display_name: string;
-  stages: FunnelStage[];
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // Organization ID from params: params.id (for future use)
   try {
     const body = await req.json();
     // Валидация структуры запроса

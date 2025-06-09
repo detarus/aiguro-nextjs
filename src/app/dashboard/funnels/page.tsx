@@ -190,7 +190,7 @@ export default function FunnelsPage() {
     if (backendOrgId) {
       fetchFunnels();
     }
-  }, [backendOrgId]);
+  }, [backendOrgId, fetchFunnels]);
 
   // Автоматическое обновление каждые 10 минут
   useEffect(() => {
@@ -205,7 +205,7 @@ export default function FunnelsPage() {
     ); // 10 минут
 
     return () => clearInterval(interval);
-  }, [backendOrgId]);
+  }, [backendOrgId, fetchFunnels]);
 
   // Функция обновления данных
   const handleRefresh = () => {

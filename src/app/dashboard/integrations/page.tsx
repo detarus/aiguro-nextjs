@@ -216,6 +216,7 @@ function IntegrationsPage() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(
     null
   );
+
   const [integrationData, setIntegrationData] = useState(integrationDetails);
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [messengerConnections, setMessengerConnections] = useState<
@@ -410,42 +411,6 @@ function IntegrationsPage() {
     e.stopPropagation();
   };
 
-  const handleFieldChange = (
-    integrationId: string,
-    fieldId: number,
-    newValue: string
-  ) => {
-    setIntegrationData((prev) => ({
-      ...prev,
-      [integrationId]: {
-        ...prev[integrationId as keyof typeof prev],
-        fields:
-          prev[integrationId as keyof typeof prev]?.fields.map((field) =>
-            field.id === fieldId ? { ...field, value: newValue } : field
-          ) || []
-      }
-    }));
-  };
-
-  // Функция для обработки изменений подключений
-  const handleConnectionChange = (connectionId: string, value: string) => {
-    setMessengerConnections((prev) => {
-      return prev.map((conn) => {
-        if (conn.id === connectionId) {
-          return {
-            ...conn,
-            name: value, // Обновляем имя подключения
-            connection_data: {
-              ...conn.connection_data,
-              account: value
-            }
-          };
-        }
-        return conn;
-      });
-    });
-  };
-
   // Функция для удаления подключения
   const handleDeleteConnection = (connectionId: string) => {
     setMessengerConnections((prev) =>
@@ -484,44 +449,6 @@ function IntegrationsPage() {
           messenger_type: selectedIntegration || '',
           connection_data: { account: value },
           is_active: false
-        };
-        return [...prev, newConnection];
-      }
-
-      return prev;
-    });
-  };
-
-  // Новая функция для обработки изменений интеграций воронок
-  const handleFunnelIntegrationChange = (funnelId: string, value: string) => {
-    // Обновляем локальное состояние messengerConnections
-    setMessengerConnections((prev) => {
-      const existingConnectionIndex = prev.findIndex(
-        (conn) =>
-          conn.funnel_id === funnelId &&
-          conn.messenger_type === selectedIntegration
-      );
-
-      if (existingConnectionIndex >= 0) {
-        // Обновляем существующее подключение
-        const updated = [...prev];
-        updated[existingConnectionIndex] = {
-          ...updated[existingConnectionIndex],
-          connection_data: {
-            ...updated[existingConnectionIndex].connection_data,
-            account: value
-          }
-        };
-        return updated;
-      } else if (value.trim()) {
-        // Создаем новое подключение, если введено значение
-        const newConnection: MessengerConnection = {
-          id: `temp-${funnelId}-${selectedIntegration}`,
-          name: null,
-          funnel_id: funnelId,
-          messenger_type: selectedIntegration || '',
-          connection_data: { account: value },
-          is_active: true
         };
         return [...prev, newConnection];
       }

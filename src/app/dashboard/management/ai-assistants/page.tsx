@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -16,13 +15,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog';
+
 import { IconEdit } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
@@ -174,19 +167,6 @@ export default function AIAssistantsPage() {
   // Получаем список этапов для передачи (исключая текущий)
   const getTransferOptions = (currentStageId: number) => {
     return stages.filter((stage) => stage.id !== currentStageId);
-  };
-
-  const openEditDialog = (stage: StageSettings) => {
-    setEditingStage({ ...stage });
-    setEditDialogOpen(true);
-  };
-
-  const saveStageEdit = () => {
-    if (editingStage) {
-      handleStageChange(editingStage.id, 'name', editingStage.name);
-      setEditDialogOpen(false);
-      setEditingStage(null);
-    }
   };
 
   const startInlineEdit = (stageId: number) => {

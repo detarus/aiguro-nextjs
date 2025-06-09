@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-interface FunnelStage {
-  name: string;
-  assistant_code_name: string;
-  followups?: Array<{
-    delay_minutes: number;
-    assistant_code_name: string;
-  }>;
-}
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Organization ID from params: params.id (for future use)
+  console.log('Organization ID:', params.id);
   try {
     const body = await req.json();
     // Валидация структуры запроса

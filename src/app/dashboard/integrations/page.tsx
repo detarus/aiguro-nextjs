@@ -220,7 +220,6 @@ function IntegrationsPage() {
     null
   );
 
-  const [integrationData, setIntegrationData] = useState(integrationDetails);
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [messengerConnections, setMessengerConnections] = useState<
     MessengerConnection[]
@@ -300,28 +299,6 @@ function IntegrationsPage() {
     }
   };
 
-  // Функция загрузки всех подключений организации
-  const fetchAllOrganizationConnections = async () => {
-    if (!backendOrgId) return [];
-
-    try {
-      // Загружаем воронки, если они еще не загружены
-      const funnelsData = funnels.length > 0 ? funnels : await fetchFunnels();
-
-      // Загружаем интеграции для каждой воронки
-      const allConnections: MessengerConnection[] = [];
-      for (const funnel of funnelsData) {
-        const connections = await fetchMessengerConnections(funnel.id);
-        allConnections.push(...connections);
-      }
-
-      return allConnections;
-    } catch (error) {
-      console.error('Error fetching all organization connections:', error);
-      return [];
-    }
-  };
-
   // Функция загрузки всех данных
   const loadData = useCallback(async () => {
     if (!backendOrgId) return;
@@ -368,7 +345,7 @@ function IntegrationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [backendOrgId]);
+  }, [backendOrgId, fetchFunnels, fetchMessengerConnections]);
 
   // Функция обновления данных интеграций
   const updateIntegrationData = (
@@ -430,7 +407,6 @@ function IntegrationsPage() {
       }
     });
 
-    setIntegrationData(newIntegrationData);
     setIntegrationStatuses(newStatuses);
   };
 
@@ -828,8 +804,8 @@ function IntegrationsPage() {
                       >
                         <div className='space-y-4'>
                           <h3 className='text-lg font-medium'>
-                            Подключения для воронки "
-                            {funnel.display_name || funnel.name}"
+                            Подключения для воронки &quot;
+                            {funnel.display_name || funnel.name}&quot;
                           </h3>
 
                           {/* Добавление нового подключения */}
@@ -912,8 +888,8 @@ function IntegrationsPage() {
                                         (s) => s.id === selectedIntegration
                                       )?.name
                                     }{' '}
-                                    для воронки "
-                                    {funnel.display_name || funnel.name}"
+                                    для воронки &quot;
+                                    {funnel.display_name || funnel.name}&quot;
                                   </p>
                                   <p className='mt-1 text-xs text-gray-400'>
                                     Используйте поле ниже для создания нового

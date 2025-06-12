@@ -1,136 +1,72 @@
 'use client';
 
-import React, { useState } from 'react';
-import PageContainer from '@/components/layout/page-container';
+import React, { useState, useEffect, useCallback } from 'react';
+import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-
-import { IconEdit } from '@tabler/icons-react';
+import { IconArrowLeft } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
-interface GeneralSettings {
-  contextMemory: number;
-  batchCollection: number;
-  agentPause: boolean;
-  pauseOnFirstSend: boolean;
-  resumeAfterPause: boolean;
-  spamProtection: boolean;
-  workZone: string;
-  voiceQuestions: boolean;
-  knowledgeBase: boolean;
-  chunkEnabled: boolean;
-  chunkSettings: string;
+// Импорт компонентов
+import { GeneralSettingsComponent } from './components/GeneralSettings';
+import { StageConfiguration } from './components/StageConfiguration';
+import { AISettingsComponent } from './components/AISettings';
+import { LoadingProgress } from './components/LoadingProgress';
+import { SkeletonLoader } from './components/SkeletonLoader';
+
+// Интерфейсы
+interface AISettings {
+  mode: 'complete' | 'insert' | 'edit';
+  model: string;
+  temperature: number;
+  maxLength: number;
+  topP: number;
+  preset: string;
+  followUp: {
+    enabled: boolean;
+    count: number;
+    delay: number;
+  };
+  transfer: string;
 }
 
 interface StageSettings {
   id: number;
   name: string;
   prompt: string;
-  testArea: string;
   isActive: boolean;
-  model: string;
-  followUp: {
-    option1: string;
-    option2: string;
-    enabled: boolean;
+  aiSettings: AISettings;
+}
+
+interface GeneralSettings {
+  cookieSettings: {
+    strictlyNecessary1: boolean;
+    functionalCookies1: boolean;
+    strictlyNecessary2: boolean;
+    functionalCookies2: boolean;
+    strictlyNecessary3: boolean;
+    functionalCookies3: boolean;
+    functionalCookies4: boolean;
   };
-  transfer: string;
 }
 
 export default function AIAssistantsPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-
-  // Константы для localStorage
-  const getAssistantsStorageKey = () =>
-    `assistants_data_${backendOrgId}_${currentFunnel?.id}`;
-
-  // Функции для работы с localStorage
-  const saveAssistantsToStorage = (assistants: any[]) => {
-    try {
-      localStorage.setItem(
-        getAssistantsStorageKey(),
-        JSON.stringify(assistants)
-      );
-    } catch (error) {
-      console.error('Error saving assistants to localStorage:', error);
-    }
-  };
-
-  const loadAssistantsFromStorage = (): any[] => {
-    try {
-      const stored = localStorage.getItem(getAssistantsStorageKey());
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      console.error('Error loading assistants from localStorage:', error);
-      return [];
-    }
-  };
-
-  const clearAssistantsFromStorage = () => {
-    try {
-      // Очищаем данные для текущей воронки
-      localStorage.removeItem(getAssistantsStorageKey());
-
-      // Очищаем все данные ассистентов (при смене компании)
-      const keys = Object.keys(localStorage);
-      keys.forEach((key) => {
-        if (key.startsWith('assistants_data_')) {
-          localStorage.removeItem(key);
-        }
-      });
-    } catch (error) {
-      console.error('Error clearing assistants from localStorage:', error);
-    }
-  };
   const { currentFunnel } = useFunnels(backendOrgId);
 
-  // Состояние для загрузки данных текущей воронки
-  const [currentFunnelData, setCurrentFunnelData] = useState<any>(null);
-  const [currentFunnelLoading, setCurrentFunnelLoading] = useState(false);
-  const [currentFunnelError, setCurrentFunnelError] = useState<string | null>(
-    null
-  );
-
-  // Состояния для обновления промпта
-  const [updatePromptLoading, setUpdatePromptLoading] = useState(false);
-  const [updatePromptError, setUpdatePromptError] = useState<string | null>(
-    null
-  );
-  const [updatePromptSuccess, setUpdatePromptSuccess] = useState<string | null>(
-    null
-  );
-
-  // Состояния для данных ассистентов
-  const [assistantsData, setAssistantsData] = useState<any[]>([]);
-  const [assistantsLoading, setAssistantsLoading] = useState(false);
-  const [assistantsError, setAssistantsError] = useState<string | null>(null);
-
+  // Состояния
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
-    contextMemory: 50,
-    batchCollection: 5,
-    agentPause: true,
-    pauseOnFirstSend: true,
-    resumeAfterPause: true,
-    spamProtection: true,
-    workZone: 'Moscow',
-    voiceQuestions: true,
-    knowledgeBase: true,
-    chunkEnabled: true,
-    chunkSettings: '300 символов\nчерез 2 сек'
+    cookieSettings: {
+      strictlyNecessary1: true,
+      functionalCookies1: false,
+      strictlyNecessary2: true,
+      functionalCookies2: false,
+      strictlyNecessary3: true,
+      functionalCookies3: false,
+      functionalCookies4: false
+    }
   });
 
   const [stages, setStages] = useState<StageSettings[]>([
@@ -138,915 +74,647 @@ export default function AIAssistantsPage() {
       id: 1,
       name: 'Этап 1',
       prompt: '',
-      testArea: '',
       isActive: true,
-      model: 'gpt-4.1 mini',
-      followUp: {
-        option1: '1 - 0 ч 20 мин',
-        option2: '2 - 2 ч 40 мин',
-        enabled: true
-      },
-      transfer: '2'
-    },
-    {
-      id: 2,
-      name: 'Этап 2',
-      prompt: '',
-      testArea: '',
-      isActive: false,
-      model: 'gpt-4.1 mini',
-      followUp: {
-        option1: '1 - 0 ч 20 мин',
-        option2: '2 - 2 ч 40 мин',
-        enabled: true
-      },
-      transfer: 'manager'
+      aiSettings: {
+        mode: 'edit',
+        model: 'GPT-4.1 mini',
+        temperature: 0.56,
+        maxLength: 256,
+        topP: 0.9,
+        preset: 'Пресет 1',
+        followUp: {
+          enabled: true,
+          count: 2,
+          delay: 20
+        },
+        transfer: 'Менеджеру'
+      }
     }
   ]);
 
   const [activeStageId, setActiveStageId] = useState<number>(1);
-  const [unsavedChanges, setUnsavedChanges] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingStage, setEditingStage] = useState<StageSettings | null>(null);
-  const [editingStageId, setEditingStageId] = useState<number | null>(null);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'setup' | 'test'>(
+    'setup'
+  );
+  const [instructions, setInstructions] = useState('Fix the grammar.');
 
-  const handleGeneralSettingChange = (
-    key: keyof GeneralSettings,
-    value: any
-  ) => {
-    setGeneralSettings((prev) => ({ ...prev, [key]: value }));
-    setUnsavedChanges(true);
-  };
+  // Состояния для загрузки
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleStageChange = (
-    id: number,
-    field: keyof StageSettings,
-    value: any
-  ) => {
-    setStages((prev) =>
-      prev.map((stage) =>
-        stage.id === id ? { ...stage, [field]: value } : stage
-      )
-    );
-    setUnsavedChanges(true);
-  };
+  // Состояние для отслеживания первой загрузки
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
-  const addStage = () => {
-    const newStage: StageSettings = {
-      id: stages.length + 1,
-      name: `Этап ${stages.length + 1}`,
+  // Состояния для прогресс-бара
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [currentLoadingStep, setCurrentLoadingStep] = useState('');
+  const [hasLocalData, setHasLocalData] = useState(false);
+
+  // Состояние для промптов этапов
+  const [stagePrompts, setStagePrompts] = useState<Record<string, string>>({});
+
+  // Состояние для данных воронки
+  const [currentFunnelData, setCurrentFunnelData] = useState<any>(null);
+
+  // Функция для создания этапов на основе данных воронки
+  const createStagesFromFunnelData = useCallback((funnelData: any) => {
+    if (!funnelData?.stages) {
+      return [
+        {
+          id: 1,
+          name: 'Этап 1',
+          prompt: '',
+          isActive: true,
+          aiSettings: {
+            mode: 'edit' as const,
+            model: 'GPT-4.1 mini',
+            temperature: 0.56,
+            maxLength: 256,
+            topP: 0.9,
+            preset: 'Пресет 1',
+            followUp: {
+              enabled: true,
+              count: 2,
+              delay: 20
+            },
+            transfer: 'Менеджеру'
+          }
+        }
+      ];
+    }
+
+    return funnelData.stages.map((stage: any, index: number) => ({
+      id: index + 1,
+      name: stage.name || `Этап ${index + 1}`,
       prompt: '',
-      testArea: '',
-      isActive: false,
-      model: 'gpt-4.1 mini',
-      followUp: {
-        option1: '1 - 0 ч 20 мин',
-        option2: '2 - 2 ч 40 мин',
-        enabled: true
-      },
-      transfer: 'manager'
-    };
-    setStages((prev) => [...prev, newStage]);
-    setUnsavedChanges(true);
-  };
+      isActive: index === 0,
+      aiSettings: {
+        mode: 'edit' as const,
+        model: 'GPT-4.1 mini',
+        temperature: 0.56,
+        maxLength: 256,
+        topP: 0.9,
+        preset: 'Пресет 1',
+        followUp: {
+          enabled: true,
+          count: 2,
+          delay: 20
+        },
+        transfer: 'Менеджеру'
+      }
+    }));
+  }, []);
 
-  const selectStage = (stageId: number) => {
-    setActiveStageId(stageId);
-    // Очищаем сообщения при смене этапа
-    setUpdatePromptError(null);
-    setUpdatePromptSuccess(null);
-  };
-
-  const saveSettings = () => {
-    console.log('Saving settings:', { generalSettings, stages });
-    setUnsavedChanges(false);
-  };
-
-  const activeStage = stages.find((stage) => stage.id === activeStageId);
-
-  // Получаем список этапов для передачи (исключая текущий)
-  const getTransferOptions = (currentStageId: number) => {
-    return stages.filter((stage) => stage.id !== currentStageId);
-  };
-
-  const startInlineEdit = (stageId: number) => {
-    setEditingStageId(stageId);
-  };
-
-  const saveInlineEdit = (stageId: number, newName: string) => {
-    if (newName.trim()) {
-      handleStageChange(stageId, 'name', newName.trim());
+  // Функция обновления промпта этапа
+  const updateStagePrompt = async (stageId: number, prompt: string) => {
+    if (!backendOrgId || !currentFunnel?.id || !currentFunnelData?.stages) {
+      setError('Отсутствуют необходимые данные для сохранения');
+      return false;
     }
-    setEditingStageId(null);
-  };
-
-  const cancelInlineEdit = () => {
-    setEditingStageId(null);
-  };
-
-  // Функция для загрузки всех ассистентов (Get All Assistants)
-  const fetchAllAssistants = async () => {
-    if (!backendOrgId || !currentFunnel?.id) {
-      return;
-    }
-
-    const token = getClerkTokenFromClientCookie();
-    if (!token) {
-      setAssistantsError('Отсутствует токен аутентификации');
-      return;
-    }
-
-    console.log('Fetching all assistants for funnel:', currentFunnel.id);
-    setAssistantsLoading(true);
-    setAssistantsError(null);
 
     try {
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistants`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      setSaving(true);
+      setError(null);
 
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // Ignore parsing errors
-        }
-        throw new Error(errorMessage);
+      const stage = currentFunnelData.stages[stageId - 1];
+      if (!stage?.assistant_code_name) {
+        setError('Не найден код ассистента для этого этапа');
+        return false;
       }
 
-      const data = await response.json();
-      console.log('Successfully fetched assistants:', data);
-
-      const assistants = Array.isArray(data) ? data : [];
-      setAssistantsData(assistants);
-      saveAssistantsToStorage(assistants);
-    } catch (error: any) {
-      console.error('Error fetching assistants:', error);
-      setAssistantsError(error.message || 'Ошибка загрузки ассистентов');
-
-      // Пытаемся загрузить из localStorage при ошибке
-      const storedAssistants = loadAssistantsFromStorage();
-      setAssistantsData(storedAssistants);
-    } finally {
-      setAssistantsLoading(false);
-    }
-  };
-
-  // Функция для загрузки данных текущей воронки (аналогично Get Current Funnel)
-  const fetchCurrentFunnelData = async () => {
-    if (!backendOrgId || !currentFunnel?.id) return;
-
-    const token = getClerkTokenFromClientCookie();
-    if (!token) {
-      setCurrentFunnelError('No token available in __session cookie');
-      return;
-    }
-
-    setCurrentFunnelLoading(true);
-    setCurrentFunnelError(null);
-
-    try {
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // Ignore parsing errors
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-      setCurrentFunnelData(data);
-    } catch (error: any) {
-      setCurrentFunnelError(error.message || 'Unknown error occurred');
-    } finally {
-      setCurrentFunnelLoading(false);
-    }
-  };
-
-  // Загружаем данные воронки и ассистентов при изменении currentFunnel
-  React.useEffect(() => {
-    if (currentFunnel?.id && backendOrgId) {
-      // Загружаем данные воронки
-      fetchCurrentFunnelData();
-
-      // Сначала пытаемся загрузить из localStorage
-      const storedAssistants = loadAssistantsFromStorage();
-      if (storedAssistants.length > 0) {
-        console.log('Loading assistants from localStorage');
-        setAssistantsData(storedAssistants);
-      } else {
-        // Если данных в localStorage нет, загружаем с сервера
-        console.log('No assistants in localStorage, fetching from server');
-        fetchAllAssistants();
-      }
-    } else {
-      setCurrentFunnelData(null);
-      setCurrentFunnelError(null);
-      setAssistantsData([]);
-      setAssistantsError(null);
-    }
-  }, [currentFunnel?.id, backendOrgId]);
-
-  // Очищаем localStorage при смене организации
-  React.useEffect(() => {
-    if (backendOrgId) {
-      // При смене организации очищаем все данные ассистентов
-      clearAssistantsFromStorage();
-      setAssistantsData([]);
-    }
-  }, [backendOrgId]);
-
-  // Функция для получения промпта ассистента по code_name
-  const getAssistantPrompt = (codeName: string): string => {
-    const assistant = assistantsData.find((a) => a.code_name === codeName);
-    return assistant?.text || '';
-  };
-
-  // Функция для обновления данных ассистента в localStorage
-  const updateAssistantInStorage = (codeName: string, newText: string) => {
-    const updatedAssistants = assistantsData.map((assistant) =>
-      assistant.code_name === codeName
-        ? { ...assistant, text: newText }
-        : assistant
-    );
-    setAssistantsData(updatedAssistants);
-    saveAssistantsToStorage(updatedAssistants);
-  };
-
-  // Функция для обновления промпта ассистента этапа
-  const handleUpdateStagePrompt = async () => {
-    console.log('=== UPDATE STAGE PROMPT START ===');
-
-    if (!backendOrgId || !currentFunnel?.id) {
-      setUpdatePromptError('Отсутствует организация или воронка');
-      return;
-    }
-
-    const token = getClerkTokenFromClientCookie();
-    if (!token) {
-      setUpdatePromptError('Отсутствует токен аутентификации');
-      return;
-    }
-
-    const currentStage = currentFunnelData?.stages?.[activeStageId - 1];
-    if (!currentStage) {
-      setUpdatePromptError('Этап не найден');
-      return;
-    }
-
-    const assistant_code_name = currentStage.assistant_code_name;
-    if (!assistant_code_name) {
-      setUpdatePromptError('У этапа нет назначенного ассистента');
-      return;
-    }
-
-    // Получаем текущий промпт из ассистентов или из данных воронки
-    let promptText = '';
-    if (assistantsData.length > 0) {
-      promptText = getAssistantPrompt(assistant_code_name);
-    }
-
-    // Если промпт не найден в ассистентах, берём из currentFunnelData
-    if (!promptText) {
-      promptText = currentStage.prompt || '';
-    }
-
-    if (!promptText || !promptText.trim()) {
-      setUpdatePromptError('Промпт не может быть пустым');
-      return;
-    }
-
-    setUpdatePromptLoading(true);
-    setUpdatePromptError(null);
-    setUpdatePromptSuccess(null);
-
-    try {
-      const requestBody = {
-        code_name: assistant_code_name,
-        text: promptText.trim()
-      };
-
-      console.log('Updating assistant:', requestBody);
+      const token = await getClerkTokenFromClientCookie();
 
       const response = await fetch(
         `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant`,
         {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify({
+            code_name: stage.assistant_code_name,
+            text: prompt
+          })
         }
       );
 
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch {
-          // Ignore parsing errors
-        }
-        throw new Error(errorMessage);
+      if (response.ok) {
+        console.log('Промпт успешно сохранен через API');
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error('Server error:', errorData);
+        setError(
+          `Ошибка сервера: ${errorData.message || 'Неизвестная ошибка'}`
+        );
+        return false;
       }
-
-      const data = await response.json();
-      console.log('Successfully updated stage prompt:', data);
-
-      // Обновляем данные в localStorage
-      updateAssistantInStorage(assistant_code_name, promptText.trim());
-
-      setUpdatePromptSuccess(
-        `Промпт для этапа "${currentStage.name}" успешно обновлён!`
-      );
-
-      // Убираем сообщение об успехе через 3 секунды
-      setTimeout(() => {
-        setUpdatePromptSuccess(null);
-      }, 3000);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating stage prompt:', error);
-      setUpdatePromptError(error.message || 'Произошла ошибка при обновлении');
+      setError('Ошибка при сохранении промпта');
+      return false;
     } finally {
-      setUpdatePromptLoading(false);
+      setSaving(false);
     }
   };
 
-  // Синхронизируем локальные этапы с данными из API
-  React.useEffect(() => {
-    if (currentFunnelData?.stages) {
-      const apiStages = currentFunnelData.stages.map(
-        (stage: any, index: number) => ({
-          id: index + 1,
-          name: stage.name || `Этап ${index + 1}`,
-          prompt: stage.prompt || '',
-          testArea: '',
-          isActive: index === 0,
-          model: 'gpt-4.1 mini',
-          followUp: {
-            option1: '1 - 0 ч 20 мин',
-            option2: '2 - 2 ч 40 мин',
-            enabled: true
-          },
-          transfer:
-            index === currentFunnelData.stages.length - 1
-              ? 'manager'
-              : (index + 2).toString()
-        })
-      );
-      setStages(apiStages);
+  // Сохранение AI настроек в localStorage
+  const saveAISettingsToLocalStorage = useCallback(() => {
+    if (!backendOrgId || !currentFunnel?.id) return;
 
-      // Устанавливаем первый этап как активный, если нет активного
-      if (!activeStageId && apiStages.length > 0) {
-        setActiveStageId(1);
-      }
+    try {
+      const aiSettingsKey = `ai_settings_${backendOrgId}_${currentFunnel.id}`;
+      const aiSettingsToSave: Record<string, AISettings> = {};
+
+      stages.forEach((stage) => {
+        aiSettingsToSave[`stage_${stage.id}`] = stage.aiSettings;
+      });
+
+      localStorage.setItem(aiSettingsKey, JSON.stringify(aiSettingsToSave));
+    } catch (error) {
+      console.error('Error saving AI settings to localStorage:', error);
     }
-  }, [currentFunnelData]);
+  }, [stages, backendOrgId, currentFunnel?.id]);
+
+  // Эффект для автосохранения AI настроек (убираем автосохранение, чтобы избежать циклов)
+  // useEffect(() => {
+  //   if (!isFirstLoad) {
+  //     saveAISettingsToLocalStorage();
+  //   }
+  // }, [stages, saveAISettingsToLocalStorage, isFirstLoad]);
+
+  // Эффект для загрузки данных при монтировании
+  useEffect(() => {
+    if (!backendOrgId || !currentFunnel?.id || !isFirstLoad) return;
+
+    // Проверяем наличие локальных данных
+    const checkLocalData = () => {
+      try {
+        const promptsKey = `ai-assistants-prompts-${backendOrgId}-${currentFunnel.id}`;
+        const aiSettingsKey = `ai_settings_${backendOrgId}_${currentFunnel.id}`;
+
+        const hasPrompts = localStorage.getItem(promptsKey);
+        const hasAISettings = localStorage.getItem(aiSettingsKey);
+
+        return !!(hasPrompts && hasAISettings);
+      } catch {
+        return false;
+      }
+    };
+
+    const hasLocal = checkLocalData();
+    setHasLocalData(hasLocal);
+
+    // Загрузка данных воронки
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        if (!hasLocal) {
+          setLoadingProgress(10);
+          setCurrentLoadingStep('Подключение к серверу...');
+        }
+
+        const token = await getClerkTokenFromClientCookie();
+
+        if (!hasLocal) {
+          setLoadingProgress(20);
+          setCurrentLoadingStep('Загрузка данных воронки...');
+        }
+
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentFunnelData(data);
+
+          if (!hasLocal) {
+            setLoadingProgress(40);
+            setCurrentLoadingStep('Создание этапов...');
+          }
+
+          // Создаем этапы на основе данных воронки
+          const newStages = createStagesFromFunnelData(data);
+          setStages(newStages);
+
+          // Загружаем промпты для каждого этапа
+          if (data.stages) {
+            if (!hasLocal) {
+              setLoadingProgress(50);
+              setCurrentLoadingStep('Загрузка промптов ассистентов...');
+            }
+
+            const prompts: Record<string, string> = {};
+            const totalStages = data.stages.length;
+
+            for (let i = 0; i < data.stages.length; i++) {
+              const stage = data.stages[i];
+              if (stage.assistant_code_name) {
+                if (!hasLocal) {
+                  setLoadingProgress(50 + (i / totalStages) * 30);
+                  setCurrentLoadingStep(
+                    `Загрузка промпта для ${stage.name || `этапа ${i + 1}`}...`
+                  );
+                }
+
+                try {
+                  const assistantResponse = await fetch(
+                    `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant/${stage.assistant_code_name}`,
+                    {
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      }
+                    }
+                  );
+
+                  if (assistantResponse.ok) {
+                    const assistantData = await assistantResponse.json();
+                    prompts[`stage_${i + 1}`] = assistantData.text || '';
+                  }
+                } catch (error) {
+                  console.error(
+                    `Error loading assistant for stage ${i + 1}:`,
+                    error
+                  );
+                }
+              }
+            }
+
+            setStagePrompts(prompts);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching funnel data:', error);
+        setError('Ошибка загрузки данных воронки');
+      } finally {
+        if (!hasLocal) {
+          setLoadingProgress(100);
+          setCurrentLoadingStep('Завершение загрузки...');
+          setTimeout(() => {
+            setLoading(false);
+          }, 500);
+        } else {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Загрузка из localStorage
+    const loadLocal = () => {
+      try {
+        if (!hasLocal) {
+          setLoadingProgress(80);
+          setCurrentLoadingStep('Загрузка локальных настроек...');
+        }
+
+        const generalKey = `ai_general_settings_${backendOrgId}`;
+        const savedGeneral = localStorage.getItem(generalKey);
+        if (savedGeneral) {
+          setGeneralSettings(JSON.parse(savedGeneral));
+        }
+
+        // Загружаем промпты
+        const promptsKey = `ai-assistants-prompts-${backendOrgId}-${currentFunnel.id}`;
+        const savedPromptsData = localStorage.getItem(promptsKey);
+        if (savedPromptsData) {
+          const parsed = JSON.parse(savedPromptsData);
+          setStagePrompts(parsed.prompts || {});
+        }
+
+        // Загружаем AI настройки с задержкой
+        setTimeout(
+          () => {
+            if (!hasLocal) {
+              setLoadingProgress(90);
+              setCurrentLoadingStep('Применение настроек...');
+            }
+
+            const aiSettingsKey = `ai_settings_${backendOrgId}_${currentFunnel.id}`;
+            const savedAISettings = localStorage.getItem(aiSettingsKey);
+            if (savedAISettings) {
+              const parsedAISettings = JSON.parse(savedAISettings);
+              setStages((prevStages) => {
+                return prevStages.map((stage) => {
+                  const savedSettings = parsedAISettings[`stage_${stage.id}`];
+                  if (savedSettings) {
+                    return {
+                      ...stage,
+                      aiSettings: savedSettings
+                    };
+                  }
+                  return stage;
+                });
+              });
+            }
+          },
+          hasLocal ? 0 : 100
+        );
+      } catch (error) {
+        console.error('Error loading from localStorage:', error);
+      }
+    };
+
+    fetchData();
+    loadLocal();
+    setIsFirstLoad(false);
+
+    // Сброс состояний прогресса после завершения
+    setTimeout(() => {
+      setLoadingProgress(0);
+      setCurrentLoadingStep('');
+    }, 1000);
+  }, [
+    backendOrgId,
+    currentFunnel?.id,
+    isFirstLoad,
+    createStagesFromFunnelData
+  ]);
+
+  // Эффект для синхронизации инструкций при смене этапа
+  useEffect(() => {
+    const stageKey = `stage_${activeStageId}`;
+    const savedPrompt = stagePrompts[stageKey];
+    if (savedPrompt !== undefined) {
+      setInstructions(savedPrompt);
+    }
+  }, [activeStageId, stagePrompts]);
+
+  // Обработчики
+  const handleGeneralSettingChange = (key: string, value: boolean) => {
+    setGeneralSettings((prev) => ({
+      ...prev,
+      cookieSettings: {
+        ...prev.cookieSettings,
+        [key]: value
+      }
+    }));
+  };
+
+  const handleSaveGeneralSettings = () => {
+    if (!backendOrgId) return;
+    try {
+      const generalKey = `ai_general_settings_${backendOrgId}`;
+      localStorage.setItem(generalKey, JSON.stringify(generalSettings));
+      console.log('General settings saved to localStorage');
+    } catch (error) {
+      console.error('Error saving general settings:', error);
+    }
+  };
+
+  const handleStageChange = (stageId: number) => {
+    setActiveStageId(stageId);
+  };
+
+  const handleTabChange = (tab: 'setup' | 'test') => {
+    setActiveSettingsTab(tab);
+  };
+
+  const handleInstructionsChange = (value: string) => {
+    setInstructions(value);
+  };
+
+  const handleSubmitInstructions = async () => {
+    const stageKey = `stage_${activeStageId}`;
+
+    // Очищаем предыдущие сообщения
+    setError(null);
+    setSuccessMessage(null);
+
+    // Сохраняем промпт в localStorage сразу
+    setStagePrompts((prev) => {
+      const updatedPrompts = { ...prev, [stageKey]: instructions };
+      // Сохраняем в localStorage напрямую
+      try {
+        const key = `ai-assistants-prompts-${backendOrgId}-${currentFunnel?.id}`;
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            prompts: updatedPrompts,
+            timestamp: Date.now()
+          })
+        );
+      } catch (error) {
+        console.error('Error saving prompts to localStorage:', error);
+      }
+      return updatedPrompts;
+    });
+
+    // Сохраняем через API
+    const success = await updateStagePrompt(activeStageId, instructions);
+    if (success) {
+      // Показываем сообщение об успехе
+      setSuccessMessage('Промпт успешно сохранен!');
+
+      // Убираем сообщение через 3 секунды
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+
+      console.log('Промпт успешно сохранен:', { stageKey, instructions });
+    } else {
+      // Если сохранение через API не удалось, откатываем localStorage
+      setStagePrompts((prev) => {
+        // Сохраняем в localStorage напрямую
+        try {
+          const key = `ai-assistants-prompts-${backendOrgId}-${currentFunnel?.id}`;
+          localStorage.setItem(
+            key,
+            JSON.stringify({
+              prompts: prev,
+              timestamp: Date.now()
+            })
+          );
+        } catch (error) {
+          console.error('Error saving prompts to localStorage:', error);
+        }
+        return prev;
+      });
+      console.error('Не удалось сохранить промпт через API');
+    }
+  };
+
+  const handleAISettingChange = (field: keyof AISettings, value: any) => {
+    setStages((prev) => {
+      const newStages = prev.map((stage) =>
+        stage.id === activeStageId
+          ? { ...stage, aiSettings: { ...stage.aiSettings, [field]: value } }
+          : stage
+      );
+
+      // Автосохранение в localStorage
+      if (backendOrgId && currentFunnel?.id) {
+        try {
+          const aiSettingsKey = `ai_settings_${backendOrgId}_${currentFunnel.id}`;
+          const aiSettingsToSave: Record<string, AISettings> = {};
+
+          newStages.forEach((stage) => {
+            aiSettingsToSave[`stage_${stage.id}`] = stage.aiSettings;
+          });
+
+          localStorage.setItem(aiSettingsKey, JSON.stringify(aiSettingsToSave));
+        } catch (error) {
+          console.error('Error saving AI settings to localStorage:', error);
+        }
+      }
+
+      return newStages;
+    });
+  };
+
+  const handleFollowUpChange = (field: string, value: any) => {
+    setStages((prev) => {
+      const newStages = prev.map((stage) =>
+        stage.id === activeStageId
+          ? {
+              ...stage,
+              aiSettings: {
+                ...stage.aiSettings,
+                followUp: { ...stage.aiSettings.followUp, [field]: value }
+              }
+            }
+          : stage
+      );
+
+      // Автосохранение в localStorage
+      if (backendOrgId && currentFunnel?.id) {
+        try {
+          const aiSettingsKey = `ai_settings_${backendOrgId}_${currentFunnel.id}`;
+          const aiSettingsToSave: Record<string, AISettings> = {};
+
+          newStages.forEach((stage) => {
+            aiSettingsToSave[`stage_${stage.id}`] = stage.aiSettings;
+          });
+
+          localStorage.setItem(aiSettingsKey, JSON.stringify(aiSettingsToSave));
+        } catch (error) {
+          console.error('Error saving AI settings to localStorage:', error);
+        }
+      }
+
+      return newStages;
+    });
+  };
+
+  const handleSaveAISettings = () => {
+    saveAISettingsToLocalStorage();
+    setSuccessMessage('AI настройки сохранены!');
+
+    // Убираем сообщение через 3 секунды
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+
+    console.log('AI settings saved to localStorage');
+  };
+
+  const handleFinishSetup = () => {
+    console.log('Setup finished');
+  };
+
+  const activeStage = stages.find((stage) => stage.id === activeStageId);
+
+  // Показываем прогресс-бар только при первой загрузке без локальных данных
+  if (loading && isFirstLoad && !hasLocalData) {
+    const loadingSteps = [
+      'Подключение к серверу...',
+      'Загрузка данных воронки...',
+      'Создание этапов...',
+      'Загрузка промптов ассистентов...',
+      'Загрузка локальных настроек...',
+      'Применение настроек...',
+      'Завершение загрузки...'
+    ];
+
+    return (
+      <PageContainer>
+        <LoadingProgress
+          progress={loadingProgress}
+          currentStep={currentLoadingStep}
+          steps={loadingSteps}
+        />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
-      {/* Заголовок страницы - отдельная строка */}
-      <div className='mb-6 flex items-center justify-between'>
-        <h1 className='text-xl font-semibold text-gray-900 dark:text-white'>
-          Системные настройки для мультиагента
-        </h1>
-        <div className='flex gap-2'>
-          <Button variant='outline' size='sm'>
-            Дообучение
+      <div className='space-y-6'>
+        {/* Header */}
+        <div className='flex items-center gap-4'>
+          <Button variant='ghost' size='icon' className='rounded-full'>
+            <IconArrowLeft className='h-5 w-5' />
           </Button>
-          <Button
-            className='bg-green-500 text-white hover:bg-green-600'
-            onClick={saveSettings}
-            disabled={!unsavedChanges}
-          >
+          <h1 className='text-2xl font-semibold'>Настройки агента AI М1</h1>
+          <Button className='ml-auto' onClick={handleFinishSetup}>
             Завершить настройку
           </Button>
         </div>
-      </div>
 
-      {/* Основной контент */}
-      <div className='flex h-full'>
-        {/* Левая панель - Общие настройки (НЕАКТИВНА) */}
-        <div className='w-1/2 border-r border-gray-200 pr-4 dark:border-gray-700'>
-          <div className='space-y-6'>
-            <div className='space-y-4'>
-              <div className='flex items-center justify-between'>
-                <h2 className='text-lg font-medium text-gray-900 dark:text-white'>
-                  Общие настройки
-                </h2>
-              </div>
-              {/* Уведомление о недоступности */}
-              <div className='mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm dark:border-yellow-700 dark:bg-yellow-900/20'>
-                <p className='font-medium text-yellow-800 dark:text-yellow-200'>
-                  📢 Функционал будет доступен в ближайших версиях
-                </p>
-                <p className='mt-1 text-yellow-700 dark:text-yellow-300'>
-                  Системные настройки находятся в разработке и скоро будут
-                  добавлены.
-                </p>
-              </div>
-              {/* Контейнер с полупрозрачностью для всех настроек */}
-              <div className='space-y-4 opacity-50'>
-                {/* Память контекста */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    Память контекста
-                  </Label>
-                  <div className='flex items-center gap-2'>
-                    <Input
-                      type='number'
-                      value={generalSettings.contextMemory}
-                      onChange={(e) =>
-                        handleGeneralSettingChange(
-                          'contextMemory',
-                          parseInt(e.target.value)
-                        )
-                      }
-                      className='w-20 cursor-not-allowed text-center opacity-50'
-                      disabled={true}
-                      title='Функционал будет доступен в ближайших версиях'
-                      style={{ cursor: 'not-allowed' }}
-                    />
-                    <span className='text-sm text-gray-500'>сообщений</span>
-                    <Switch
-                      checked={true}
-                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                      disabled={true}
-                      style={{ cursor: 'not-allowed' }}
-                      title='Функционал будет доступен в ближайших версиях'
-                    />
-                  </div>
-                </div>
-
-                {/* Сбор массива */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>Сбор массива</Label>
-                  <div className='flex items-center gap-2'>
-                    <Input
-                      type='number'
-                      value={generalSettings.batchCollection}
-                      onChange={(e) =>
-                        handleGeneralSettingChange(
-                          'batchCollection',
-                          parseInt(e.target.value)
-                        )
-                      }
-                      className='w-20 cursor-not-allowed text-center opacity-50'
-                      disabled={true}
-                      title='Функционал будет доступен в ближайших версиях'
-                      style={{ cursor: 'not-allowed' }}
-                    />
-                    <span className='text-sm text-gray-500'>сек</span>
-                    <Switch
-                      checked={true}
-                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                      disabled={true}
-                      style={{ cursor: 'not-allowed' }}
-                      title='Функционал будет доступен в ближайших версиях'
-                    />
-                  </div>
-                </div>
-
-                {/* Остановка агента при вмешательстве оператора */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    Остановка агента при вмешательстве оператора
-                  </Label>
-                  <Switch
-                    checked={generalSettings.agentPause}
-                    onCheckedChange={(checked) =>
-                      handleGeneralSettingChange('agentPause', checked)
-                    }
-                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                    disabled={true}
-                    style={{ cursor: 'not-allowed' }}
-                    title='Функционал будет доступен в ближайших версиях'
-                  />
-                </div>
-
-                {/* Не ставить на паузу при первой отправке */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    Не ставить на паузу при первой отправке (для рассылок)
-                  </Label>
-                  <Switch
-                    checked={generalSettings.pauseOnFirstSend}
-                    onCheckedChange={(checked) =>
-                      handleGeneralSettingChange('pauseOnFirstSend', checked)
-                    }
-                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                    disabled={true}
-                    style={{ cursor: 'not-allowed' }}
-                    title='Функционал будет доступен в ближайших версиях'
-                  />
-                </div>
-
-                {/* Возобновить после паузы через */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    Возобновить после паузы через
-                  </Label>
-                  <Switch
-                    checked={generalSettings.resumeAfterPause}
-                    onCheckedChange={(checked) =>
-                      handleGeneralSettingChange('resumeAfterPause', checked)
-                    }
-                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                    disabled={true}
-                    style={{ cursor: 'not-allowed' }}
-                    title='Функционал будет доступен в ближайших версиях'
-                  />
-                </div>
-
-                {/* Защита от спама по достижению N сообщений */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    Защита от спама по достижению N сообщений
-                  </Label>
-                  <Switch
-                    checked={generalSettings.spamProtection}
-                    onCheckedChange={(checked) =>
-                      handleGeneralSettingChange('spamProtection', checked)
-                    }
-                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                    disabled={true}
-                    style={{ cursor: 'not-allowed' }}
-                    title='Функционал будет доступен в ближайших версиях'
-                  />
-                </div>
-
-                {/* Зона работы агента */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    Зона работы агента
-                  </Label>
-                  <div className='flex items-center gap-2'>
-                    <Input
-                      value={generalSettings.workZone}
-                      onChange={(e) =>
-                        handleGeneralSettingChange('workZone', e.target.value)
-                      }
-                      className='w-24 cursor-not-allowed opacity-50'
-                      disabled={true}
-                      title='Функционал будет доступен в ближайших версиях'
-                      style={{ cursor: 'not-allowed' }}
-                    />
-                    <Switch
-                      checked={true}
-                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                      disabled={true}
-                      style={{ cursor: 'not-allowed' }}
-                      title='Функционал будет доступен в ближайших версиях'
-                    />
-                  </div>
-                </div>
-
-                {/* Голосовые запросы и ответы */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    Голосовые запросы и ответы
-                  </Label>
-                  <Switch
-                    checked={generalSettings.voiceQuestions}
-                    onCheckedChange={(checked) =>
-                      handleGeneralSettingChange('voiceQuestions', checked)
-                    }
-                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                    disabled={true}
-                    style={{ cursor: 'not-allowed' }}
-                    title='Функционал будет доступен в ближайших версиях'
-                  />
-                </div>
-
-                {/* База знаний агента */}
-                <div className='flex items-center justify-between'>
-                  <Label className='text-sm font-medium'>
-                    База знаний агента
-                  </Label>
-                  <Switch
-                    checked={generalSettings.knowledgeBase}
-                    onCheckedChange={(checked) =>
-                      handleGeneralSettingChange('knowledgeBase', checked)
-                    }
-                    className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                    disabled={true}
-                    style={{ cursor: 'not-allowed' }}
-                    title='Функционал будет доступен в ближайших версиях'
-                  />
-                </div>
-
-                {/* Chunk секция */}
-                <div className='mt-8 rounded-lg bg-gray-50 p-4 dark:bg-gray-800'>
-                  <div className='mb-4 flex items-center justify-between'>
-                    <Label className='text-sm font-medium'>Chunk</Label>
-                    <Switch
-                      checked={generalSettings.chunkEnabled}
-                      onCheckedChange={(checked) =>
-                        handleGeneralSettingChange('chunkEnabled', checked)
-                      }
-                      className='cursor-not-allowed data-[state=checked]:bg-green-500'
-                      disabled={true}
-                      style={{ cursor: 'not-allowed' }}
-                      title='Функционал будет доступен в ближайших версиях'
-                    />
-                  </div>
-                  <div className='text-sm text-gray-600 dark:text-gray-400'>
-                    {generalSettings.chunkSettings}
-                  </div>
-                </div>
-              </div>{' '}
-              {/* Закрываем полупрозрачный контейнер */}
-            </div>
-          </div>
-        </div>
-
-        {/* Правая панель - Настройка расширенные мультиагента */}
-        <div className='w-1/2 pl-4'>
-          <div className='flex h-full flex-col space-y-4'>
-            <h2 className='text-lg font-semibold text-gray-900 dark:text-white'>
-              Расширенные настройки мультиагента
-            </h2>
-
-            {/* Этапы */}
-            <div className='flex flex-wrap gap-2'>
-              {currentFunnelData?.stages?.map((stage: any, index: number) => (
-                <div key={stage.name || index} className='relative'>
-                  {editingStageId === index + 1 ? (
-                    <Input
-                      defaultValue={stage.name}
-                      autoFocus
-                      className='h-8 min-w-[80px] text-sm'
-                      onBlur={(e) => saveInlineEdit(index + 1, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          saveInlineEdit(index + 1, e.currentTarget.value);
-                        }
-                        if (e.key === 'Escape') {
-                          cancelInlineEdit();
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div className='flex items-center overflow-hidden rounded-md border'>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => selectStage(index + 1)}
-                        className={`${
-                          activeStageId === index + 1
-                            ? 'bg-blue-500 text-white hover:bg-blue-600'
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-                        } h-8 rounded-none border-0 px-3`}
-                      >
-                        {stage.name || `Этап ${index + 1}`}
-                      </Button>
-                      <div className='h-6 w-px bg-gray-200 dark:bg-gray-700'></div>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        disabled
-                        className='h-8 w-8 cursor-not-allowed rounded-none border-0 p-0 opacity-50'
-                      >
-                        <IconEdit className='h-3 w-3' />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )) || (
-                // Показываем сообщение если нет этапов
-                <div className='flex w-full items-center justify-center py-4 text-sm text-gray-500 dark:text-gray-400'>
-                  {currentFunnelLoading
-                    ? 'Загрузка этапов...'
-                    : 'Нет этапов в воронке'}
-                </div>
-              )}
+        {/* Показываем скелетон при загрузке с локальными данными */}
+        {loading && hasLocalData ? (
+          <SkeletonLoader />
+        ) : (
+          <div className='grid grid-cols-12 gap-6'>
+            {/* Left Column - General Settings */}
+            <div className='col-span-4 h-fit space-y-6'>
+              <GeneralSettingsComponent
+                generalSettings={generalSettings}
+                onSettingChange={handleGeneralSettingChange}
+                onSave={handleSaveGeneralSettings}
+              />
             </div>
 
-            {/* Настройки активного этапа */}
-            {activeStage && currentFunnelData?.stages && (
-              <div className='flex flex-1 flex-col space-y-4'>
-                {/* Упрощенная строка с настройками */}
-                <div className='grid grid-cols-3 gap-4'>
-                  {/* Модель */}
-                  <div className='space-y-1'>
-                    <Label className='text-xs text-gray-500'>Модель</Label>
-                    <Select
-                      value={activeStage.model}
-                      onValueChange={(value) =>
-                        handleStageChange(activeStage.id, 'model', value)
-                      }
-                    >
-                      <SelectTrigger className='h-8 text-sm'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='gpt-4.1 mini'>
-                          gpt-4.1 mini
-                        </SelectItem>
-                        <SelectItem value='gpt-4'>gpt-4</SelectItem>
-                        <SelectItem value='gpt-3.5'>gpt-3.5</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            {/* Center Column - Stage Configuration */}
+            <div className='col-span-5 h-fit space-y-6'>
+              <StageConfiguration
+                stages={stages}
+                currentFunnelData={currentFunnelData}
+                activeStageId={activeStageId}
+                activeSettingsTab={activeSettingsTab}
+                instructions={instructions}
+                saving={saving}
+                successMessage={successMessage}
+                error={error}
+                onStageChange={handleStageChange}
+                onTabChange={handleTabChange}
+                onInstructionsChange={handleInstructionsChange}
+                onSubmitInstructions={handleSubmitInstructions}
+              />
+            </div>
 
-                  {/* Follow up */}
-                  <div className='space-y-1'>
-                    <Label className='text-xs text-gray-500'>Follow up</Label>
-                    <div className='flex items-center gap-1'>
-                      <Select defaultValue='20min'>
-                        <SelectTrigger className='h-8 flex-1 text-sm'>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value='20min'>20 мин</SelectItem>
-                          <SelectItem value='1h'>1 час</SelectItem>
-                          <SelectItem value='2h'>2 часа</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Switch
-                        checked={activeStage.followUp.enabled}
-                        onCheckedChange={(checked) =>
-                          handleStageChange(activeStage.id, 'followUp', {
-                            ...activeStage.followUp,
-                            enabled: checked
-                          })
-                        }
-                        className='scale-75 data-[state=checked]:bg-green-500'
-                      />
-                    </div>
-                  </div>
-
-                  {/* Передача */}
-                  <div className='space-y-1'>
-                    <Label className='text-xs text-gray-500'>Передача</Label>
-                    <Select
-                      value={activeStage.transfer}
-                      onValueChange={(value) =>
-                        handleStageChange(activeStage.id, 'transfer', value)
-                      }
-                    >
-                      <SelectTrigger className='h-8 text-sm'>
-                        <SelectValue placeholder='Выберите этап' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getTransferOptions(activeStage.id).map((stage) => (
-                          <SelectItem
-                            key={stage.id}
-                            value={stage.id.toString()}
-                          >
-                            {stage.name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value='manager'>Менеджеру</SelectItem>
-                        <SelectItem value='none'>Не передавать</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Промпт для AI подагента */}
-                <div className='flex flex-1 flex-col'>
-                  <div className='mb-2 flex items-center justify-between'>
-                    <Label className='text-sm font-medium'>
-                      Промпт для AI подагента {activeStage.id}
-                    </Label>
-                    {assistantsLoading && (
-                      <span className='text-xs text-gray-500'>
-                        Загрузка данных ассистентов...
-                      </span>
-                    )}
-                    {assistantsError && (
-                      <span className='text-xs text-red-500'>
-                        Ошибка загрузки ассистентов
-                      </span>
-                    )}
-                  </div>
-                  <Textarea
-                    value={(() => {
-                      const currentStage =
-                        currentFunnelData.stages?.[activeStageId - 1];
-                      const assistantCodeName =
-                        currentStage?.assistant_code_name;
-
-                      // Получаем промпт из данных ассистентов, если есть assistant_code_name
-                      if (assistantCodeName && assistantsData.length > 0) {
-                        return getAssistantPrompt(assistantCodeName);
-                      }
-
-                      // Fallback на промпт из данных воронки
-                      return currentStage?.prompt || '';
-                    })()}
-                    onChange={(e) => {
-                      const currentStage =
-                        currentFunnelData.stages?.[activeStageId - 1];
-                      const assistantCodeName =
-                        currentStage?.assistant_code_name;
-
-                      if (assistantCodeName && assistantsData.length > 0) {
-                        // Если есть данные ассистентов, обновляем их
-                        const updatedAssistants = assistantsData.map(
-                          (assistant) =>
-                            assistant.code_name === assistantCodeName
-                              ? { ...assistant, text: e.target.value }
-                              : assistant
-                        );
-                        setAssistantsData(updatedAssistants);
-                      } else {
-                        // Fallback: обновляем данные в currentFunnelData
-                        const updatedStages = [
-                          ...(currentFunnelData.stages || [])
-                        ];
-                        if (updatedStages[activeStageId - 1]) {
-                          updatedStages[activeStageId - 1].prompt =
-                            e.target.value;
-                          setCurrentFunnelData({
-                            ...currentFunnelData,
-                            stages: updatedStages
-                          });
-                        }
-                      }
-                    }}
-                    placeholder='Введите промпт для AI ассистента...'
-                    className='max-h-[100px] min-h-[100px] flex-1 resize-none'
-                    disabled={assistantsLoading}
-                  />
-
-                  {/* Сообщения об ошибках и успехе */}
-                  {updatePromptError && (
-                    <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
-                      <strong>Ошибка:</strong> {updatePromptError}
-                    </div>
-                  )}
-
-                  {updatePromptSuccess && (
-                    <div className='mt-2 rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
-                      <strong>Успешно:</strong> {updatePromptSuccess}
-                    </div>
-                  )}
-
-                  {/* Кнопка сохранения */}
-                  <Button
-                    onClick={handleUpdateStagePrompt}
-                    disabled={updatePromptLoading}
-                    className='mt-2 w-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50'
-                    size='sm'
-                  >
-                    {updatePromptLoading ? 'Сохранение...' : 'Сохранить промпт'}
-                  </Button>
-                </div>
-
-                {/* Тестовая площадка этапа */}
-                <div className='flex flex-1 flex-col'>
-                  <Label className='mb-2 text-sm font-medium'>
-                    Тестовая площадка этапа
-                  </Label>
-                  <Textarea
-                    value={activeStage.testArea}
-                    onChange={(e) =>
-                      handleStageChange(
-                        activeStage.id,
-                        'testArea',
-                        e.target.value
-                      )
-                    }
-                    placeholder='Тестовая площадка для этапа...'
-                    className='max-h-[75px] min-h-[75px] flex-1 resize-none bg-gray-50 dark:bg-gray-800'
-                  />
-                </div>
-              </div>
-            )}
+            {/* Right Column - AI Settings */}
+            <div className='col-span-3 h-fit space-y-6'>
+              <AISettingsComponent
+                activeStage={activeStage}
+                stages={stages}
+                currentFunnelData={currentFunnelData}
+                successMessage={successMessage}
+                onAISettingChange={handleAISettingChange}
+                onFollowUpChange={handleFollowUpChange}
+                onSave={handleSaveAISettings}
+              />
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div className='rounded-lg border border-red-200 bg-red-50 p-4'>
+            <p className='text-sm text-red-800'>{error}</p>
+          </div>
+        )}
       </div>
     </PageContainer>
   );

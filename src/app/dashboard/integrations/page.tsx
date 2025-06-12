@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
   IconTrash,
@@ -245,6 +246,123 @@ function IntegrationsPage() {
     Record<string, boolean>
   >({});
 
+  // Новые состояния
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState({
+    current: 0,
+    total: 0,
+    status: ''
+  });
+
+  // Константы для localStorage
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 минут в миллисекундах
+  const getIntegrationStatusCacheKey = () =>
+    `integration_statuses_${backendOrgId}`;
+  const getFunnelsCacheKey = () => `integrations_funnels_${backendOrgId}`;
+  const getConnectionsCacheKey = () =>
+    `integrations_connections_${backendOrgId}`;
+  const getLastUpdatedKey = () => `integrations_last_updated_${backendOrgId}`;
+
+  // Проверка актуальности кэша
+  const isCacheValid = () => {
+    const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
+    if (!lastUpdatedStr) return false;
+
+    const lastUpdatedTime = new Date(lastUpdatedStr);
+    const now = new Date();
+    return now.getTime() - lastUpdatedTime.getTime() < CACHE_DURATION;
+  };
+
+  // Загрузка статусов интеграций из localStorage
+  const loadIntegrationStatusesFromCache = () => {
+    try {
+      const cachedStatuses = localStorage.getItem(
+        getIntegrationStatusCacheKey()
+      );
+      if (cachedStatuses) {
+        const parsedStatuses = JSON.parse(cachedStatuses);
+        setIntegrationStatuses(parsedStatuses);
+        console.log('Loaded integration statuses from cache:', parsedStatuses);
+        return true;
+      }
+    } catch (error) {
+      console.error('Error loading integration statuses from cache:', error);
+    }
+    return false;
+  };
+
+  // Сохранение статусов интеграций в localStorage
+  const saveIntegrationStatusesToCache = (
+    statuses: Record<string, boolean>
+  ) => {
+    try {
+      localStorage.setItem(
+        getIntegrationStatusCacheKey(),
+        JSON.stringify(statuses)
+      );
+      console.log('Saved integration statuses to cache:', statuses);
+    } catch (error) {
+      console.error('Error saving integration statuses to cache:', error);
+    }
+  };
+
+  // Загрузка данных из кэша
+  const loadFromCache = () => {
+    try {
+      const cachedFunnels = localStorage.getItem(getFunnelsCacheKey());
+      const cachedConnections = localStorage.getItem(getConnectionsCacheKey());
+      const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
+
+      if (
+        cachedFunnels &&
+        cachedConnections &&
+        lastUpdatedStr &&
+        isCacheValid()
+      ) {
+        const parsedFunnels: Funnel[] = JSON.parse(cachedFunnels);
+        const parsedConnections: MessengerConnection[] =
+          JSON.parse(cachedConnections);
+
+        setFunnels(parsedFunnels);
+        setMessengerConnections(parsedConnections);
+        setOrganizationConnections(parsedConnections);
+        setLastUpdated(new Date(lastUpdatedStr));
+
+        // Обновляем данные интеграций
+        updateIntegrationData(parsedFunnels, parsedConnections);
+
+        console.log('Loaded integrations data from cache');
+        return true;
+      }
+    } catch (error) {
+      console.error('Error loading integrations data from cache:', error);
+    }
+    return false;
+  };
+
+  // Сохранение в кэш
+  const saveToCache = (
+    funnelsData: Funnel[],
+    connectionsData: MessengerConnection[]
+  ) => {
+    try {
+      localStorage.setItem(getFunnelsCacheKey(), JSON.stringify(funnelsData));
+      localStorage.setItem(
+        getConnectionsCacheKey(),
+        JSON.stringify(connectionsData)
+      );
+
+      const now = new Date();
+      localStorage.setItem(getLastUpdatedKey(), now.toISOString());
+      setLastUpdated(now);
+
+      console.log('Saved integrations data to cache');
+    } catch (error) {
+      console.error('Error saving integrations data to cache:', error);
+    }
+  };
+
   // Функция загрузки воронок
   const fetchFunnels = async () => {
     if (!backendOrgId) return [];
@@ -300,52 +418,96 @@ function IntegrationsPage() {
   };
 
   // Функция загрузки всех данных
-  const loadData = useCallback(async () => {
-    if (!backendOrgId) return;
+  const loadData = useCallback(
+    async (forceRefresh = false) => {
+      if (!backendOrgId) return;
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Загружаем воронки
-      const funnelsData = await fetchFunnels();
-      setFunnels(funnelsData);
-
-      // Загружаем интеграции для каждой воронки
-      const allConnections: MessengerConnection[] = [];
-      for (const funnel of funnelsData) {
-        const connections = await fetchMessengerConnections(funnel.id);
-        // Добавляем информацию о воронке в каждое подключение
-        const connectionsWithFunnelInfo = connections.map((conn: any) => ({
-          ...conn,
-          funnel_id: funnel.id,
-          funnel_name:
-            funnel.display_name || funnel.name || `Воронка ${funnel.id}`,
-          funnel_info: funnel // Полная информация о воронке
-        }));
-        console.log(
-          `Loaded connections for funnel ${funnel.id} (${funnel.name || funnel.display_name}):`,
-          connectionsWithFunnelInfo
-        );
-        allConnections.push(...connectionsWithFunnelInfo);
+      // Проверяем кэш только если не принудительное обновление
+      if (!forceRefresh && isCacheValid() && loadFromCache()) {
+        setLoading(false);
+        return;
       }
 
-      console.log('All connections with funnel info:', allConnections);
-      setMessengerConnections(allConnections);
+      setError(null);
+      if (forceRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-      // Загружаем все подключения организации для отображения в модальном окне
-      // Используем уже загруженные allConnections
-      setOrganizationConnections(allConnections);
+      try {
+        // Шаг 1: Загружаем воронки
+        setLoadingProgress({
+          current: 0,
+          total: 1,
+          status: 'Загрузка воронок...'
+        });
 
-      // Обновляем данные интеграций
-      updateIntegrationData(funnelsData, allConnections);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      setError('Ошибка загрузки данных');
-    } finally {
-      setLoading(false);
-    }
-  }, [backendOrgId, fetchFunnels, fetchMessengerConnections]);
+        const funnelsData = await fetchFunnels();
+        setFunnels(funnelsData);
+
+        if (funnelsData.length === 0) {
+          setMessengerConnections([]);
+          setOrganizationConnections([]);
+          updateIntegrationData([], []);
+          setLoadingProgress({ current: 0, total: 0, status: '' });
+          return;
+        }
+
+        // Шаг 2: Загружаем интеграции для каждой воронки
+        setLoadingProgress({
+          current: 0,
+          total: funnelsData.length,
+          status: 'Загрузка интеграций...'
+        });
+
+        const allConnections: MessengerConnection[] = [];
+        for (let i = 0; i < funnelsData.length; i++) {
+          const funnel = funnelsData[i];
+
+          setLoadingProgress({
+            current: i + 1,
+            total: funnelsData.length,
+            status: `Загрузка интеграций ${i + 1}/${funnelsData.length}`
+          });
+
+          const connections = await fetchMessengerConnections(funnel.id);
+          // Добавляем информацию о воронке в каждое подключение
+          const connectionsWithFunnelInfo = connections.map((conn: any) => ({
+            ...conn,
+            funnel_id: funnel.id,
+            funnel_name:
+              funnel.display_name || funnel.name || `Воронка ${funnel.id}`,
+            funnel_info: funnel // Полная информация о воронке
+          }));
+          console.log(
+            `Loaded connections for funnel ${funnel.id} (${funnel.name || funnel.display_name}):`,
+            connectionsWithFunnelInfo
+          );
+          allConnections.push(...connectionsWithFunnelInfo);
+        }
+
+        console.log('All connections with funnel info:', allConnections);
+        setMessengerConnections(allConnections);
+        setOrganizationConnections(allConnections);
+
+        // Сохраняем в кэш
+        saveToCache(funnelsData, allConnections);
+
+        // Обновляем данные интеграций
+        updateIntegrationData(funnelsData, allConnections);
+
+        setLoadingProgress({ current: 0, total: 0, status: '' });
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setError('Ошибка загрузки данных');
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [backendOrgId]
+  );
 
   // Функция обновления данных интеграций
   const updateIntegrationData = (
@@ -408,14 +570,36 @@ function IntegrationsPage() {
     });
 
     setIntegrationStatuses(newStatuses);
+    // Сохраняем статусы в localStorage
+    saveIntegrationStatusesToCache(newStatuses);
+  };
+
+  // Функция обновления данных
+  const handleRefresh = () => {
+    loadData(true);
   };
 
   // Загружаем данные при монтировании компонента
   useEffect(() => {
     if (backendOrgId) {
+      // Сначала загружаем статусы интеграций из кэша
+      loadIntegrationStatusesFromCache();
+      // Затем загружаем остальные данные
       loadData();
     }
   }, [backendOrgId, loadData]);
+
+  // Автоматическое обновление каждые 10 минут
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (backendOrgId) {
+        console.log('Автоматическое обновление интеграций...');
+        loadData(true);
+      }
+    }, CACHE_DURATION);
+
+    return () => clearInterval(interval);
+  }, [backendOrgId, loadData, CACHE_DURATION]);
 
   const handleIntegrationClick = (integrationId: string) => {
     const integration = integrationServices.find((i) => i.id === integrationId);
@@ -430,10 +614,13 @@ function IntegrationsPage() {
   };
 
   const handleStatusToggle = (integrationId: string, newStatus: boolean) => {
-    setIntegrationStatuses((prev) => ({
-      ...prev,
+    const newStatuses = {
+      ...integrationStatuses,
       [integrationId]: newStatus
-    }));
+    };
+    setIntegrationStatuses(newStatuses);
+    // Сохраняем в localStorage
+    saveIntegrationStatusesToCache(newStatuses);
   };
 
   // Обработчик для предотвращения открытия диалога при клике на переключатель
@@ -592,6 +779,48 @@ function IntegrationsPage() {
     });
   };
 
+  // Показываем индикатор загрузки
+  if (loading) {
+    return (
+      <PageContainer>
+        <div className='space-y-6'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <h1 className='text-3xl font-bold tracking-tight'>Интеграции</h1>
+              <p className='text-muted-foreground'>
+                Управление подключениями мессенджеров и внешних сервисов
+              </p>
+            </div>
+          </div>
+
+          <div className='flex min-h-[400px] items-center justify-center'>
+            <div className='max-w-md text-center'>
+              <div className='mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900'></div>
+              <p className='text-muted-foreground mt-4'>
+                {loadingProgress.status || 'Загрузка интеграций...'}
+              </p>
+              {loadingProgress.total > 0 && (
+                <div className='mt-2'>
+                  <div className='h-2 w-full rounded-full bg-gray-200'>
+                    <div
+                      className='h-2 rounded-full bg-blue-600 transition-all duration-300'
+                      style={{
+                        width: `${(loadingProgress.current / loadingProgress.total) * 100}%`
+                      }}
+                    ></div>
+                  </div>
+                  <p className='text-muted-foreground mt-1 text-sm'>
+                    {loadingProgress.current}/{loadingProgress.total}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer>
       <div className='space-y-6'>
@@ -606,14 +835,14 @@ function IntegrationsPage() {
             <Button
               variant='outline'
               size='sm'
-              onClick={loadData}
-              disabled={loading}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
             >
               <IconRefresh
                 size={16}
-                className={cn('mr-2', loading && 'animate-spin')}
+                className={cn('mr-2', isRefreshing && 'animate-spin')}
               />
-              Обновить
+              {isRefreshing ? 'Обновление...' : 'Обновить'}
             </Button>
           </div>
         </div>
@@ -621,12 +850,6 @@ function IntegrationsPage() {
         {error && (
           <div className='rounded-lg border border-red-200 bg-red-50 p-4'>
             <p className='text-sm text-red-800'>{error}</p>
-          </div>
-        )}
-
-        {loading && (
-          <div className='rounded-lg border border-blue-200 bg-blue-50 p-4'>
-            <p className='text-sm text-blue-800'>Загрузка интеграций...</p>
           </div>
         )}
 
@@ -1012,6 +1235,40 @@ function IntegrationsPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Панель управления - внизу страницы */}
+        <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
+          <div className='flex items-center gap-4'>
+            <div className='text-sm'>
+              <span className='font-medium'>Активных интеграций:</span>{' '}
+              {Object.values(integrationStatuses).filter(Boolean).length}
+            </div>
+            <div className='text-sm'>
+              <span className='font-medium'>Всего подключений:</span>{' '}
+              {messengerConnections.length}
+            </div>
+            {lastUpdated && (
+              <div className='text-muted-foreground text-sm'>
+                Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
+              </div>
+            )}
+            {isRefreshing && (
+              <div className='text-sm text-blue-600'>Обновление данных...</div>
+            )}
+          </div>
+          <Button
+            onClick={handleRefresh}
+            variant='outline'
+            size='sm'
+            disabled={isRefreshing}
+            className='flex items-center gap-2'
+          >
+            <div className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}>
+              ↻
+            </div>
+            {isRefreshing ? 'Обновление...' : 'Обновить'}
+          </Button>
+        </div>
       </div>
     </PageContainer>
   );

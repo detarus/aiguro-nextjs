@@ -281,7 +281,7 @@ export function ClientTable({ clients, backendOrgId }: ClientTableProps) {
                           <DropdownMenuItem
                             onClick={() =>
                               router.push(
-                                `/dashboard/messengers/${backendOrgId}/chat?uuid=${client.dialogUuid}`
+                                `/dashboard/messengers?uuid=${client.dialogUuid}`
                               )
                             }
                           >

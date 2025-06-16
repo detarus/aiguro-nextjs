@@ -84,9 +84,7 @@ function ClientCard({ client }: { client: Client }) {
   // Обработчик клика по карточке
   const handleCardClick = () => {
     if (client.dialogUuid) {
-      router.push(
-        `/dashboard/messengers/${backendOrgId}/chat?uuid=${client.dialogUuid}`
-      );
+      router.push(`/dashboard/messengers?uuid=${client.dialogUuid}`);
     }
   };
 
@@ -153,6 +151,23 @@ function ClientCard({ client }: { client: Client }) {
           </div>
         </div>
 
+        {/* Кнопка открытия диалога */}
+        {client.dialogUuid && (
+          <div className='mt-3 flex justify-end'>
+            <Button
+              variant='outline'
+              size='sm'
+              className='text-xs'
+              onClick={(e) => {
+                e.stopPropagation(); // Предотвращаем срабатывание клика по карточке
+                router.push(`/dashboard/messengers?uuid=${client.dialogUuid}`);
+              }}
+            >
+              Открыть диалог
+            </Button>
+          </div>
+        )}
+
         {/* Отладочная информация */}
         {/* {process.env.NODE_ENV !== 'production' && (
           <div className='text-xs mt-1 text-blue-500'>
@@ -172,7 +187,7 @@ function KanbanColumn({ stage, clients }: { stage: Stage; clients: Client[] }) {
 
   // Обработчик для добавления нового диалога
   const handleAddDialog = () => {
-    router.push(`/dashboard/messengers/${backendOrgId}/chat/new`);
+    router.push(`/dashboard/messengers?new=true`);
   };
 
   return (

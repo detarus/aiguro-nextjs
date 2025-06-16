@@ -405,13 +405,34 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 
       // Проверяем, есть ли thread_id в URL для автоматического выбора диалога
       const threadIdParam = searchParams.get('thread_id');
-      if (threadIdParam && dialogsWithMessages.length > 0) {
-        // Пытаемся найти и выбрать диалог по thread_id
-        if (!selectDialogByThreadId(threadIdParam, dialogsWithMessages)) {
-          // Если диалог не найден, выбираем первый
-          const firstDialog = dialogsWithMessages[0];
-          setSelectedDialogId(firstDialog.uuid);
-          setSelectedDialogMessages(firstDialog.messages || []);
+      const uuidParam = searchParams.get('uuid');
+
+      if (dialogsWithMessages.length > 0) {
+        // Проверяем наличие uuid параметра в URL
+        if (uuidParam) {
+          const dialogWithUuid = dialogsWithMessages.find(
+            (d) => d.uuid === uuidParam
+          );
+          if (dialogWithUuid) {
+            setSelectedDialogId(dialogWithUuid.uuid);
+            setSelectedDialogMessages(dialogWithUuid.messages || []);
+            console.log(`Автоматически выбран диалог с uuid: ${uuidParam}`);
+          } else {
+            console.log(`Диалог с uuid: ${uuidParam} не найден`);
+          }
+        }
+        // Если нет uuid, но есть thread_id
+        else if (threadIdParam) {
+          // Пытаемся найти диалог по thread_id только если он ещё не выбран
+          const currentSelectedDialog = dialogsWithMessages.find(
+            (d) => d.uuid === selectedDialogId
+          );
+          if (
+            !currentSelectedDialog ||
+            currentSelectedDialog.thread_id !== threadIdParam
+          ) {
+            selectDialogByThreadId(threadIdParam, dialogsWithMessages);
+          }
         }
       } else if (dialogsWithMessages.length > 0 && !selectedDialogId) {
         // Выбираем первый диалог по умолчанию, если нет thread_id в URL
@@ -489,16 +510,32 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
   // Отслеживаем изменения thread_id в URL для автоматического выбора диалога
   useEffect(() => {
     const threadIdParam = searchParams.get('thread_id');
-    if (threadIdParam && dialogs.length > 0) {
-      // Пытаемся найти диалог по thread_id только если он ещё не выбран
-      const currentSelectedDialog = dialogs.find(
-        (d) => d.uuid === selectedDialogId
-      );
-      if (
-        !currentSelectedDialog ||
-        currentSelectedDialog.thread_id !== threadIdParam
-      ) {
-        selectDialogByThreadId(threadIdParam, dialogs);
+    const uuidParam = searchParams.get('uuid');
+
+    if (dialogs.length > 0) {
+      // Проверяем наличие uuid параметра в URL
+      if (uuidParam) {
+        const dialogWithUuid = dialogs.find((d) => d.uuid === uuidParam);
+        if (dialogWithUuid) {
+          setSelectedDialogId(dialogWithUuid.uuid);
+          setSelectedDialogMessages(dialogWithUuid.messages || []);
+          console.log(`Автоматически выбран диалог с uuid: ${uuidParam}`);
+        } else {
+          console.log(`Диалог с uuid: ${uuidParam} не найден`);
+        }
+      }
+      // Если нет uuid, но есть thread_id
+      else if (threadIdParam) {
+        // Пытаемся найти диалог по thread_id только если он ещё не выбран
+        const currentSelectedDialog = dialogs.find(
+          (d) => d.uuid === selectedDialogId
+        );
+        if (
+          !currentSelectedDialog ||
+          currentSelectedDialog.thread_id !== threadIdParam
+        ) {
+          selectDialogByThreadId(threadIdParam, dialogs);
+        }
       }
     }
   }, [searchParams, dialogs, selectedDialogId]);
@@ -900,10 +937,10 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 
                 <div className='flex flex-col'>
                   <span className='text-muted-foreground text-sm font-medium'>
-                    Thread ID
+                    UUID
                   </span>
                   <span className='font-mono text-xs'>
-                    {selectedDialog.thread_id}
+                    {selectedDialog.uuid}
                   </span>
                 </div>
 
@@ -973,7 +1010,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 
                     <div className='flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
-                        Последняя активность
+                        Обновлено
                       </span>
                       <span>{selectedDialog.lastActivity}</span>
                     </div>
@@ -1131,7 +1168,7 @@ export default function MessengersPage() {
   };
 
   const navigateToChat = (id: number) => {
-    router.push(`/dashboard/messengers/${id}/chat`);
+    router.push(`/dashboard/messengers?id=${id}`);
   };
 
   // Update the tab when URL parameters change
@@ -1158,9 +1195,40 @@ export default function MessengersPage() {
                 </h1>
 
                 <TabsList className='flex gap-4'>
-                  <TabsTrigger value='dialogs'>Диалоги</TabsTrigger>
-                  <TabsTrigger value='incoming'>Список</TabsTrigger>
-                  <TabsTrigger value='outgoing'>Рассылки</TabsTrigger>
+                  <TabsTrigger
+                    value='dialogs'
+                    onClick={() => {
+                      const uuidParam = searchParams.get('uuid');
+                      const newParam = uuidParam ? `?uuid=${uuidParam}` : '';
+                      router.push(`/dashboard/messengers${newParam}`);
+                    }}
+                  >
+                    Диалоги
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value='incoming'
+                    onClick={() => {
+                      const uuidParam = searchParams.get('uuid');
+                      const newParam = uuidParam ? `&uuid=${uuidParam}` : '';
+                      router.push(
+                        `/dashboard/messengers?tab=incoming${newParam}`
+                      );
+                    }}
+                  >
+                    Список
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value='outgoing'
+                    onClick={() => {
+                      const uuidParam = searchParams.get('uuid');
+                      const newParam = uuidParam ? `&uuid=${uuidParam}` : '';
+                      router.push(
+                        `/dashboard/messengers?tab=outgoing${newParam}`
+                      );
+                    }}
+                  >
+                    Рассылки
+                  </TabsTrigger>
                 </TabsList>
               </div>
 

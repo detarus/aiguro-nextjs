@@ -9,7 +9,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { Client } from './client-table';
 import { useFunnels } from '@/hooks/useFunnels';
 import { useOrganization } from '@clerk/nextjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 interface KanbanBoardProps {
   clients: Client[];
@@ -188,6 +188,10 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
   const { currentFunnel } = useFunnels(backendOrgId);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [debug, setDebug] = useState<{
+    stageIds: string[];
+    clientStages: Record<string, number>;
+  }>({ stageIds: [], clientStages: {} });
 
   // Инициализируем стадии из данных воронки
   useEffect(() => {
@@ -202,6 +206,12 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
         })
       );
       setStages(funnelStages);
+
+      // Для отладки
+      setDebug((prev) => ({
+        ...prev,
+        stageIds: funnelStages.map((s) => s.id)
+      }));
     } else {
       // Используем дефолтные стадии, если нет данных в воронке
       setStages([
@@ -213,14 +223,52 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
     }
   }, [currentFunnel]);
 
-  // Группируем клиентов по стадиям
-  const clientsByStage = stages.reduce(
-    (acc, stage) => {
-      acc[stage.id] = clients.filter((client) => client.stage === stage.id);
-      return acc;
-    },
-    {} as Record<string, Client[]>
-  );
+  // Собираем статистику по этапам клиентов для отладки
+  useEffect(() => {
+    const clientStages: Record<string, number> = {};
+    clients.forEach((client) => {
+      if (!clientStages[client.stage]) {
+        clientStages[client.stage] = 0;
+      }
+      clientStages[client.stage]++;
+    });
+    setDebug((prev) => ({ ...prev, clientStages }));
+  }, [clients]);
+
+  // Группируем клиентов по стадиям с учетом возможных несоответствий
+  const clientsByStage = useMemo(() => {
+    const result: Record<string, Client[]> = {};
+
+    // Инициализируем пустые массивы для каждой стадии
+    stages.forEach((stage) => {
+      result[stage.id] = [];
+    });
+
+    // Распределяем клиентов по стадиям
+    clients.forEach((client) => {
+      // Проверяем, существует ли стадия с точным совпадением
+      if (stages.some((stage) => stage.id === client.stage)) {
+        // Если да, добавляем клиента в соответствующую стадию
+        result[client.stage].push(client);
+      } else {
+        // Если нет, ищем ближайшее соответствие или используем первую стадию
+        const matchingStage = stages.find(
+          (stage) =>
+            stage.id.toLowerCase().includes(client.stage.toLowerCase()) ||
+            client.stage.toLowerCase().includes(stage.id.toLowerCase())
+        );
+
+        if (matchingStage) {
+          result[matchingStage.id].push(client);
+        } else if (stages.length > 0) {
+          // Если не нашли соответствия, добавляем в первую стадию
+          result[stages[0].id].push(client);
+        }
+      }
+    });
+
+    return result;
+  }, [stages, clients]);
 
   // Динамически рассчитываем max-width в зависимости от состояния сайдбара
   const getMaxWidth = () => {
@@ -232,6 +280,31 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
 
   return (
     <div className='w-full'>
+      {/* Отладочная информация */}
+      {process.env.NODE_ENV !== 'production' && (
+        <div className='mb-4 rounded border border-gray-200 p-4 text-xs'>
+          <details>
+            <summary className='cursor-pointer font-medium'>
+              Отладочная информация
+            </summary>
+            <div className='mt-2 space-y-2'>
+              <div>
+                <div className='font-semibold'>Стадии из воронки:</div>
+                <pre className='mt-1 rounded bg-gray-100 p-2 whitespace-pre-wrap'>
+                  {JSON.stringify(debug.stageIds, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <div className='font-semibold'>Стадии клиентов:</div>
+                <pre className='mt-1 rounded bg-gray-100 p-2 whitespace-pre-wrap'>
+                  {JSON.stringify(debug.clientStages, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
+
       {/* Контейнер с ограниченной шириной и горизонтальной прокруткой */}
       <div
         className='overflow-x-auto'

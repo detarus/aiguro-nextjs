@@ -1146,14 +1146,6 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 export default function MessengersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState(
-    tabParam === 'incoming'
-      ? 'incoming'
-      : tabParam === 'outgoing'
-        ? 'outgoing'
-        : 'dialogs'
-  );
   const [showDialogNotFoundModal, setShowDialogNotFoundModal] = useState(false);
   const [notFoundThreadId, setNotFoundThreadId] = useState<string>('');
   const [shownNotFoundThreadIds, setShownNotFoundThreadIds] = useState<
@@ -1259,91 +1251,24 @@ export default function MessengersPage() {
     router.push(`/dashboard/messengers?id=${id}`);
   };
 
-  // Update the tab when URL parameters change
-  useEffect(() => {
-    if (
-      tabParam === 'dialogs' ||
-      tabParam === 'incoming' ||
-      tabParam === 'outgoing'
-    ) {
-      setActiveTab(tabParam);
-    }
-  }, [tabParam]);
-
   return (
     <Suspense fallback={<PageSkeleton />}>
       <div className='p-6'>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className='w-full space-y-4'>
-            {/* Заголовок, табы и кнопка экспорта в одной строке */}
-            <div className='flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
-              <div className='flex flex-col gap-4 sm:flex-row sm:items-center'>
-                <h1 className='text-xl font-semibold sm:text-2xl'>
-                  Мессенджеры
-                </h1>
-
-                <TabsList className='flex gap-4'>
-                  <TabsTrigger
-                    value='dialogs'
-                    onClick={() => {
-                      const uuidParam = searchParams.get('uuid');
-                      const newParam = uuidParam ? `?uuid=${uuidParam}` : '';
-                      router.push(`/dashboard/messengers${newParam}`);
-                    }}
-                  >
-                    Диалоги
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value='incoming'
-                    onClick={() => {
-                      const uuidParam = searchParams.get('uuid');
-                      const newParam = uuidParam ? `&uuid=${uuidParam}` : '';
-                      router.push(
-                        `/dashboard/messengers?tab=incoming${newParam}`
-                      );
-                    }}
-                  >
-                    Список
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value='outgoing'
-                    onClick={() => {
-                      const uuidParam = searchParams.get('uuid');
-                      const newParam = uuidParam ? `&uuid=${uuidParam}` : '';
-                      router.push(
-                        `/dashboard/messengers?tab=outgoing${newParam}`
-                      );
-                    }}
-                  >
-                    Рассылки
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <Button variant='outline'>Экспорт</Button>
+        <div className='w-full space-y-4'>
+          {/* Заголовок, табы и кнопка экспорта в одной строке */}
+          <div className='flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
+            <div className='flex flex-col gap-4 sm:flex-row sm:items-center'>
+              <h1 className='text-xl font-semibold sm:text-2xl'>Мессенджеры</h1>
             </div>
 
-            {/* Контент табов */}
-            <TabsContent value='dialogs' className='w-full space-y-4'>
-              <DialogsView onDialogNotFound={handleDialogNotFound} />
-            </TabsContent>
-
-            {/* Остальные вкладки остаются без изменений */}
-            <TabsContent value='incoming' className='w-full space-y-4'>
-              {/* ... Здесь будет содержимое вкладки Список ... */}
-              <div className='text-muted-foreground py-8 text-center'>
-                Функциональность списка в разработке
-              </div>
-            </TabsContent>
-
-            <TabsContent value='outgoing' className='w-full space-y-4'>
-              {/* ... Здесь будет содержимое вкладки Рассылки ... */}
-              <div className='text-muted-foreground py-8 text-center'>
-                Функциональность рассылок в разработке
-              </div>
-            </TabsContent>
+            <Button variant='outline'>Экспорт</Button>
           </div>
-        </Tabs>
+
+          {/* Основной контент */}
+          <div className='w-full space-y-4'>
+            <DialogsView onDialogNotFound={handleDialogNotFound} />
+          </div>
+        </div>
 
         {/* Модальное окно "диалог не найден" */}
         {showDialogNotFoundModal && (

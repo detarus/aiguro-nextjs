@@ -181,9 +181,9 @@ export default function DealsPage() {
         close_ratio: Number(deal.close_ratio || 0),
         // Явно указываем тип для manager
         manager: deal.manager || null,
-        // Явно приводим к boolean - преобразуем undefined в false
-        ai: deal.ai ? true : false,
-        unsubscribed: deal.unsubscribed ? true : false,
+        // Преобразуем любые значения в строго boolean
+        ai: Boolean(deal.ai),
+        unsubscribed: Boolean(deal.unsubscribed),
         // Включаем данные клиента
         client: clientData,
 
@@ -303,12 +303,14 @@ export default function DealsPage() {
     let matchesSearch = true;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      matchesSearch =
-        client.name.toLowerCase().includes(query) ||
-        client.email.toLowerCase().includes(query) ||
-        client.phone.toLowerCase().includes(query) ||
-        (client.lastMessage &&
-          client.lastMessage.toLowerCase().includes(query));
+      const nameMatch = client.name.toLowerCase().includes(query);
+      const emailMatch = client.email.toLowerCase().includes(query);
+      const phoneMatch = client.phone.toLowerCase().includes(query);
+      const messageMatch = client.lastMessage
+        ? client.lastMessage.toLowerCase().includes(query)
+        : false;
+
+      matchesSearch = nameMatch || emailMatch || phoneMatch || messageMatch;
     }
 
     // Фильтрация по статусу

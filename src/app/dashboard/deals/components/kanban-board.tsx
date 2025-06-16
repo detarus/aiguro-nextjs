@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { IconPhone, IconClock, IconUser, IconPlus } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -10,6 +10,7 @@ import { Client } from './client-table';
 import { useFunnels } from '@/hooks/useFunnels';
 import { useOrganization } from '@clerk/nextjs';
 import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface KanbanBoardProps {
   clients: Client[];
@@ -46,99 +47,118 @@ const getStatusColor = (status: string) => {
   }
 };
 
-// Функция для получения цвета этапа
+// Функция для определения цвета стадии на основе индекса
 const getStageColor = (index: number) => {
   const colors = [
     'bg-blue-500',
-    'bg-orange-500',
-    'bg-yellow-500',
-    'bg-green-500',
     'bg-purple-500',
+    'bg-amber-500',
+    'bg-green-500',
     'bg-pink-500',
+    'bg-cyan-500',
     'bg-indigo-500',
-    'bg-red-500'
+    'bg-rose-500',
+    'bg-emerald-500',
+    'bg-violet-500'
   ];
   return colors[index % colors.length];
 };
 
 // Компонент карточки клиента
 function ClientCard({ client }: { client: Client }) {
+  const statusColor = getStatusColor(client.status);
+  const initials = getInitials(client.name);
+  const router = useRouter();
+  const { organization } = useOrganization();
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+
+  // Форматируем цену для отображения
+  const formattedPrice = new Intl.NumberFormat('ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    maximumFractionDigits: 0
+  })
+    .format(client.price || 0)
+    .replace('RUB', '₽');
+
+  // Обработчик клика по карточке
+  const handleCardClick = () => {
+    if (client.dialogUuid) {
+      router.push(
+        `/dashboard/messengers/${backendOrgId}/chat?uuid=${client.dialogUuid}`
+      );
+    }
+  };
+
   return (
-    <Card className='mb-3 cursor-pointer transition-all hover:shadow-md'>
-      <CardHeader className='pb-3'>
-        <div className='flex items-start justify-between'>
-          <div className='flex items-center space-x-3'>
-            <Avatar className='h-10 w-10'>
-              <AvatarFallback className='bg-primary/10 text-primary text-sm font-medium'>
-                {getInitials(client.name)}
+    <Card
+      className='mb-3 cursor-pointer transition-all hover:shadow-md'
+      onClick={handleCardClick}
+    >
+      <CardContent className='px-4'>
+        {/* Заголовок карточки с именем и статусом */}
+        <div className='mb-2 flex items-center justify-between'>
+          <div className='flex items-center'>
+            <Avatar className='mr-2 h-8 w-8'>
+              <AvatarImage src='' alt={client.name} />
+              <AvatarFallback className='bg-gray-200 text-gray-600'>
+                {initials}
               </AvatarFallback>
             </Avatar>
-            <div className='min-w-0 flex-1'>
-              <h3 className='truncate text-sm font-medium'>{client.name}</h3>
-              <p className='text-muted-foreground truncate text-xs'>
-                {client.email}
-              </p>
-            </div>
+            <div className='font-medium'>{client.name}</div>
           </div>
-          <Badge
-            variant='secondary'
-            className={`text-xs ${getStatusColor(client.status)}`}
-          >
-            {client.status}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className='space-y-3 pt-0'>
-        <div className='space-y-2'>
-          <div className='text-muted-foreground flex items-center text-xs'>
-            <IconPhone className='mr-2 h-3 w-3 flex-shrink-0' />
-            <span className='truncate'>{client.phone}</span>
+          <div className='text-xs font-medium text-green-500'>
+            {client.status === 'Активный' && '3 мин назад'}
           </div>
-          <div className='text-muted-foreground flex items-center text-xs'>
-            <IconUser className='mr-2 h-3 w-3 flex-shrink-0' />
-            <span className='truncate'>{client.assignedTo}</span>
+        </div>
+
+        {/* Теги */}
+        <div className='mb-2 flex flex-wrap gap-1'>
+          {(client.tags || ['Новый клиент']).map((tag, index) => (
+            <Badge
+              key={index}
+              variant='outline'
+              className='bg-gray-100 text-gray-700 hover:bg-gray-200'
+            >
+              {tag}
+            </Badge>
+          ))}
+        </div>
+
+        {/* Описание задачи */}
+        <div className='mb-3 pt-3 text-xs text-gray-600'>
+          {client.description || 'Описание отсутствует'}
+        </div>
+
+        {/* Цена и канал */}
+        <div className='flex items-center justify-between'>
+          <div className='text-2xl font-semibold text-gray-700'>
+            {formattedPrice}
           </div>
-          <div className='text-muted-foreground flex items-center text-xs'>
-            <IconClock className='mr-2 h-3 w-3 flex-shrink-0' />
-            <span className='truncate'>{client.lastActivity}</span>
+          <div className='text-sm text-gray-500'>
+            {client.channel || 'Telegram'}
           </div>
-          {client.messagesCount !== undefined && (
-            <div className='text-muted-foreground flex flex-col text-xs'>
-              <div className='font-medium'>
-                Сообщений: {client.messagesCount}
-              </div>
-              {client.lastMessage && (
-                <div className='text-muted-foreground max-w-[200px] truncate text-xs'>
-                  {client.lastMessage}
-                </div>
-              )}
-              {client.closeRatio !== undefined && (
-                <div className='mt-1'>
-                  <div className='text-xs font-medium'>
-                    Вероятность: {client.closeRatio}%
-                  </div>
-                  <div className='mt-1 h-1.5 w-full rounded-full bg-gray-200'>
-                    <div
-                      className='h-1.5 rounded-full bg-green-500'
-                      style={{
-                        width: `${Math.max(0, Math.min(100, client.closeRatio))}%`
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
-        <div className='text-muted-foreground text-xs'>
-          Создан: {client.created}
+
+        {/* Индикатор прогресса (берем из closeRatio) */}
+        <div className='mt-2'>
+          <div className='h-1.5 w-full rounded-full bg-gray-100'>
+            <div
+              className='h-1.5 rounded-full bg-green-500'
+              style={{ width: `${client.closeRatio || 62}%` }}
+            ></div>
+          </div>
+          <div className='mt-1 text-right text-sm font-medium text-gray-600'>
+            {client.closeRatio || 62}%
+          </div>
         </div>
-        <div className='text-right'>
-          <span className='text-lg font-semibold'>
-            ID: {client.dialogUuid || 'N/A'}
-          </span>
-          <div className='text-muted-foreground text-xs'>Dialog ID</div>
-        </div>
+
+        {/* Отладочная информация */}
+        {/* {process.env.NODE_ENV !== 'production' && (
+          <div className='text-xs mt-1 text-blue-500'>
+            Стадия: {client.stage || 'Не указана'}
+          </div>
+        )} */}
       </CardContent>
     </Card>
   );
@@ -146,25 +166,39 @@ function ClientCard({ client }: { client: Client }) {
 
 // Компонент колонки Kanban
 function KanbanColumn({ stage, clients }: { stage: Stage; clients: Client[] }) {
+  const router = useRouter();
+  const { organization } = useOrganization();
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+
+  // Обработчик для добавления нового диалога
+  const handleAddDialog = () => {
+    router.push(`/dashboard/messengers/${backendOrgId}/chat/new`);
+  };
+
   return (
-    <div className='max-w-[320px] min-w-[280px] flex-1'>
+    <div className='max-w-[320px] min-w-[300px] flex-1'>
       {/* Заголовок колонки */}
       <div className='mb-4'>
         <div className={`h-1 w-full rounded-t-lg ${stage.color}`} />
         <div className='bg-muted/50 rounded-b-lg px-4 py-3'>
-          <h2 className='text-muted-foreground text-center text-sm font-semibold'>
-            {stage.title}
-            {stage.assistant_code_name && (
-              <div className='mt-1 text-xs font-normal opacity-75'>
-                {stage.assistant_code_name}
-              </div>
-            )}
-          </h2>
+          <div className='flex items-center justify-between'>
+            <h2 className='text-sm font-semibold text-gray-700'>
+              {stage.title}
+              {stage.assistant_code_name && (
+                <span className='ml-2 text-xs font-normal text-gray-500'>
+                  ({stage.assistant_code_name})
+                </span>
+              )}
+            </h2>
+            <Badge variant='outline' className='bg-gray-100 text-gray-600'>
+              {clients.length}
+            </Badge>
+          </div>
         </div>
       </div>
 
       {/* Карточки клиентов */}
-      <div className='space-y-0'>
+      <div className='space-y-3'>
         {clients.map((client) => (
           <ClientCard key={client.id} client={client} />
         ))}
@@ -173,6 +207,7 @@ function KanbanColumn({ stage, clients }: { stage: Stage; clients: Client[] }) {
         <Button
           variant='ghost'
           className='border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 h-12 w-full border-2 border-dashed'
+          onClick={handleAddDialog}
         >
           <IconPlus className='mr-2 h-4 w-4' />
           Добавить диалог
@@ -190,27 +225,56 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
   const [stages, setStages] = useState<Stage[]>([]);
   const [debug, setDebug] = useState<{
     stageIds: string[];
+    stageCodeNames: Record<string, string | undefined>;
     clientStages: Record<string, number>;
-  }>({ stageIds: [], clientStages: {} });
+    clientDetails: Array<{ id: number; name: string; stage: string }>;
+  }>({ stageIds: [], stageCodeNames: {}, clientStages: {}, clientDetails: [] });
+  const router = useRouter();
 
   // Инициализируем стадии из данных воронки
   useEffect(() => {
     if (currentFunnel?.stages && currentFunnel.stages.length > 0) {
       // Создаем стадии из данных воронки
-      const funnelStages: Stage[] = currentFunnel.stages.map(
-        (stage, index) => ({
+      const funnelStages: Stage[] = currentFunnel.stages.map((stage, index) => {
+        // Если у стадии нет assistant_code_name, используем id в нижнем регистре в качестве assistant_code_name
+        const assistant_code_name =
+          stage.assistant_code_name && stage.assistant_code_name.trim() !== ''
+            ? stage.assistant_code_name
+            : stage.name.toLowerCase().replace(/\s+/g, '_');
+
+        console.log(
+          `Стадия ${stage.name}: assistant_code_name = ${assistant_code_name} (оригинал: ${stage.assistant_code_name || 'не задан'})`
+        );
+
+        return {
           id: stage.name,
           title: stage.name,
           color: getStageColor(index),
-          assistant_code_name: stage.assistant_code_name
-        })
-      );
+          assistant_code_name
+        };
+      });
       setStages(funnelStages);
 
       // Для отладки
+      const stageCodeNames: Record<string, string | undefined> = {};
+      funnelStages.forEach((stage) => {
+        stageCodeNames[stage.id] = stage.assistant_code_name;
+
+        // Отладка: проверяем, есть ли совпадения id стадии с assistant_code_name
+        if (
+          stage.assistant_code_name &&
+          stage.id.toLowerCase() === stage.assistant_code_name.toLowerCase()
+        ) {
+          console.log(
+            `ВНИМАНИЕ: Совпадение id и assistant_code_name для стадии ${stage.id}`
+          );
+        }
+      });
+
       setDebug((prev) => ({
         ...prev,
-        stageIds: funnelStages.map((s) => s.id)
+        stageIds: funnelStages.map((s) => s.id),
+        stageCodeNames
       }));
     } else {
       // Используем дефолтные стадии, если нет данных в воронке
@@ -226,16 +290,31 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
   // Собираем статистику по этапам клиентов для отладки
   useEffect(() => {
     const clientStages: Record<string, number> = {};
+    const clientDetails: Array<{ id: number; name: string; stage: string }> =
+      [];
+
     clients.forEach((client) => {
       if (!clientStages[client.stage]) {
         clientStages[client.stage] = 0;
       }
       clientStages[client.stage]++;
+
+      // Добавляем детальную информацию о клиенте для отладки
+      clientDetails.push({
+        id: client.id,
+        name: client.name,
+        stage: client.stage
+      });
     });
-    setDebug((prev) => ({ ...prev, clientStages }));
+
+    setDebug((prev) => ({
+      ...prev,
+      clientStages,
+      clientDetails
+    }));
   }, [clients]);
 
-  // Группируем клиентов по стадиям с учетом возможных несоответствий
+  // Группируем клиентов по стадиям с учетом сопоставления stage с assistant_code_name
   const clientsByStage = useMemo(() => {
     const result: Record<string, Client[]> = {};
 
@@ -244,25 +323,82 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
       result[stage.id] = [];
     });
 
+    console.log('Распределение клиентов по стадиям:');
+    console.log(
+      'Стадии:',
+      stages.map((s) => ({
+        id: s.id,
+        assistant_code_name: s.assistant_code_name
+      }))
+    );
+    console.log(
+      'Клиенты:',
+      clients.map((c) => ({ id: c.id, name: c.name, stage: c.stage }))
+    );
+
     // Распределяем клиентов по стадиям
     clients.forEach((client) => {
-      // Проверяем, существует ли стадия с точным совпадением
-      if (stages.some((stage) => stage.id === client.stage)) {
-        // Если да, добавляем клиента в соответствующую стадию
-        result[client.stage].push(client);
+      // Проверяем, что у клиента есть стадия
+      if (!client.stage) {
+        console.log(
+          `Клиент ${client.id} (${client.name}) - отсутствует стадия, добавляем в первую стадию ${stages[0]?.id || 'неизвестно'}`
+        );
+        if (stages.length > 0) {
+          result[stages[0].id].push(client);
+        }
+        return;
+      }
+
+      // Ищем стадию по assistant_code_name (игнорируем регистр)
+      const matchingStage = stages.find(
+        (stage) =>
+          stage.assistant_code_name &&
+          stage.assistant_code_name.trim() !== '' &&
+          stage.assistant_code_name.toLowerCase() === client.stage.toLowerCase()
+      );
+
+      if (matchingStage) {
+        // Если нашли точное соответствие по assistant_code_name, добавляем в эту стадию
+        console.log(
+          `Клиент ${client.id} (${client.name}) - найдено точное соответствие по assistant_code_name: ${client.stage} -> стадия ${matchingStage.id}`
+        );
+        result[matchingStage.id].push(client);
       } else {
-        // Если нет, ищем ближайшее соответствие или используем первую стадию
-        const matchingStage = stages.find(
-          (stage) =>
-            stage.id.toLowerCase().includes(client.stage.toLowerCase()) ||
-            client.stage.toLowerCase().includes(stage.id.toLowerCase())
+        // Если не нашли по assistant_code_name, проверяем точное соответствие по id (игнорируем регистр)
+        const idMatchStage = stages.find(
+          (stage) => stage.id.toLowerCase() === client.stage.toLowerCase()
         );
 
-        if (matchingStage) {
-          result[matchingStage.id].push(client);
-        } else if (stages.length > 0) {
-          // Если не нашли соответствия, добавляем в первую стадию
-          result[stages[0].id].push(client);
+        if (idMatchStage) {
+          // Если нашли точное соответствие по id, добавляем в эту стадию
+          console.log(
+            `Клиент ${client.id} (${client.name}) - найдено точное соответствие по id: ${client.stage} -> стадия ${idMatchStage.id}`
+          );
+          result[idMatchStage.id].push(client);
+        } else {
+          // Если не нашли точных соответствий, ищем частичное соответствие
+          const partialMatch = stages.find(
+            (stage) =>
+              (stage.assistant_code_name &&
+                stage.assistant_code_name
+                  .toLowerCase()
+                  .includes(client.stage.toLowerCase())) ||
+              stage.id.toLowerCase().includes(client.stage.toLowerCase()) ||
+              client.stage.toLowerCase().includes(stage.id.toLowerCase())
+          );
+
+          if (partialMatch) {
+            console.log(
+              `Клиент ${client.id} (${client.name}) - найдено частичное соответствие: ${client.stage} -> стадия ${partialMatch.id}`
+            );
+            result[partialMatch.id].push(client);
+          } else if (stages.length > 0) {
+            // Если не нашли соответствия, добавляем в первую стадию
+            console.log(
+              `Клиент ${client.id} (${client.name}) - не найдено соответствие для стадии ${client.stage}, добавляем в первую стадию ${stages[0].id}`
+            );
+            result[stages[0].id].push(client);
+          }
         }
       }
     });
@@ -295,9 +431,23 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
                 </pre>
               </div>
               <div>
+                <div className='font-semibold'>Коды ассистентов:</div>
+                <pre className='mt-1 rounded bg-gray-100 p-2 whitespace-pre-wrap'>
+                  {JSON.stringify(debug.stageCodeNames, null, 2)}
+                </pre>
+              </div>
+              <div>
                 <div className='font-semibold'>Стадии клиентов:</div>
                 <pre className='mt-1 rounded bg-gray-100 p-2 whitespace-pre-wrap'>
                   {JSON.stringify(debug.clientStages, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <div className='font-semibold'>
+                  Детальная информация о клиентах:
+                </div>
+                <pre className='mt-1 rounded bg-gray-100 p-2 whitespace-pre-wrap'>
+                  {JSON.stringify(debug.clientDetails, null, 2)}
                 </pre>
               </div>
             </div>

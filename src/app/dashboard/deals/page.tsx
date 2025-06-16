@@ -46,6 +46,10 @@ export interface Dialog {
   assignedTo?: string;
   stage?: string;
   lastActivity?: string;
+  description?: string;
+  tags?: string[];
+  price?: number;
+  channel?: string;
 }
 
 export default function DealsPage() {
@@ -155,6 +159,17 @@ export default function DealsPage() {
     const data = await response.json();
     console.log('Fetched deals data:', data);
 
+    // Отладочная информация о стадиях воронки
+    if (currentFunnel?.stages) {
+      console.log(
+        'Funnel stages:',
+        currentFunnel.stages.map((stage) => ({
+          name: stage.name,
+          assistant_code_name: stage.assistant_code_name
+        }))
+      );
+    }
+
     // Преобразуем данные из API в формат, ожидаемый компонентом на основе предоставленной структуры
     const transformedDeals: Dialog[] = [];
 
@@ -168,6 +183,9 @@ export default function DealsPage() {
       // Если есть поле stage в диалоге, используем его
       if (deal.stage) {
         stage = deal.stage;
+        console.log(
+          `Dialog ${deal.id} - Используем существующий stage: ${stage}`
+        );
       }
       // Иначе определяем на основе close_ratio и стадий воронки
       else if (currentFunnel?.stages && currentFunnel.stages.length > 0) {
@@ -180,11 +198,35 @@ export default function DealsPage() {
           stagesCount - 1
         );
 
-        stage = currentFunnel.stages[stageIndex]?.name || 'Новый';
+        console.log(
+          `Dialog ${deal.id} - Вычисляем stage по close_ratio: ${closeRatio}%, индекс: ${stageIndex}`
+        );
+
+        // Используем assistant_code_name вместо name, если он доступен
+        if (
+          currentFunnel.stages[stageIndex]?.assistant_code_name &&
+          currentFunnel.stages[stageIndex].assistant_code_name.trim() !== ''
+        ) {
+          stage = currentFunnel.stages[stageIndex]
+            .assistant_code_name as string;
+          console.log(
+            `Dialog ${deal.id} - Установлен assistant_code_name: ${stage}`
+          );
+        } else {
+          // Если assistant_code_name не задан, используем name в нижнем регистре с заменой пробелов на подчеркивания
+          const stageName = currentFunnel.stages[stageIndex]?.name || 'Новый';
+          stage = stageName.toLowerCase().replace(/\s+/g, '_');
+          console.log(
+            `Dialog ${deal.id} - Сгенерирован assistant_code_name из name: ${stageName} -> ${stage}`
+          );
+        }
       }
       // Если нет данных о стадиях, используем стандартную логику
       else {
         const closeRatio = Number(deal.close_ratio || 0);
+        console.log(
+          `Dialog ${deal.id} - Используем стандартную логику по close_ratio: ${closeRatio}%`
+        );
 
         if (closeRatio >= 0 && closeRatio < 25) {
           stage = 'Новый';
@@ -195,6 +237,9 @@ export default function DealsPage() {
         } else if (closeRatio >= 75) {
           stage = 'Закрыто';
         }
+        console.log(
+          `Dialog ${deal.id} - Установлен стандартный stage: ${stage}`
+        );
       }
 
       // Создаем объект Dialog с правильными типами данных
@@ -230,8 +275,19 @@ export default function DealsPage() {
         stage: stage,
         lastActivity: deal.updated_at
           ? new Date(deal.updated_at).toLocaleString('ru-RU')
-          : 'Не указано'
+          : 'Не указано',
+        description:
+          deal.description ||
+          'Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами',
+        tags: deal.tags || ['Новый клиент', 'Горячий', 'Горячий'],
+        price: deal.price || Math.floor(Math.random() * 500000),
+        channel: deal.channel || 'Мобильный'
       };
+
+      // Отладочный лог для значения stage
+      console.log(
+        `Dialog ${transformedDeal.id} - Stage: ${stage}, Original stage: ${deal.stage || 'не указана'}, Close ratio: ${deal.close_ratio || 0}`
+      );
 
       transformedDeals.push(transformedDeal);
     }
@@ -329,7 +385,14 @@ export default function DealsPage() {
     dialogUuid: deal.uuid,
     messagesCount: deal.messages_count || 0,
     lastMessage: deal.last_message || '',
-    closeRatio: deal.close_ratio
+    closeRatio: deal.close_ratio,
+    // Новые поля для карточек в канбан-доске
+    description:
+      deal.description ||
+      'Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами',
+    tags: deal.tags || ['Новый клиент', 'Горячий', 'Горячий'],
+    price: deal.price || Math.floor(Math.random() * 500000),
+    channel: deal.channel || 'Мобильный'
   }));
 
   // Фильтрация сделок на основе поиска и статуса

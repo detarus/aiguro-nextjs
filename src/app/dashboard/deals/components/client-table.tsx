@@ -38,6 +38,11 @@ export interface Client {
   messagesCount?: number;
   lastMessage?: string;
   closeRatio?: number;
+  // Новые поля для карточек в канбан-доске
+  description?: string;
+  tags?: string[];
+  price?: number;
+  channel?: string;
 }
 
 interface ClientTableProps {
@@ -113,10 +118,6 @@ export function ClientTable({ clients, backendOrgId }: ClientTableProps) {
     }));
   };
 
-  const navigateToClientDetail = (id: number) => {
-    router.push(`/dashboard/clients/${id}`);
-  };
-
   useEffect(() => {
     // Initialize clientData with existing clients
     const initialData: Record<number, Partial<Client>> = {};
@@ -157,10 +158,10 @@ export function ClientTable({ clients, backendOrgId }: ClientTableProps) {
               </TableHead>
               <TableHead className='min-w-[100px]'>Стадия</TableHead>
               <TableHead className='hidden lg:table-cell'>Создан</TableHead>
-              <TableHead className='hidden min-w-[150px] md:table-cell'>
-                Последняя активность
+              <TableHead className='hidden min-w-[100px] md:table-cell'>
+                Обновлено
               </TableHead>
-              <TableHead className='hidden min-w-[150px] lg:table-cell'>
+              <TableHead className='hidden min-w-[100px] lg:table-cell'>
                 Сообщения
               </TableHead>
               <TableHead className='w-[60px] text-right'>Действия</TableHead>
@@ -242,14 +243,6 @@ export function ClientTable({ clients, backendOrgId }: ClientTableProps) {
                   <TableCell className='hidden lg:table-cell'>
                     {client.messagesCount !== undefined ? (
                       <div>
-                        <div className='font-medium'>
-                          {client.messagesCount}
-                        </div>
-                        {client.lastMessage && (
-                          <div className='text-muted-foreground max-w-[200px] truncate text-xs'>
-                            {client.lastMessage}
-                          </div>
-                        )}
                         {client.closeRatio !== undefined && (
                           <div className='mt-1'>
                             <div className='text-xs font-medium'>
@@ -284,17 +277,11 @@ export function ClientTable({ clients, backendOrgId }: ClientTableProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align='end'>
-                        <DropdownMenuItem
-                          onClick={() => navigateToClientDetail(client.id)}
-                        >
-                          Посмотреть
-                        </DropdownMenuItem>
                         {client.dialogUuid && (
                           <DropdownMenuItem
                             onClick={() =>
-                              window.open(
-                                `/dashboard/organization/${backendOrgId}/funnel/${client.dialogId?.split(':')[0]}/dialog/${client.dialogUuid}`,
-                                '_blank'
+                              router.push(
+                                `/dashboard/messengers/${backendOrgId}/chat?uuid=${client.dialogUuid}`
                               )
                             }
                           >

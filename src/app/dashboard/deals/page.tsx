@@ -162,6 +162,41 @@ export default function DealsPage() {
       // Извлекаем данные клиента из вложенного объекта client, если они есть
       const clientData = deal.client || {};
 
+      // Определяем этап на основе assistant_code_name из воронки
+      let stage = 'Новый';
+
+      // Если есть поле stage в диалоге, используем его
+      if (deal.stage) {
+        stage = deal.stage;
+      }
+      // Иначе определяем на основе close_ratio и стадий воронки
+      else if (currentFunnel?.stages && currentFunnel.stages.length > 0) {
+        const closeRatio = Number(deal.close_ratio || 0);
+        const stagesCount = currentFunnel.stages.length;
+
+        // Определяем индекс этапа на основе close_ratio
+        const stageIndex = Math.min(
+          Math.floor((closeRatio / 100) * stagesCount),
+          stagesCount - 1
+        );
+
+        stage = currentFunnel.stages[stageIndex]?.name || 'Новый';
+      }
+      // Если нет данных о стадиях, используем стандартную логику
+      else {
+        const closeRatio = Number(deal.close_ratio || 0);
+
+        if (closeRatio >= 0 && closeRatio < 25) {
+          stage = 'Новый';
+        } else if (closeRatio >= 25 && closeRatio < 50) {
+          stage = 'Квалификация';
+        } else if (closeRatio >= 50 && closeRatio < 75) {
+          stage = 'Переговоры';
+        } else if (closeRatio >= 75) {
+          stage = 'Закрыто';
+        }
+      }
+
       // Создаем объект Dialog с правильными типами данных
       const transformedDeal: Dialog = {
         id: deal.id || `dialog_${Math.random().toString(36).substring(7)}`,
@@ -192,7 +227,7 @@ export default function DealsPage() {
         email: clientData.email || 'Не указано',
         phone: clientData.phone || 'Не указано',
         assignedTo: clientData.manager || deal.manager || 'Не назначено',
-        stage: deal.stage || 'Новый',
+        stage: stage,
         lastActivity: deal.updated_at
           ? new Date(deal.updated_at).toLocaleString('ru-RU')
           : 'Не указано'
@@ -330,8 +365,17 @@ export default function DealsPage() {
       <PageContainer>
         <div className='flex min-h-[400px] items-center justify-center'>
           <div className='text-center'>
-            <div className='mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900'></div>
-            <p className='text-muted-foreground mt-4'>Загрузка сделок...</p>
+            <div className='mx-auto w-64'>
+              <div className='mb-4 flex items-center justify-between'>
+                <div className='text-sm font-medium'>Загрузка диалогов...</div>
+                <span className='text-xs font-normal'>
+                  Пожалуйста, подождите
+                </span>
+              </div>
+              <div className='bg-muted h-2 w-full overflow-hidden rounded-full'>
+                <div className='animate-progress-indeterminate bg-primary h-full rounded-full'></div>
+              </div>
+            </div>
           </div>
         </div>
       </PageContainer>

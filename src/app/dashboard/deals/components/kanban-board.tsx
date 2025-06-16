@@ -7,18 +7,20 @@ import { Button } from '@/components/ui/button';
 import { IconPhone, IconClock, IconUser, IconPlus } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Client } from './client-table';
+import { useFunnels } from '@/hooks/useFunnels';
+import { useOrganization } from '@clerk/nextjs';
+import { useEffect, useState } from 'react';
 
 interface KanbanBoardProps {
   clients: Client[];
 }
 
-// Определяем стадии для колонок Kanban
-const stages = [
-  { id: 'Новый', title: 'Новый', color: 'bg-blue-500' },
-  { id: 'Квалификация', title: 'Квалификация', color: 'bg-orange-500' },
-  { id: 'Переговоры', title: 'Переговоры', color: 'bg-yellow-500' },
-  { id: 'Закрыто', title: 'Закрыто', color: 'bg-green-500' }
-];
+interface Stage {
+  id: string;
+  title: string;
+  color: string;
+  assistant_code_name?: string;
+}
 
 // Функция для получения инициалов из имени
 const getInitials = (name: string) => {
@@ -42,6 +44,21 @@ const getStatusColor = (status: string) => {
     default:
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
   }
+};
+
+// Функция для получения цвета этапа
+const getStageColor = (index: number) => {
+  const colors = [
+    'bg-blue-500',
+    'bg-orange-500',
+    'bg-yellow-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-red-500'
+  ];
+  return colors[index % colors.length];
 };
 
 // Компонент карточки клиента
@@ -128,13 +145,7 @@ function ClientCard({ client }: { client: Client }) {
 }
 
 // Компонент колонки Kanban
-function KanbanColumn({
-  stage,
-  clients
-}: {
-  stage: (typeof stages)[0];
-  clients: Client[];
-}) {
+function KanbanColumn({ stage, clients }: { stage: Stage; clients: Client[] }) {
   return (
     <div className='max-w-[320px] min-w-[280px] flex-1'>
       {/* Заголовок колонки */}
@@ -143,6 +154,11 @@ function KanbanColumn({
         <div className='bg-muted/50 rounded-b-lg px-4 py-3'>
           <h2 className='text-muted-foreground text-center text-sm font-semibold'>
             {stage.title}
+            {stage.assistant_code_name && (
+              <div className='mt-1 text-xs font-normal opacity-75'>
+                {stage.assistant_code_name}
+              </div>
+            )}
           </h2>
         </div>
       </div>
@@ -168,6 +184,34 @@ function KanbanColumn({
 
 export function KanbanBoard({ clients }: KanbanBoardProps) {
   const { state } = useSidebar();
+  const { organization } = useOrganization();
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+  const { currentFunnel } = useFunnels(backendOrgId);
+  const [stages, setStages] = useState<Stage[]>([]);
+
+  // Инициализируем стадии из данных воронки
+  useEffect(() => {
+    if (currentFunnel?.stages && currentFunnel.stages.length > 0) {
+      // Создаем стадии из данных воронки
+      const funnelStages: Stage[] = currentFunnel.stages.map(
+        (stage, index) => ({
+          id: stage.name,
+          title: stage.name,
+          color: getStageColor(index),
+          assistant_code_name: stage.assistant_code_name
+        })
+      );
+      setStages(funnelStages);
+    } else {
+      // Используем дефолтные стадии, если нет данных в воронке
+      setStages([
+        { id: 'Новый', title: 'Новый', color: 'bg-blue-500' },
+        { id: 'Квалификация', title: 'Квалификация', color: 'bg-orange-500' },
+        { id: 'Переговоры', title: 'Переговоры', color: 'bg-yellow-500' },
+        { id: 'Закрыто', title: 'Закрыто', color: 'bg-green-500' }
+      ]);
+    }
+  }, [currentFunnel]);
 
   // Группируем клиентов по стадиям
   const clientsByStage = stages.reduce(

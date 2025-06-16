@@ -281,7 +281,7 @@ export default function DealsPage() {
           'Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами',
         tags: deal.tags || ['Новый клиент', 'Горячий', 'Горячий'],
         price: deal.price || Math.floor(Math.random() * 500000),
-        channel: deal.channel || 'Мобильный'
+        channel: deal.channel || 'Telegram'
       };
 
       // Отладочный лог для значения stage
@@ -392,7 +392,7 @@ export default function DealsPage() {
       'Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами',
     tags: deal.tags || ['Новый клиент', 'Горячий', 'Горячий'],
     price: deal.price || Math.floor(Math.random() * 500000),
-    channel: deal.channel || 'Мобильный'
+    channel: deal.channel || 'Telegram'
   }));
 
   // Фильтрация сделок на основе поиска и статуса

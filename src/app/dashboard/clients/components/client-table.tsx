@@ -151,7 +151,7 @@ export function ClientTable({ clients }: ClientTableProps) {
               <TableHead className='min-w-[100px]'>Стадия</TableHead>
               <TableHead className='hidden lg:table-cell'>Создан</TableHead>
               <TableHead className='hidden min-w-[150px] md:table-cell'>
-                Последняя активность
+                Обновлено
               </TableHead>
               <TableHead className='w-[60px] text-right'>Действия</TableHead>
             </TableRow>

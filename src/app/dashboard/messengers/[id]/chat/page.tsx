@@ -18,6 +18,34 @@ import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
+// Define interface for Dialog
+interface Dialog {
+  id?: string;
+  uuid: string;
+  thread_id: string;
+  client_id?: number;
+  funnel_id?: string | number;
+  created_at: string;
+  updated_at?: string;
+  status?: string;
+  messages_count?: number;
+  last_message?: string;
+  close_ratio: number;
+  manager: string | null;
+  ai?: boolean;
+  unsubscribed?: boolean;
+  client?: {
+    id: number;
+    name: string;
+    phone: string;
+    email: string;
+    manager: string | null;
+    status: string;
+    close_ratio?: number;
+    messages_count?: number;
+  };
+}
+
 // Define interface for messages
 interface Message {
   id: string | number;
@@ -77,6 +105,8 @@ export default function ChatPage() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState(mockMessages);
   const [isSending, setIsSending] = useState(false);
+  const [dialogData, setDialogData] = useState<Dialog | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Get organization and funnel data
   const { organization } = useOrganization();
@@ -95,6 +125,46 @@ export default function ChatPage() {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Функция для загрузки данных о диалоге
+  const fetchDialogData = async () => {
+    if (!backendOrgId || !currentFunnel?.id || !chatId) {
+      console.error('Missing required data to fetch dialog');
+      return;
+    }
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        console.error('No token available');
+        return;
+      }
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${chatId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        console.error('Failed to fetch dialog:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('Retrieved dialog:', data);
+      setDialogData(data);
+    } catch (error) {
+      console.error('Error fetching dialog:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Add function to fetch dialog messages
   const fetchDialogMessages = async () => {
@@ -186,6 +256,7 @@ export default function ChatPage() {
   // Attempt to fetch real messages on component mount
   useEffect(() => {
     if (backendOrgId && currentFunnel?.id && chatId) {
+      fetchDialogData();
       fetchDialogMessages();
     }
   }, [backendOrgId, currentFunnel?.id, chatId]);
@@ -366,75 +437,126 @@ export default function ChatPage() {
           <div className='p-4'>
             <CardTitle className='mb-4 text-xl'>Информация о клиенте</CardTitle>
 
-            <div className='space-y-4'>
-              <div className='flex flex-col'>
-                <span className='text-muted-foreground text-sm font-medium'>
-                  Имя
-                </span>
-                <span>{clientData.name}</span>
+            {loading ? (
+              <div className='space-y-4 py-4'>
+                <div className='w-full'>
+                  <div className='mb-4 flex items-center justify-between'>
+                    <div className='text-sm font-medium'>
+                      Загрузка данных...
+                    </div>
+                    <span className='text-xs font-normal'>
+                      Пожалуйста, подождите
+                    </span>
+                  </div>
+                  <div className='bg-muted h-2 w-full overflow-hidden rounded-full'>
+                    <div className='animate-progress-indeterminate bg-primary h-full rounded-full'></div>
+                  </div>
+                </div>
               </div>
-
-              <div className='flex flex-col'>
-                <span className='text-muted-foreground text-sm font-medium'>
-                  Телефон
-                </span>
-                <span>{clientData.phone}</span>
+            ) : !dialogData ? (
+              <div className='py-8 text-center'>
+                <div className='text-muted-foreground'>
+                  Ошибка загрузки данных
+                </div>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={fetchDialogData}
+                  className='mt-2'
+                >
+                  Повторить
+                </Button>
               </div>
+            ) : (
+              <div className='space-y-4'>
+                <div className='flex flex-col'>
+                  <span className='text-muted-foreground text-sm font-medium'>
+                    Имя
+                  </span>
+                  <span>{dialogData.client?.name || 'Не указано'}</span>
+                </div>
 
-              <div className='flex flex-col'>
-                <span className='text-muted-foreground text-sm font-medium'>
-                  Email
-                </span>
-                <span>{clientData.email}</span>
-              </div>
+                <div className='flex flex-col'>
+                  <span className='text-muted-foreground text-sm font-medium'>
+                    Телефон
+                  </span>
+                  <span>{dialogData.client?.phone || 'Не указано'}</span>
+                </div>
 
-              <div className='border-t pt-4'>
-                <CardTitle className='mb-4 text-lg'>Данные о сделке</CardTitle>
+                <div className='flex flex-col'>
+                  <span className='text-muted-foreground text-sm font-medium'>
+                    Email
+                  </span>
+                  <span>{dialogData.client?.email || 'Не указано'}</span>
+                </div>
 
-                <div className='space-y-4'>
-                  <div className='flex flex-col'>
-                    <span className='text-muted-foreground text-sm font-medium'>
-                      Дата обращения
-                    </span>
-                    <span>{clientData.contactDate}</span>
-                  </div>
+                <div className='border-t pt-4'>
+                  <CardTitle className='mb-4 text-lg'>
+                    Данные о диалоге
+                  </CardTitle>
 
-                  <div className='flex flex-col'>
-                    <span className='text-muted-foreground text-sm font-medium'>
-                      Количество сообщений
-                    </span>
-                    <span>{clientData.messagesCount}</span>
-                  </div>
+                  <div className='space-y-4'>
+                    <div className='flex flex-col'>
+                      <span className='text-muted-foreground text-sm font-medium'>
+                        ID диалога
+                      </span>
+                      <span className='text-xs'>{dialogData.uuid}</span>
+                    </div>
 
-                  <div className='flex flex-col'>
-                    <span className='text-muted-foreground text-sm font-medium'>
-                      Текущий этап
-                    </span>
-                    <span>{clientData.stage}</span>
-                  </div>
+                    <div className='flex flex-col'>
+                      <span className='text-muted-foreground text-sm font-medium'>
+                        Дата создания
+                      </span>
+                      <span>
+                        {new Date(dialogData.created_at).toLocaleString(
+                          'ru-RU'
+                        )}
+                      </span>
+                    </div>
 
-                  <div className='flex flex-col'>
-                    <span className='text-muted-foreground text-sm font-medium'>
-                      Цель клиента
-                    </span>
-                    <span>{clientData.goal}</span>
-                  </div>
+                    <div className='flex flex-col'>
+                      <span className='text-muted-foreground text-sm font-medium'>
+                        Количество сообщений
+                      </span>
+                      <span>
+                        {dialogData.messages_count || messages.length || 0}
+                      </span>
+                    </div>
 
-                  <div className='flex flex-col'>
-                    <span className='text-muted-foreground text-sm font-medium'>
-                      Вероятность закрытия
-                    </span>
-                    <div className='mt-1 flex items-center gap-2'>
-                      <Progress
-                        value={clientData.probability}
-                        className='flex-1'
-                      />
-                      <span>{clientData.probability}%</span>
+                    <div className='flex flex-col'>
+                      <span className='text-muted-foreground text-sm font-medium'>
+                        Менеджер
+                      </span>
+                      <span>
+                        {dialogData.manager ||
+                          dialogData.client?.manager ||
+                          'Не назначен'}
+                      </span>
+                    </div>
+
+                    <div className='flex flex-col'>
+                      <span className='text-muted-foreground text-sm font-medium'>
+                        AI-ассистент
+                      </span>
+                      <span>{dialogData.ai ? 'Включен' : 'Выключен'}</span>
+                    </div>
+
+                    <div className='flex flex-col'>
+                      <span className='text-muted-foreground text-sm font-medium'>
+                        Вероятность закрытия
+                      </span>
+                      <div className='mt-1 flex items-center gap-2'>
+                        <Progress
+                          value={dialogData.close_ratio}
+                          className='flex-1'
+                        />
+                        <span>{dialogData.close_ratio}%</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

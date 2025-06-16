@@ -239,8 +239,17 @@ export default function ClientsPage() {
       <PageContainer>
         <div className='flex min-h-[400px] items-center justify-center'>
           <div className='text-center'>
-            <div className='mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900'></div>
-            <p className='text-muted-foreground mt-4'>Загрузка клиентов...</p>
+            <div className='mx-auto w-64'>
+              <div className='mb-4 flex items-center justify-between'>
+                <div className='text-sm font-medium'>Загрузка клиентов...</div>
+                <span className='text-xs font-normal'>
+                  Пожалуйста, подождите
+                </span>
+              </div>
+              <div className='bg-muted h-2 w-full overflow-hidden rounded-full'>
+                <div className='animate-progress-indeterminate bg-primary h-full rounded-full'></div>
+              </div>
+            </div>
           </div>
         </div>
       </PageContainer>

@@ -765,7 +765,13 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
               dialogs.map((dialog) => (
                 <div
                   key={dialog.uuid}
-                  onClick={() => setSelectedDialogId(dialog.uuid)}
+                  onClick={() => {
+                    setSelectedDialogId(dialog.uuid);
+                    // Обновляем URL без перезагрузки страницы, чтобы отразить выбранный диалог
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('uuid', dialog.uuid);
+                    window.history.pushState({}, '', url);
+                  }}
                   className={`hover:bg-muted/50 cursor-pointer border-b p-4 transition-colors ${
                     selectedDialogId === dialog.uuid ? 'bg-muted' : ''
                   }`}
@@ -802,7 +808,8 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                         <p className='text-muted-foreground truncate text-xs'>
                           {dialog.lastMessage || 'Нет сообщений'}
                         </p>
-                        {dialog.client?.messages_count &&
+
+                        {/* {dialog.client?.messages_count &&
                           dialog.client.messages_count > 0 && (
                             <Badge
                               variant='default'
@@ -810,7 +817,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                             >
                               {dialog.client.messages_count}
                             </Badge>
-                          )}
+                          )} */}
                       </div>
                     </div>
                   </div>
@@ -840,7 +847,37 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       {selectedDialog.client?.phone || 'Неизвестно'}
                     </p>
                   </div>
-                  <div className='ml-auto text-sm text-gray-500'>Telegram</div>
+                  <div className='ml-auto flex items-center gap-3'>
+                    <div className='text-sm text-gray-500'>Telegram</div>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => {
+                        // Очищаем выбранный диалог
+                        setSelectedDialogId('');
+                        // Удаляем параметр uuid из URL
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('uuid');
+                        window.history.pushState({}, '', url);
+                      }}
+                    >
+                      <svg
+                        xmlns='http://www.w3.org/2000/svg'
+                        width='16'
+                        height='16'
+                        viewBox='0 0 24 24'
+                        fill='none'
+                        stroke='currentColor'
+                        strokeWidth='2'
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        className='mr-1'
+                      >
+                        <path d='M15 18l-6-6 6-6' />
+                      </svg>
+                      К списку
+                    </Button>
+                  </div>
                 </div>
               </div>
 

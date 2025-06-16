@@ -45,6 +45,7 @@ interface AISettingsProps {
   onAISettingChange: (field: keyof AISettings, value: any) => void;
   onFollowUpChange: (field: string, value: any) => void;
   onSave: () => void;
+  hasChanges?: boolean;
 }
 
 export function AISettingsComponent({
@@ -54,7 +55,8 @@ export function AISettingsComponent({
   successMessage,
   onAISettingChange,
   onFollowUpChange,
-  onSave
+  onSave,
+  hasChanges = false
 }: AISettingsProps) {
   // Создаем список опций для передачи
   const transferOptions = [{ value: 'Менеджеру', label: 'Менеджеру' }];
@@ -79,23 +81,23 @@ export function AISettingsComponent({
 
   return (
     <Card className='h-fit'>
-      <CardContent className='space-y-6 px-6 py-6'>
+      <CardContent className='space-y-6 px-6'>
         {/* Mode Toggle */}
         <div className='space-y-2'>
-          <Label className='text-sm font-medium'>Mode</Label>
+          <Label className='text-sm font-medium'>Форматы работы</Label>
           <Tabs
             value={activeStage?.aiSettings.mode || 'edit'}
             onValueChange={(value) => onAISettingChange('mode', value)}
           >
             <TabsList className='bg-muted w-full'>
               <TabsTrigger value='complete' className='flex-1 text-xs'>
-                Complete
+                Агент
               </TabsTrigger>
               <TabsTrigger value='insert' className='flex-1 text-xs'>
-                Insert
+                Помощник
               </TabsTrigger>
               <TabsTrigger value='edit' className='flex-1 text-xs'>
-                Edit
+                Менеджер
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -103,7 +105,7 @@ export function AISettingsComponent({
 
         {/* Model Selection */}
         <div className='space-y-2'>
-          <Label className='text-sm font-medium'>Model</Label>
+          <Label className='text-sm font-medium'>Модель AI</Label>
           <Select
             value={activeStage?.aiSettings.model || 'GPT-4.1 mini'}
             onValueChange={(value) => onAISettingChange('model', value)}
@@ -122,7 +124,7 @@ export function AISettingsComponent({
         {/* Temperature */}
         <div className='space-y-3'>
           <div className='flex items-center justify-between'>
-            <Label className='text-sm font-medium'>Temperature</Label>
+            <Label className='text-sm font-medium'>Температура</Label>
             <span className='text-muted-foreground text-sm'>
               {activeStage?.aiSettings.temperature || 0.56}
             </span>
@@ -140,7 +142,7 @@ export function AISettingsComponent({
         {/* Maximum Length */}
         <div className='space-y-3'>
           <div className='flex items-center justify-between'>
-            <Label className='text-sm font-medium'>Maximum Length</Label>
+            <Label className='text-sm font-medium'>Макс. длина сообщения</Label>
             <span className='text-muted-foreground text-sm'>
               {activeStage?.aiSettings.maxLength || 256}
             </span>
@@ -156,7 +158,7 @@ export function AISettingsComponent({
         </div>
 
         {/* Top P */}
-        <div className='space-y-3'>
+        {/* <div className='space-y-3'>
           <div className='flex items-center justify-between'>
             <Label className='text-sm font-medium'>Top P</Label>
             <span className='text-muted-foreground text-sm'>
@@ -171,10 +173,10 @@ export function AISettingsComponent({
             step={0.01}
             className='w-full'
           />
-        </div>
+        </div> */}
 
         {/* Preset Selection */}
-        <div className='space-y-2'>
+        {/* <div className='space-y-2'>
           <Label className='text-sm font-medium'>Выбрать пресет</Label>
           <Select
             value={activeStage?.aiSettings.preset || 'Пресет 1'}
@@ -189,11 +191,11 @@ export function AISettingsComponent({
               <SelectItem value='Пресет 3'>Пресет 3</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
 
         {/* Follow up */}
         <div className='space-y-3'>
-          <Label className='text-sm font-medium'>Follow up</Label>
+          <Label className='text-sm font-medium'>Фоллоу-ап</Label>
           <div className='flex items-center gap-2'>
             <Switch
               checked={activeStage?.aiSettings.followUp.enabled || false}
@@ -268,7 +270,10 @@ export function AISettingsComponent({
           </div>
         )}
 
-        <Button onClick={onSave} className='w-full'>
+        <Button
+          onClick={onSave}
+          className={`w-full ${hasChanges ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+        >
           Сохранить
         </Button>
       </CardContent>

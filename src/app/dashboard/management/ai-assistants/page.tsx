@@ -7,6 +7,7 @@ import { IconArrowLeft } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { useRouter } from 'next/navigation';
 
 // Импорт компонентов
 import { GeneralSettingsComponent } from './components/GeneralSettings';
@@ -55,6 +56,7 @@ export default function AIAssistantsPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
   const { currentFunnel } = useFunnels(backendOrgId);
+  const router = useRouter();
 
   // Состояния
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
@@ -117,6 +119,10 @@ export default function AIAssistantsPage() {
 
   // Состояние для данных воронки
   const [currentFunnelData, setCurrentFunnelData] = useState<any>(null);
+
+  // Состояние для отслеживания изменений
+  const [hasChanges, setHasChanges] = useState(false);
+  const [hasAISettingsChanges, setHasAISettingsChanges] = useState(false);
 
   // Функция для создания этапов на основе данных воронки
   const createStagesFromFunnelData = useCallback((funnelData: any) => {
@@ -460,6 +466,7 @@ export default function AIAssistantsPage() {
         [key]: value
       }
     }));
+    setHasChanges(true);
   };
 
   const handleSaveGeneralSettings = () => {
@@ -468,6 +475,12 @@ export default function AIAssistantsPage() {
       const generalKey = `ai_general_settings_${backendOrgId}`;
       localStorage.setItem(generalKey, JSON.stringify(generalSettings));
       console.log('General settings saved to localStorage');
+      setSuccessMessage('Общие настройки сохранены!');
+
+      // Убираем сообщение через 3 секунды
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
     } catch (error) {
       console.error('Error saving general settings:', error);
     }
@@ -483,6 +496,7 @@ export default function AIAssistantsPage() {
 
   const handleInstructionsChange = (value: string) => {
     setInstructions(value);
+    setHasChanges(true);
   };
 
   const handleSubmitInstructions = async () => {
@@ -545,6 +559,27 @@ export default function AIAssistantsPage() {
     }
   };
 
+  // Handle reload prompt button click - restore original prompt for current stage
+  const handleReloadPrompt = () => {
+    const stageKey = `stage_${activeStageId}`;
+
+    // Find current stage to get original prompt
+    let originalPrompt = '';
+
+    // Check if we have the prompt in local storage first
+    if (stagePrompts && stagePrompts[stageKey]) {
+      originalPrompt = stagePrompts[stageKey];
+    } else if (activeStage) {
+      // Fallback to the stage prompt from state
+      originalPrompt = activeStage.prompt;
+    }
+
+    // If we found an original prompt, restore it to the instructions state
+    if (originalPrompt) {
+      setInstructions(originalPrompt);
+    }
+  };
+
   const handleAISettingChange = (field: keyof AISettings, value: any) => {
     setStages((prev) => {
       const newStages = prev.map((stage) =>
@@ -571,6 +606,9 @@ export default function AIAssistantsPage() {
 
       return newStages;
     });
+
+    setHasAISettingsChanges(true);
+    setHasChanges(true);
   };
 
   const handleFollowUpChange = (field: string, value: any) => {
@@ -605,11 +643,15 @@ export default function AIAssistantsPage() {
 
       return newStages;
     });
+
+    setHasAISettingsChanges(true);
+    setHasChanges(true);
   };
 
   const handleSaveAISettings = () => {
     saveAISettingsToLocalStorage();
     setSuccessMessage('AI настройки сохранены!');
+    setHasAISettingsChanges(false);
 
     // Убираем сообщение через 3 секунды
     setTimeout(() => {
@@ -620,7 +662,52 @@ export default function AIAssistantsPage() {
   };
 
   const handleFinishSetup = () => {
-    console.log('Setup finished');
+    // Сохраняем все изменения
+    if (hasAISettingsChanges) {
+      saveAISettingsToLocalStorage();
+    }
+
+    // Сохраняем текущий промпт, если есть изменения
+    const stageKey = `stage_${activeStageId}`;
+    const currentPrompt = stagePrompts[stageKey];
+    if (currentPrompt !== instructions) {
+      setStagePrompts((prev) => {
+        const updatedPrompts = { ...prev, [stageKey]: instructions };
+        try {
+          const key = `ai-assistants-prompts-${backendOrgId}-${currentFunnel?.id}`;
+          localStorage.setItem(
+            key,
+            JSON.stringify({
+              prompts: updatedPrompts,
+              timestamp: Date.now()
+            })
+          );
+        } catch (error) {
+          console.error('Error saving prompts to localStorage:', error);
+        }
+        return updatedPrompts;
+      });
+    }
+
+    // Сохраняем общие настройки
+    try {
+      const generalKey = `ai_general_settings_${backendOrgId}`;
+      localStorage.setItem(generalKey, JSON.stringify(generalSettings));
+    } catch (error) {
+      console.error('Error saving general settings:', error);
+    }
+
+    // Сбрасываем флаги изменений
+    setHasChanges(false);
+    setHasAISettingsChanges(false);
+
+    // Показываем сообщение об успехе
+    setSuccessMessage('Все настройки успешно сохранены!');
+
+    // Переходим на экран управления
+    setTimeout(() => {
+      router.push('/dashboard/management');
+    }, 1500);
   };
 
   const activeStage = stages.find((stage) => stage.id === activeStageId);
@@ -657,7 +744,10 @@ export default function AIAssistantsPage() {
             <IconArrowLeft className='h-5 w-5' />
           </Button>
           <h1 className='text-2xl font-semibold'>Настройки агента AI М1</h1>
-          <Button className='ml-auto' onClick={handleFinishSetup}>
+          <Button
+            className={`ml-auto ${hasChanges ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+            onClick={handleFinishSetup}
+          >
             Завершить настройку
           </Button>
         </div>
@@ -691,6 +781,7 @@ export default function AIAssistantsPage() {
                 onTabChange={handleTabChange}
                 onInstructionsChange={handleInstructionsChange}
                 onSubmitInstructions={handleSubmitInstructions}
+                onReloadPrompt={handleReloadPrompt}
               />
             </div>
 
@@ -704,6 +795,7 @@ export default function AIAssistantsPage() {
                 onAISettingChange={handleAISettingChange}
                 onFollowUpChange={handleFollowUpChange}
                 onSave={handleSaveAISettings}
+                hasChanges={hasAISettingsChanges}
               />
             </div>
           </div>

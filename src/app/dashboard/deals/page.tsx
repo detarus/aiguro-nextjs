@@ -1,0 +1,519 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useOrganization } from '@clerk/nextjs';
+import { useFunnels } from '@/hooks/useFunnels';
+import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import PageContainer from '@/components/layout/page-container';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useSidebar } from '@/components/ui/sidebar';
+import { IconSearch, IconList, IconLayoutKanban } from '@tabler/icons-react';
+import { ClientTable, Client } from './components/client-table';
+import { ClientActions } from './components/client-actions';
+import { KanbanBoard } from './components/kanban-board';
+
+// Interface for Dialog data
+export interface Dialog {
+  id: string;
+  uuid: string;
+  thread_id: string;
+  client_id?: number;
+  funnel_id?: string | number;
+  created_at: string;
+  updated_at: string;
+  status: string;
+  messages_count?: number;
+  last_message?: string;
+  close_ratio: number;
+  manager: string | null;
+  ai: boolean;
+  unsubscribed: boolean;
+  client?: {
+    id: number;
+    name: string;
+    phone: string;
+    email: string;
+    manager: string | null;
+    status: string;
+    close_ratio: number;
+    messages_count: number;
+  };
+  // UI specific fields
+  name?: string;
+  email?: string;
+  phone?: string;
+  assignedTo?: string;
+  stage?: string;
+  lastActivity?: string;
+}
+
+export default function DealsPage() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'new'>(
+    'all'
+  );
+  const [deals, setDeals] = useState<Dialog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const { state } = useSidebar();
+  const { organization } = useOrganization();
+  const { currentFunnel } = useFunnels(
+    organization?.publicMetadata?.id_backend as string
+  );
+
+  // Получаем backend ID организации
+  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+
+  // Константы для localStorage
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 минут в миллисекундах
+  const getDealsCacheKey = () =>
+    `deals_data_${backendOrgId}_${currentFunnel?.id}`;
+  const getLastUpdatedKey = () =>
+    `deals_last_updated_${backendOrgId}_${currentFunnel?.id}`;
+
+  // Проверка актуальности кэша
+  const isCacheValid = () => {
+    const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
+    if (!lastUpdatedStr) return false;
+
+    const lastUpdatedTime = new Date(lastUpdatedStr);
+    const now = new Date();
+    return now.getTime() - lastUpdatedTime.getTime() < CACHE_DURATION;
+  };
+
+  // Загрузка данных из кэша
+  const loadFromCache = () => {
+    try {
+      const cachedDeals = localStorage.getItem(getDealsCacheKey());
+      const lastUpdatedStr = localStorage.getItem(getLastUpdatedKey());
+
+      if (cachedDeals && lastUpdatedStr) {
+        const parsedDeals: Dialog[] = JSON.parse(cachedDeals);
+        setDeals(parsedDeals);
+        setLastUpdated(new Date(lastUpdatedStr));
+
+        console.log('Данные сделок загружены из кэша');
+        return true;
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки сделок из кэша:', error);
+    }
+    return false;
+  };
+
+  // Сохранение в кэш
+  const saveToCache = (dealsData: Dialog[]) => {
+    try {
+      // Сохраняем сделки
+      localStorage.setItem(getDealsCacheKey(), JSON.stringify(dealsData));
+
+      // Обновляем время последнего обновления
+      const now = new Date();
+      localStorage.setItem(getLastUpdatedKey(), now.toISOString());
+      setLastUpdated(now);
+    } catch (error) {
+      console.error('Ошибка сохранения сделок в кэш:', error);
+    }
+  };
+
+  // Функция для загрузки диалогов (сделок) с сервера
+  const fetchDealsFromServer = async (): Promise<Dialog[]> => {
+    if (!backendOrgId || !currentFunnel?.id) {
+      throw new Error('Missing organization or funnel');
+    }
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    console.log(
+      `Fetching deals for organization ${backendOrgId}, funnel ${currentFunnel.id}`
+    );
+
+    // Используем endpoint dialogs для получения сделок
+    const response = await fetch(
+      `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialogs`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Fetched deals data:', data);
+
+    // Преобразуем данные из API в формат, ожидаемый компонентом на основе предоставленной структуры
+    const transformedDeals: Dialog[] = [];
+
+    for (const deal of data) {
+      // Извлекаем данные клиента из вложенного объекта client, если они есть
+      const clientData = deal.client || {};
+
+      // Создаем объект Dialog с правильными типами данных
+      const transformedDeal: Dialog = {
+        id: deal.id || `dialog_${Math.random().toString(36).substring(7)}`,
+        uuid:
+          deal.uuid ||
+          deal.id ||
+          `uuid_${Math.random().toString(36).substring(7)}`,
+        thread_id: deal.thread_id || 'Неизвестно',
+        client_id: clientData.id,
+        funnel_id: deal.funnel_id || currentFunnel.id,
+        created_at: deal.created_at || new Date().toISOString(),
+        updated_at: deal.updated_at || new Date().toISOString(),
+        status: clientData.status || 'active',
+        messages_count: clientData.messages_count || 0,
+        last_message: deal.last_message || '',
+        // Принудительно приводим к числу
+        close_ratio: Number(deal.close_ratio || 0),
+        // Явно указываем тип для manager
+        manager: deal.manager || null,
+        // Явно приводим к boolean - преобразуем undefined в false
+        ai: deal.ai ? true : false,
+        unsubscribed: deal.unsubscribed ? true : false,
+        // Включаем данные клиента
+        client: clientData,
+
+        // Дополнительные поля для отображения в UI
+        name: clientData.name || `Сделка #${transformedDeals.length + 1}`,
+        email: clientData.email || 'Не указано',
+        phone: clientData.phone || 'Не указано',
+        assignedTo: clientData.manager || deal.manager || 'Не назначено',
+        stage: deal.stage || 'Новый',
+        lastActivity: deal.updated_at
+          ? new Date(deal.updated_at).toLocaleString('ru-RU')
+          : 'Не указано'
+      };
+
+      transformedDeals.push(transformedDeal);
+    }
+
+    return transformedDeals;
+  };
+
+  // Функция для полной загрузки данных
+  const fetchAllData = useCallback(
+    async (forceRefresh = false) => {
+      if (!backendOrgId || !currentFunnel?.id) {
+        console.log('Missing backendOrgId or currentFunnel.id, skipping fetch');
+        setLoading(false);
+        return;
+      }
+
+      // Проверяем кэш только если не принудительное обновление
+      if (!forceRefresh && isCacheValid() && loadFromCache()) {
+        setLoading(false);
+        return;
+      }
+
+      setError(null);
+      if (forceRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const dealsData = await fetchDealsFromServer();
+
+        // Сохраняем в кэш
+        saveToCache(dealsData);
+        setDeals(dealsData);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching deals:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setDeals([]); // Очищаем сделки при ошибке
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [backendOrgId, currentFunnel?.id]
+  );
+
+  // Функция обновления данных
+  const handleRefresh = () => {
+    fetchAllData(true);
+  };
+
+  // Загружаем сделки при монтировании компонента и изменении организации/воронки
+  useEffect(() => {
+    if (organization && currentFunnel) {
+      fetchAllData();
+    }
+  }, [backendOrgId, currentFunnel?.id, organization, fetchAllData]);
+
+  // Автоматическое обновление каждые 10 минут
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (backendOrgId && currentFunnel?.id) {
+        console.log('Автоматическое обновление сделок...');
+        fetchAllData(true);
+      }
+    }, CACHE_DURATION);
+
+    return () => clearInterval(interval);
+  }, [backendOrgId, currentFunnel?.id, CACHE_DURATION, fetchAllData]);
+
+  // Динамически рассчитываем max-width в зависимости от состояния сайдбара
+  const getMaxWidth = () => {
+    if (state === 'collapsed') {
+      return 'calc(100vw - 3rem - 2rem)'; // 3rem для свернутого сайдбара + 2rem отступы
+    }
+    return 'calc(100vw - 16rem - 2rem)'; // 16rem для развернутого сайдбара + 2rem отступы
+  };
+
+  // Конвертируем Dialog в формат Client для совместимости с компонентами
+  const dealsAsClients: Client[] = deals.map((deal) => ({
+    id: Number(deal.id) || Math.floor(Math.random() * 100000),
+    name: deal.name || `Сделка ${deal.id}`,
+    email: deal.email || 'Не указано',
+    phone: deal.phone || 'Не указано',
+    assignedTo: deal.assignedTo || 'Не назначено',
+    stage: deal.stage || 'Новый',
+    created: new Date(deal.created_at).toLocaleString('ru-RU'),
+    lastActivity:
+      deal.lastActivity || new Date(deal.updated_at).toLocaleString('ru-RU'),
+    status: deal.status === 'active' ? 'Активный' : 'Неактивный',
+    // Добавляем дополнительные поля для отображения информации о сделке
+    dialogId: deal.id,
+    dialogUuid: deal.uuid,
+    messagesCount: deal.messages_count || 0,
+    lastMessage: deal.last_message || '',
+    closeRatio: deal.close_ratio
+  }));
+
+  // Фильтрация сделок на основе поиска и статуса
+  const filteredClients = dealsAsClients.filter((client) => {
+    // Поисковая фильтрация
+    let matchesSearch = true;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      matchesSearch =
+        client.name.toLowerCase().includes(query) ||
+        client.email.toLowerCase().includes(query) ||
+        client.phone.toLowerCase().includes(query) ||
+        (client.lastMessage &&
+          client.lastMessage.toLowerCase().includes(query));
+    }
+
+    // Фильтрация по статусу
+    let matchesStatus = true;
+    if (statusFilter === 'active') {
+      matchesStatus = client.status === 'Активный';
+    } else if (statusFilter === 'new') {
+      matchesStatus = client.stage === 'Новый';
+    }
+
+    return matchesSearch && matchesStatus;
+  });
+
+  // Показываем индикатор загрузки
+  if (loading) {
+    return (
+      <PageContainer>
+        <div className='flex min-h-[400px] items-center justify-center'>
+          <div className='text-center'>
+            <div className='mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900'></div>
+            <p className='text-muted-foreground mt-4'>Загрузка сделок...</p>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  // Показываем сообщение об ошибке
+  if (error) {
+    return (
+      <PageContainer>
+        <div className='flex min-h-[400px] items-center justify-center'>
+          <div className='text-center'>
+            <p className='mb-4 text-red-600'>Ошибка загрузки сделок: {error}</p>
+            <Button onClick={() => fetchAllData(true)} variant='outline'>
+              Попробовать снова
+            </Button>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  // Показываем сообщение, если нет организации или воронки
+  if (!backendOrgId || !currentFunnel) {
+    return (
+      <PageContainer>
+        <div className='flex min-h-[400px] items-center justify-center'>
+          <div className='text-center'>
+            <p className='text-muted-foreground mb-4'>
+              {!backendOrgId
+                ? 'Организация не выбрана или не настроена'
+                : 'Воронка не выбрана'}
+            </p>
+            <p className='text-muted-foreground text-sm'>
+              Выберите организацию и воронку для просмотра сделок
+            </p>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer>
+      <div className='flex w-full max-w-full flex-col space-y-4'>
+        {/* Заголовок и кнопки действий */}
+        <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'>
+          <div className='flex items-center gap-4'>
+            <h1 className='text-xl font-semibold sm:text-2xl'>Диалоги</h1>
+
+            {/* Переключатель видов */}
+            <div className='flex items-center rounded-lg border p-1'>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size='sm'
+                onClick={() => setViewMode('list')}
+                className='h-8 w-8 p-0'
+              >
+                <IconList className='h-4 w-4' />
+              </Button>
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size='sm'
+                onClick={() => setViewMode('kanban')}
+                className='h-8 w-8 p-0'
+              >
+                <IconLayoutKanban className='h-4 w-4' />
+              </Button>
+            </div>
+          </div>
+
+          <ClientActions />
+        </div>
+
+        {/* Поиск */}
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]'>
+          <div className='relative'>
+            <IconSearch className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
+            <Input
+              placeholder='Поиск диалогов...'
+              className='pl-8'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Быстрые фильтры для обоих режимов */}
+          <div className='hidden items-center gap-2 md:flex'>
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              size='sm'
+              onClick={() => setStatusFilter('all')}
+            >
+              Все ({deals.length})
+            </Button>
+            <Button
+              variant={statusFilter === 'active' ? 'default' : 'outline'}
+              size='sm'
+              onClick={() => setStatusFilter('active')}
+            >
+              Активные (
+              {dealsAsClients.filter((c) => c.status === 'Активный').length})
+            </Button>
+            <Button
+              variant={statusFilter === 'new' ? 'default' : 'outline'}
+              size='sm'
+              onClick={() => setStatusFilter('new')}
+            >
+              Новые ({dealsAsClients.filter((c) => c.stage === 'Новый').length})
+            </Button>
+          </div>
+        </div>
+
+        {/* Контейнер с горизонтальной прокруткой для контента */}
+        <div
+          className='overflow-x-auto'
+          style={{
+            maxWidth: getMaxWidth()
+          }}
+        >
+          <div className={viewMode === 'kanban' ? 'w-full' : 'min-w-[800px]'}>
+            {/* Контент в зависимости от выбранного режима */}
+            {viewMode === 'list' ? (
+              <>
+                {/* Таблица сделок */}
+                <ClientTable
+                  clients={filteredClients}
+                  backendOrgId={backendOrgId}
+                />
+
+                {/* Пагинация */}
+                <div className='mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row'>
+                  <div className='text-muted-foreground w-full text-center text-sm sm:w-auto sm:text-left'>
+                    Показано {filteredClients.length} из {deals.length} сделок
+                  </div>
+                  <div className='flex w-full justify-center gap-1 sm:w-auto sm:justify-end'>
+                    <Button variant='outline' size='sm' disabled>
+                      Предыдущая
+                    </Button>
+                    <Button variant='outline' size='sm'>
+                      Следующая
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Kanban доска */
+              <KanbanBoard clients={filteredClients} />
+            )}
+          </div>
+        </div>
+
+        {/* Панель управления - перенесена в низ */}
+        <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
+          <div className='flex items-center gap-4'>
+            <div className='text-sm'>
+              <span className='font-medium'>Воронка:</span>{' '}
+              {currentFunnel?.display_name ||
+                currentFunnel?.name ||
+                'Неизвестно'}
+            </div>
+            {lastUpdated && (
+              <div className='text-muted-foreground text-sm'>
+                Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
+              </div>
+            )}
+            {isRefreshing && (
+              <div className='text-sm text-blue-600'>Обновление данных...</div>
+            )}
+          </div>
+          <Button
+            onClick={handleRefresh}
+            variant='outline'
+            size='sm'
+            disabled={isRefreshing}
+            className='flex items-center gap-2'
+          >
+            <div className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}>
+              ↻
+            </div>
+            {isRefreshing ? 'Обновление...' : 'Обновить'}
+          </Button>
+        </div>
+      </div>
+    </PageContainer>
+  );
+}

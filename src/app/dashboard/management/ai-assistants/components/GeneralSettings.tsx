@@ -29,52 +29,38 @@ export function GeneralSettingsComponent({
 }: GeneralSettingsProps) {
   const cookieOptions = [
     {
-      key: 'strictlyNecessary1',
-      title: 'Strictly Necessary',
+      key: 'contextMemory',
+      title: 'Память контекста',
       description:
-        'These cookies are essential in order to use the website and use its features.',
+        'Сохраняет информацию о предыдущих действиях пользователя для обеспечения последовательного взаимодействия с сайтом.',
       enabled: true
     },
     {
-      key: 'functionalCookies1',
-      title: 'Functional Cookies',
+      key: 'dataCollection',
+      title: 'Сбор массива данных',
       description:
-        'These cookies allow the website to provide personalized functionality.',
+        'Позволяет собирать анонимные данные о поведении пользователя для анализа и улучшения сервиса.',
       enabled: false
     },
     {
-      key: 'strictlyNecessary2',
-      title: 'Strictly Necessary',
+      key: 'stopAgentAfterManager',
+      title: 'Пауза после сообщения от менеджера',
       description:
-        'These cookies are essential in order to use the website and use its features.',
+        'Обеспечивает автоматическую остановку работы чат-агента после вмешательства менеджера.',
       enabled: true
     },
     {
-      key: 'functionalCookies2',
-      title: 'Functional Cookies',
+      key: 'agentKnowledgeBase',
+      title: 'База знаний агента',
       description:
-        'These cookies allow the website to provide personalized functionality.',
-      enabled: false
-    },
-    {
-      key: 'strictlyNecessary3',
-      title: 'Strictly Necessary',
-      description:
-        'These cookies are essential in order to use the website and use its features.',
+        'Даёт агенту доступ к внутренней базе знаний для предоставления точных и полезных ответов пользователю.',
       enabled: true
     },
     {
-      key: 'functionalCookies3',
-      title: 'Functional Cookies',
+      key: 'voiceRequests',
+      title: 'Голосовые запросы и ответы',
       description:
-        'These cookies allow the website to provide personalized functionality.',
-      enabled: false
-    },
-    {
-      key: 'functionalCookies4',
-      title: 'Functional Cookies',
-      description:
-        'These cookies allow the website to provide personalized functionality.',
+        'Активирует возможность обработки голосовых команд и озвучивания ответов для удобства пользователей.',
       enabled: false
     }
   ];

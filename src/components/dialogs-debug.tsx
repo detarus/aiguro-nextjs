@@ -4,7 +4,7 @@ import { useOrganization } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
-import { MessageCircle, List, Eye, Trash2 } from 'lucide-react';
+import { MessageCircle, List, Eye, Trash2, Send } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -80,6 +80,20 @@ export function DialogsDebug() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedDialogToDelete, setSelectedDialogToDelete] = useState('');
 
+  // Состояние для кнопки "Post New Message"
+  const [postMessageData, setPostMessageData] = useState<any>(null);
+  const [postMessageLoading, setPostMessageLoading] = useState(false);
+  const [postMessageError, setPostMessageError] = useState<string | null>(null);
+  const [postMessageSuccessMessage, setPostMessageSuccessMessage] = useState<
+    string | null
+  >(null);
+
+  // Состояние для модального окна отправки сообщения
+  const [isPostMessageModalOpen, setIsPostMessageModalOpen] = useState(false);
+  const [selectedDialogForMessage, setSelectedDialogForMessage] = useState('');
+  const [messageText, setMessageText] = useState('');
+  const [messageRole, setMessageRole] = useState('user');
+
   // Получаем backend ID организации из метаданных Clerk
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
@@ -137,6 +151,9 @@ export function DialogsDebug() {
     setClientDialogsData(null);
     setClientDialogsError(null);
     setClientDialogsSuccessMessage(null);
+    setPostMessageData(null);
+    setPostMessageError(null);
+    setPostMessageSuccessMessage(null);
   }, [backendOrgId]);
 
   // Очищаем данные при смене воронки
@@ -156,6 +173,9 @@ export function DialogsDebug() {
     setClientDialogsData(null);
     setClientDialogsError(null);
     setClientDialogsSuccessMessage(null);
+    setPostMessageData(null);
+    setPostMessageError(null);
+    setPostMessageSuccessMessage(null);
   }, [localStorageFunnel?.id]);
 
   const handleFetchAllDialogs = async () => {
@@ -768,6 +788,140 @@ export function DialogsDebug() {
   const availableDialogs =
     allDialogsData && Array.isArray(allDialogsData) ? allDialogsData : [];
 
+  const handleOpenPostMessageModal = () => {
+    setIsPostMessageModalOpen(true);
+    setPostMessageError(null);
+    setPostMessageSuccessMessage(null);
+  };
+
+  const handleClosePostMessageModal = () => {
+    setIsPostMessageModalOpen(false);
+    setSelectedDialogForMessage('');
+    setMessageText('');
+    setMessageRole('user');
+    setPostMessageError(null);
+  };
+
+  const handlePostMessage = async () => {
+    console.log('Post Message button clicked!');
+
+    // Получаем токен из cookie
+    const tokenFromCookie = getClerkTokenFromClientCookie();
+    console.log('Token from cookie:', !!tokenFromCookie);
+
+    if (!tokenFromCookie) {
+      setPostMessageError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setPostMessageError('No backend organization ID found in metadata');
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setPostMessageError('No current funnel selected');
+      return;
+    }
+
+    if (!selectedDialogForMessage) {
+      setPostMessageError('Please select a dialog to post message to');
+      return;
+    }
+
+    if (!messageText.trim()) {
+      setPostMessageError('Message text cannot be empty');
+      return;
+    }
+
+    setPostMessageLoading(true);
+    setPostMessageError(null);
+    setPostMessageSuccessMessage(null);
+
+    try {
+      console.log(
+        'Making POST request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/dialog/' +
+          selectedDialogForMessage +
+          '/message'
+      );
+
+      console.log('Request body:', {
+        text: messageText,
+        role: messageRole
+      });
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/${selectedDialogForMessage}/message`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokenFromCookie}`
+          },
+          body: JSON.stringify({
+            text: messageText,
+            role: messageRole
+          })
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully posted message:', data);
+      setPostMessageData(data);
+      setPostMessageSuccessMessage(
+        `Message successfully posted to dialog "${selectedDialogForMessage}"!`
+      );
+
+      // Закрываем модальное окно и очищаем выбор
+      setIsPostMessageModalOpen(false);
+      setSelectedDialogForMessage('');
+      setMessageText('');
+      setMessageRole('user');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setPostMessageSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error posting message:', error);
+      setPostMessageError(error.message || 'Unknown error occurred');
+    } finally {
+      setPostMessageLoading(false);
+    }
+  };
+
   return (
     <>
       <div className='rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-700 dark:bg-orange-900/20'>
@@ -837,6 +991,22 @@ export function DialogsDebug() {
             </Button>
 
             <Button
+              onClick={handleOpenPostMessageModal}
+              disabled={
+                !backendOrgId ||
+                !localStorageFunnel?.id ||
+                availableDialogs.length === 0 ||
+                postMessageLoading
+              }
+              variant='outline'
+              size='sm'
+              className='w-full justify-start text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300'
+            >
+              <Send className='mr-2 h-4 w-4' />
+              Post New Message
+            </Button>
+
+            <Button
               onClick={handleOpenDeleteModal}
               disabled={
                 !backendOrgId ||
@@ -898,6 +1068,12 @@ export function DialogsDebug() {
             </div>
           )}
 
+          {postMessageSuccessMessage && (
+            <div className='mt-2 rounded bg-indigo-100 p-2 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'>
+              <strong>Успех (Post Message):</strong> {postMessageSuccessMessage}
+            </div>
+          )}
+
           {/* Ошибки */}
           {allDialogsError && (
             <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
@@ -940,6 +1116,15 @@ export function DialogsDebug() {
               <strong>Ошибка (Client Dialogs):</strong>
               <pre className='mt-1 text-sm whitespace-pre-wrap'>
                 {clientDialogsError}
+              </pre>
+            </div>
+          )}
+
+          {postMessageError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Post Message):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {postMessageError}
               </pre>
             </div>
           )}
@@ -996,6 +1181,17 @@ export function DialogsDebug() {
               </summary>
               <pre className='mt-2 max-h-64 overflow-auto rounded bg-blue-100 p-2 text-xs dark:bg-blue-900/30 dark:text-blue-200'>
                 {JSON.stringify(clientDialogsData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {postMessageData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-indigo-600 dark:text-indigo-400'>
+                View Post Message API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-indigo-100 p-2 text-xs dark:bg-indigo-900/30 dark:text-indigo-200'>
+                {JSON.stringify(postMessageData, null, 2)}
               </pre>
             </details>
           )}
@@ -1060,7 +1256,7 @@ export function DialogsDebug() {
                   <SelectContent>
                     {availableDialogs.map((dialog: any) => (
                       <SelectItem key={dialog.uuid} value={dialog.uuid}>
-                        {dialog.thread_id}
+                        {dialog.uuid}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1277,6 +1473,129 @@ export function DialogsDebug() {
                 >
                   <MessageCircle className='mr-2 h-4 w-4' />
                   {clientDialogsLoading ? 'Loading...' : 'Get Dialogs'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для отправки сообщения */}
+      {isPostMessageModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Post New Message
+              </h2>
+              <button
+                onClick={handleClosePostMessageModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='dialog_select_post_message'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Dialog to Post Message
+                </Label>
+                <Select
+                  value={selectedDialogForMessage}
+                  onValueChange={setSelectedDialogForMessage}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose a dialog to post message to' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allDialogsData?.map((dialog: any) => (
+                      <SelectItem key={dialog.uuid} value={dialog.uuid}>
+                        {dialog.uuid}image.png
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='message_text'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Message Text
+                </Label>
+                <textarea
+                  id='message_text'
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  rows={5}
+                  className='mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-indigo-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100'
+                  placeholder='Enter your message text here...'
+                />
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='message_role'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Message Role
+                </Label>
+                <Select value={messageRole} onValueChange={setMessageRole}>
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose message role' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='user'>user</SelectItem>
+                    <SelectItem value='manager'>manager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {postMessageError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {postMessageError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleClosePostMessageModal}
+                  variant='outline'
+                  disabled={postMessageLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handlePostMessage}
+                  disabled={
+                    postMessageLoading ||
+                    !selectedDialogForMessage ||
+                    !messageText.trim()
+                  }
+                  className='bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
+                >
+                  <Send className='mr-2 h-4 w-4' />
+                  {postMessageLoading ? 'Posting...' : 'Post Message'}
                 </Button>
               </div>
             </div>

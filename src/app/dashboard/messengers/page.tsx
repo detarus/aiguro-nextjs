@@ -37,7 +37,7 @@ interface Dialog {
 interface Message {
   id: string;
   text: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'manager';
   timestamp: string;
   time?: string;
 }
@@ -279,10 +279,17 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
       (msg: any, index: number) => {
         // Проверяем и поле role, и поле sender для совместимости
         const originalRole = msg.role || msg.sender;
-        const role =
-          originalRole === 'user' || originalRole === 'client'
-            ? 'user'
-            : 'assistant';
+        let role = originalRole;
+
+        // Корректируем роль, если она не соответствует нашим ожидаемым значениям
+        if (originalRole === 'user' || originalRole === 'client') {
+          role = 'user';
+        } else if (originalRole === 'manager') {
+          role = 'manager';
+        } else {
+          role = 'assistant'; // По умолчанию считаем ассистентом
+        }
+
         console.log(
           `Transforming message ${index}: ${originalRole} -> ${role}`
         );
@@ -528,10 +535,87 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
     return `${time}, ${dateFormatted}`;
   };
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
+  const handleSendMessage = async () => {
+    if (newMessage.trim() && selectedDialogId) {
       console.log('Sending message:', newMessage);
-      setNewMessage('');
+
+      const tokenFromCookie = getClerkTokenFromClientCookie();
+      if (!tokenFromCookie) {
+        console.error('No token available');
+        return;
+      }
+
+      try {
+        console.log(
+          `Posting message to dialog ${selectedDialogId} as role "manager"`
+        );
+
+        // Debug log for the message body we're sending
+        const messageBody = {
+          text: newMessage,
+          role: 'manager'
+        };
+        console.log('Message payload:', messageBody);
+
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel?.id}/dialog/${selectedDialogId}/message`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${tokenFromCookie}`
+            },
+            body: JSON.stringify(messageBody)
+          }
+        );
+
+        if (!response.ok) {
+          let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+          try {
+            const errorData = await response.json();
+            console.error('API error response:', errorData);
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            console.error('Failed to parse error response');
+          }
+          console.error(errorMessage);
+          return;
+        }
+
+        const data = await response.json();
+        console.log('Message posted successfully:', data);
+
+        // Add message to local state and update cache
+        const newMsg: Message = {
+          id: data.id || `temp_${Date.now()}`,
+          text: newMessage,
+          role: 'manager',
+          timestamp: new Date().toISOString(),
+          time: new Date().toLocaleTimeString()
+        };
+
+        console.log('Adding new message with role:', newMsg.role);
+
+        const updatedMessages = [...selectedDialogMessages, newMsg];
+        setSelectedDialogMessages(updatedMessages);
+
+        // Update cache with new message
+        saveToCache(dialogs, selectedDialogId, updatedMessages);
+
+        // After successful send, fetch messages again to ensure all data is up to date
+        fetchDialogMessagesFromServer(selectedDialogId)
+          .then((messages) => {
+            setSelectedDialogMessages(messages);
+            saveToCache(dialogs, selectedDialogId, messages);
+          })
+          .catch((err) =>
+            console.error('Error updating messages after send:', err)
+          );
+      } catch (error) {
+        console.error('Error sending message:', error);
+      } finally {
+        setNewMessage(''); // Clear the message input regardless of success/failure
+      }
     }
   };
 
@@ -736,7 +820,9 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                           <span>
                             {message.role === 'user'
                               ? 'Клиент'
-                              : 'AI-ассистент'}
+                              : message.role === 'manager'
+                                ? 'Менеджер'
+                                : 'AI-ассистент'}
                           </span>
                           <span className='opacity-70'>
                             {formatDateTime(message.timestamp)}

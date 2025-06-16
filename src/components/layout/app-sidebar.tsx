@@ -81,10 +81,10 @@ export default function AppSidebar() {
       disabled: false
     },
     {
-      title: 'Клиенты',
-      url: '/dashboard/clients',
-      icon: 'users',
-      isActive: pathname === '/dashboard/clients',
+      title: 'Сделки',
+      url: '/dashboard/deals',
+      icon: 'kanban',
+      isActive: pathname === '/dashboard/deals',
       disabled: false
     },
     {
@@ -116,6 +116,13 @@ export default function AppSidebar() {
       url: '/dashboard/funnels',
       icon: 'kanban',
       isActive: pathname === '/dashboard/funnels',
+      disabled: false
+    },
+    {
+      title: 'Клиенты',
+      url: '/dashboard/clients',
+      icon: 'users',
+      isActive: pathname === '/dashboard/clients',
       disabled: false
     },
     {

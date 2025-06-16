@@ -64,7 +64,7 @@ export function SkeletonLoader() {
             <Skeleton className='h-6 w-32' />
           </CardHeader>
           <CardContent className='space-y-4'>
-            <Skeleton className='h-[278px] w-full' />
+            <Skeleton className='h-[150px] w-full' />
             <div className='flex gap-2'>
               <Skeleton className='h-10 flex-1' />
               <Skeleton className='h-10 w-10' />

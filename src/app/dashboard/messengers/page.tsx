@@ -435,6 +435,12 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
             console.log(`Автоматически выбран диалог с uuid: ${uuidParam}`);
           } else {
             console.log(`Диалог с uuid: ${uuidParam} не найден`);
+            // Вызываем обработчик для показа модального окна
+            onDialogNotFound(uuidParam);
+            // Очищаем параметр uuid из URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete('uuid');
+            window.history.pushState({}, '', url);
           }
         }
         // Если нет uuid, но есть thread_id
@@ -538,6 +544,12 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
           console.log(`Автоматически выбран диалог с uuid: ${uuidParam}`);
         } else {
           console.log(`Диалог с uuid: ${uuidParam} не найден`);
+          // Вызываем обработчик для показа модального окна
+          onDialogNotFound(uuidParam);
+          // Очищаем параметр uuid из URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete('uuid');
+          window.history.pushState({}, '', url);
         }
       }
       // Если нет uuid, но есть thread_id
@@ -554,7 +566,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
         }
       }
     }
-  }, [searchParams, dialogs, selectedDialogId]);
+  }, [searchParams, dialogs, selectedDialogId, onDialogNotFound]);
 
   const selectedDialog = dialogs.find((d) => d.uuid === selectedDialogId);
 
@@ -849,34 +861,6 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   </div>
                   <div className='ml-auto flex items-center gap-3'>
                     <div className='text-sm text-gray-500'>Telegram</div>
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => {
-                        // Очищаем выбранный диалог
-                        setSelectedDialogId('');
-                        // Удаляем параметр uuid из URL
-                        const url = new URL(window.location.href);
-                        url.searchParams.delete('uuid');
-                        window.history.pushState({}, '', url);
-                      }}
-                    >
-                      <svg
-                        xmlns='http://www.w3.org/2000/svg'
-                        width='16'
-                        height='16'
-                        viewBox='0 0 24 24'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        className='mr-1'
-                      >
-                        <path d='M15 18l-6-6 6-6' />
-                      </svg>
-                      К списку
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -1297,16 +1281,14 @@ export default function MessengersPage() {
 
               <div className='mb-6'>
                 <p className='mb-2 text-gray-600 dark:text-gray-300'>
-                  Диалог с указанным идентификатором не был найден.
+                  Диалог с идентификатором <strong>{notFoundThreadId}</strong>{' '}
+                  не найден в текущей воронке. Возможно, он был удален или
+                  находится в другой воронке.
                 </p>
-                <div className='rounded bg-gray-100 p-3 dark:bg-gray-700'>
-                  <p className='text-sm text-gray-500 dark:text-gray-400'>
-                    Thread ID:
-                  </p>
-                  <p className='font-mono text-sm break-all text-gray-800 dark:text-gray-200'>
-                    {notFoundThreadId}
-                  </p>
-                </div>
+                <p className='text-gray-600 dark:text-gray-300'>
+                  Пожалуйста, проверьте правильность ссылки или выберите другой
+                  диалог из списка.
+                </p>
               </div>
 
               <div className='flex justify-end gap-3'>

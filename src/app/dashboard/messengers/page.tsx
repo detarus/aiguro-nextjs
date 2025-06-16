@@ -21,17 +21,25 @@ interface Dialog {
   id?: string;
   uuid: string;
   thread_id: string;
-  name?: string;
-  phone?: string;
-  email?: string;
-  assignedTo?: string;
   stage?: string;
-  created?: string;
-  lastActivity?: string;
-  status?: string;
-  lastMessage?: string;
-  unreadCount?: number;
+  created_at?: string;
+  updated_at?: string;
+  close_ratio?: number;
+  manager?: string;
+  ai?: boolean;
+  unsubscribed?: boolean;
+  client?: {
+    id?: number;
+    name?: string;
+    phone?: string;
+    email?: string;
+    manager?: string;
+    status?: string;
+    close_ratio?: number;
+    messages_count?: number;
+  };
   messages?: Message[];
+  lastMessage?: string; // Для отображения последнего сообщения в списке
 }
 
 interface Message {
@@ -211,16 +219,24 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
         id: dialog.id || dialog.uuid || `dialog_${index}`,
         uuid: dialog.uuid || `uuid_${index}`,
         thread_id: dialog.thread_id || 'Неизвестно',
-        name: dialog.name || 'Неизвестно',
-        phone: dialog.phone || 'Неизвестно',
-        email: dialog.email || 'Неизвестно',
-        assignedTo: 'Неизвестно',
-        stage: 'Новый',
-        created: 'Неизвестно',
-        lastActivity: 'Неизвестно',
-        status: 'Активный',
-        lastMessage: 'Неизвестно',
-        unreadCount: 0,
+        stage: dialog.stage || 'Новый',
+        created_at: dialog.created_at || new Date().toISOString(),
+        updated_at: dialog.updated_at || new Date().toISOString(),
+        close_ratio: dialog.close_ratio || 0,
+        manager: dialog.manager || 'Неизвестно',
+        ai: dialog.ai || false,
+        unsubscribed: dialog.unsubscribed || false,
+        client: {
+          id: dialog.client?.id || 0,
+          name: dialog.client?.name || dialog.name || 'Неизвестно',
+          phone: dialog.client?.phone || dialog.phone || 'Неизвестно',
+          email: dialog.client?.email || dialog.email || 'Неизвестно',
+          manager: dialog.client?.manager || dialog.manager || 'Неизвестно',
+          status: dialog.client?.status || dialog.status || 'active',
+          close_ratio: dialog.client?.close_ratio || dialog.close_ratio || 0,
+          messages_count: dialog.client?.messages_count || 0
+        },
+        lastMessage: 'Нет сообщений',
         messages: []
       })
     );
@@ -757,41 +773,44 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   <div className='flex items-start gap-3'>
                     <Avatar className='h-10 w-10'>
                       <AvatarFallback className='bg-primary/10 text-primary text-sm'>
-                        {getInitials(dialog.name || '')}
+                        {getInitials(dialog.client?.name || '')}
                       </AvatarFallback>
                     </Avatar>
                     <div className='min-w-0 flex-1'>
                       <div className='mb-1 flex items-center justify-between'>
                         <h4 className='truncate text-sm font-medium'>
-                          {dialog.name}
+                          {dialog.client?.name || 'Неизвестно'}
                         </h4>
                         <span className='text-muted-foreground text-xs'>
-                          {dialog.lastActivity}
+                          {new Date(
+                            dialog.updated_at || ''
+                          ).toLocaleDateString()}
                         </span>
                       </div>
                       <div className='mb-1 flex items-center gap-2'>
                         <IconPhone className='text-muted-foreground h-3 w-3' />
                         <span className='text-muted-foreground text-xs'>
-                          {dialog.phone}
+                          {dialog.client?.phone || 'Неизвестно'}
                         </span>
                       </div>
                       <div className='mb-1 flex items-center gap-2'>
                         <span className='text-muted-foreground text-xs'>
-                          Thread: {dialog.thread_id}
+                          Telegram
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
                         <p className='text-muted-foreground truncate text-xs'>
-                          {dialog.lastMessage}
+                          {dialog.lastMessage || 'Нет сообщений'}
                         </p>
-                        {dialog.unreadCount && dialog.unreadCount > 0 && (
-                          <Badge
-                            variant='default'
-                            className='flex h-5 min-w-5 items-center justify-center text-xs'
-                          >
-                            {dialog.unreadCount}
-                          </Badge>
-                        )}
+                        {dialog.client?.messages_count &&
+                          dialog.client.messages_count > 0 && (
+                            <Badge
+                              variant='default'
+                              className='flex h-5 min-w-5 items-center justify-center text-xs'
+                            >
+                              {dialog.client.messages_count}
+                            </Badge>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -810,15 +829,18 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                 <div className='flex items-center gap-3'>
                   <Avatar className='h-8 w-8'>
                     <AvatarFallback className='bg-primary/10 text-primary text-sm'>
-                      {getInitials(selectedDialog.name || '')}
+                      {getInitials(selectedDialog.client?.name || '')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h4 className='font-medium'>{selectedDialog.name}</h4>
+                    <h4 className='font-medium'>
+                      {selectedDialog.client?.name || 'Неизвестно'}
+                    </h4>
                     <p className='text-muted-foreground text-sm'>
-                      {selectedDialog.phone}
+                      {selectedDialog.client?.phone || 'Неизвестно'}
                     </p>
                   </div>
+                  <div className='ml-auto text-sm text-gray-500'>Telegram</div>
                 </div>
               </div>
 
@@ -918,21 +940,28 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   <span className='text-muted-foreground text-sm font-medium'>
                     Имя
                   </span>
-                  <span>{selectedDialog.name}</span>
+                  <span>{selectedDialog.client?.name || 'Неизвестно'}</span>
                 </div>
 
                 <div className='flex flex-col'>
                   <span className='text-muted-foreground text-sm font-medium'>
                     Телефон
                   </span>
-                  <span>{selectedDialog.phone}</span>
+                  <span>{selectedDialog.client?.phone || 'Неизвестно'}</span>
                 </div>
 
                 <div className='flex flex-col'>
                   <span className='text-muted-foreground text-sm font-medium'>
                     Email
                   </span>
-                  <span>{selectedDialog.email}</span>
+                  <span>{selectedDialog.client?.email || 'Неизвестно'}</span>
+                </div>
+
+                <div className='flex flex-col'>
+                  <span className='text-muted-foreground text-sm font-medium'>
+                    Мессенджер
+                  </span>
+                  <span>Telegram</span>
                 </div>
 
                 <div className='flex flex-col'>
@@ -954,28 +983,35 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       <span className='text-muted-foreground text-sm font-medium'>
                         Дата создания
                       </span>
-                      <span>{selectedDialog.created}</span>
+                      <span>
+                        {new Date(
+                          selectedDialog.created_at || ''
+                        ).toLocaleString()}
+                      </span>
                     </div>
 
                     <div className='flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         Количество сообщений
                       </span>
-                      <span>{selectedDialogMessages.length}</span>
+                      <span>
+                        {selectedDialog.client?.messages_count ||
+                          selectedDialogMessages.length}
+                      </span>
                     </div>
 
                     <div className='flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         Текущий этап
                       </span>
-                      <span>{selectedDialog.stage}</span>
+                      <span>{selectedDialog.stage || 'Не указан'}</span>
                     </div>
 
                     <div className='flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         Ответственный
                       </span>
-                      <span>{selectedDialog.assignedTo}</span>
+                      <span>{selectedDialog.manager || 'Не назначен'}</span>
                     </div>
 
                     <div className='flex flex-col'>
@@ -984,12 +1020,14 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       </span>
                       <Badge
                         variant={
-                          selectedDialog.status === 'Активный'
+                          selectedDialog.client?.status === 'active'
                             ? 'default'
                             : 'secondary'
                         }
                       >
-                        {selectedDialog.status}
+                        {selectedDialog.client?.status === 'active'
+                          ? 'Активный'
+                          : 'Неактивный'}
                       </Badge>
                     </div>
 
@@ -999,12 +1037,10 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       </span>
                       <div className='mt-1 flex items-center gap-2'>
                         <Progress
-                          value={getStageProgress(selectedDialog.stage || '')}
+                          value={selectedDialog.close_ratio || 0}
                           className='flex-1'
                         />
-                        <span>
-                          {getStageProgress(selectedDialog.stage || '')}%
-                        </span>
+                        <span>{selectedDialog.close_ratio || 0}%</span>
                       </div>
                     </div>
 
@@ -1012,7 +1048,22 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       <span className='text-muted-foreground text-sm font-medium'>
                         Обновлено
                       </span>
-                      <span>{selectedDialog.lastActivity}</span>
+                      <span>
+                        {new Date(
+                          selectedDialog.updated_at || ''
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className='flex flex-col'>
+                      <span className='text-muted-foreground text-sm font-medium'>
+                        AI-ассистент
+                      </span>
+                      <Badge
+                        variant={selectedDialog.ai ? 'default' : 'outline'}
+                      >
+                        {selectedDialog.ai ? 'Включен' : 'Выключен'}
+                      </Badge>
                     </div>
                   </div>
                 </div>

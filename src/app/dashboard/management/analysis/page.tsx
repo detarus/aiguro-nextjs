@@ -517,7 +517,7 @@ export default function AnalysisPage() {
                       Добавить новый параметр
                     </h3>
 
-                    <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+                    <div className='grid grid-cols-1 gap-4 md:grid-cols-4'>
                       <div className='space-y-2'>
                         <Label htmlFor='param-name'>Имя параметра</Label>
                         <Input
@@ -571,41 +571,30 @@ export default function AnalysisPage() {
                         </Select>
                       </div>
 
-                      <div className='flex items-center space-x-2 md:col-span-3'>
-                        <Checkbox
-                          id='scenarios'
-                          checked={newParameter.useBehaviorScenarios}
-                          onCheckedChange={(checked) =>
-                            setNewParameter({
-                              ...newParameter,
-                              useBehaviorScenarios: checked as boolean
-                            })
-                          }
-                        />
-                        <Label htmlFor='scenarios'>
-                          Сценарии поведения для различных значений
-                        </Label>
+                      <div className='space-y-2'>
+                        <Label htmlFor='add-param-button'>&nbsp;</Label>
+                        <Button
+                          id='add-param-button'
+                          onClick={handleAddParameter}
+                          className='w-full'
+                        >
+                          Добавить параметр
+                        </Button>
                       </div>
                     </div>
 
-                    <div className='flex justify-end pt-2'>
-                      <Button onClick={handleAddParameter}>
-                        Добавить параметр
-                      </Button>
-                    </div>
+                    {/* Сообщения об ошибках и успехе */}
+                    {error && (
+                      <div className='bg-destructive/10 text-destructive rounded-md px-4 py-2'>
+                        {error}
+                      </div>
+                    )}
+                    {successMessage && (
+                      <div className='rounded-md bg-green-100 px-4 py-2 text-green-800'>
+                        {successMessage}
+                      </div>
+                    )}
                   </div>
-
-                  {/* Сообщения об ошибках и успехе */}
-                  {error && (
-                    <div className='bg-destructive/10 text-destructive rounded-md px-4 py-2'>
-                      {error}
-                    </div>
-                  )}
-                  {successMessage && (
-                    <div className='rounded-md bg-green-100 px-4 py-2 text-green-800'>
-                      {successMessage}
-                    </div>
-                  )}
                 </div>
               </TabsContent>
 

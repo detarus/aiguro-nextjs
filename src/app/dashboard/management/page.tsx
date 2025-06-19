@@ -9,13 +9,22 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import { IconAdjustments } from '@tabler/icons-react';
+import { IconAdjustments, IconCreditCard } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/ui/page-container';
 import Link from 'next/link';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 
 export default function ManagementPage() {
   const { organization } = useOrganization();
@@ -25,6 +34,7 @@ export default function ManagementPage() {
 
   const [assistantsCount, setAssistantsCount] = useState<number | null>(null);
   const [assistantsLoading, setAssistantsLoading] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
@@ -101,91 +111,159 @@ export default function ManagementPage() {
             </p>
           </div>
 
-          <div className='grid grid-cols-1 gap-6 md:grid-cols-2'>
-            {/* <Card>
-              <CardHeader>
-                <CardTitle>Организация</CardTitle>
-                <CardDescription>
-                  Управление пользователями и их ролями в компании
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div className='flex items-center justify-between rounded-lg border p-4'>
-                  <div className='flex items-center gap-4'>
-                    <div className='bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full'>
-                      <IconAdjustments className='text-primary h-6 w-6' />
-                    </div>
-                    <div>
-                      <h3 className='font-medium'>5 активных пользователей</h3>
-                      <p className='text-muted-foreground text-sm'>
-                        2 администратора, 3 оператора
-                      </p>
-                    </div>
-                  </div>
-                  <Button size='sm'>Перейти</Button>
-                </div>
-              </CardContent>
+          <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4'>
+            <Card className='flex h-full flex-col p-6'>
+              <div className='mb-2 flex items-center justify-between'>
+                <h3 className='text-lg font-medium'>AI-ассистенты</h3>
+                <Switch />
+              </div>
+              <div className='text-muted-foreground mb-6 text-sm'>
+                Мультиагент, отвечающий за этапы воронки
+              </div>
+              <div className='mt-auto flex gap-3'>
+                <Button variant='outline' className='flex-1'>
+                  Тест агента
+                </Button>
+                <Link
+                  href='/dashboard/management/ai-assistants/'
+                  className='flex-1'
+                >
+                  <Button className='w-full'>Настройки</Button>
+                </Link>
+              </div>
+            </Card>
+
+            <Card className='flex h-full flex-col p-6'>
+              <div className='mb-2 flex items-center justify-between'>
+                <h3 className='text-lg font-medium'>Фоллоу Ап (анализ)</h3>
+                <Switch />
+              </div>
+              <div className='text-muted-foreground mb-6 text-sm'>
+                Системный агент, отвечающий за напоминания клиентам
+              </div>
+              <div className='mt-auto flex gap-3'>
+                <Button variant='outline' className='flex-1'>
+                  Тест агента
+                </Button>
+                <Link
+                  href='/dashboard/management/follow-up/'
+                  className='flex-1'
+                >
+                  <Button className='w-full'>Настройки</Button>
+                </Link>
+              </div>
+            </Card>
+
+            <Card className='flex h-full flex-col p-6'>
+              <div className='mb-2 flex items-center justify-between'>
+                <h3 className='text-lg font-medium'>Фоллоу Ап (сообы)</h3>
+                <Switch />
+              </div>
+              <div className='text-muted-foreground mb-6 text-sm'>
+                Агент, отвечающий за напоминания клиентам
+              </div>
+              <div className='mt-auto flex gap-3'>
+                <Button variant='outline' className='flex-1'>
+                  Тест агента
+                </Button>
+                <Link
+                  href='/dashboard/management/follow-up-messages/'
+                  className='flex-1'
+                >
+                  <Button className='w-full'>Настройки</Button>
+                </Link>
+              </div>
+            </Card>
+
+            <Card className='flex h-full flex-col p-6'>
+              <div className='mb-2 flex items-center justify-between'>
+                <h3 className='text-lg font-medium'>Анализ</h3>
+                <Switch />
+              </div>
+              <div className='text-muted-foreground mb-6 text-sm'>
+                Агент, отвечающий за аналитику данных
+              </div>
+              <div className='mt-auto flex gap-3'>
+                <Button variant='outline' className='flex-1'>
+                  Тест агента
+                </Button>
+                <Link href='/dashboard/management/analysis/' className='flex-1'>
+                  <Button className='w-full'>Настройки</Button>
+                </Link>
+              </div>
+            </Card>
+
+            {/* <Card className="h-full flex flex-col p-6">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-medium text-lg">РОП</h3>
+                <Switch />
+              </div>
+              <div className="text-muted-foreground text-sm mb-6">
+                Агент аналитики второго уровня
+              </div>
+              <div className="mt-auto flex gap-3">
+                <Button variant="outline" className="flex-1">Тест агента</Button>
+                <Link href='/dashboard/management/sales-manager/' className="flex-1">
+                  <Button className="w-full">Настройки</Button>
+                </Link>
+              </div>
             </Card> */}
 
-            {/* <Card>
-              <CardHeader>
-                <CardTitle>Воронки</CardTitle>
-                <CardDescription>
-                  Настройка, активация и удаление воронок
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div className='flex items-center justify-between rounded-lg border p-4'>
-                  <div className='flex items-center gap-4'>
-                    <div className='bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full'>
-                      <IconAdjustments className='text-primary h-6 w-6' />
-                    </div>
-                    <div>
-                      <h3 className='font-medium'>7 активных воронок</h3>
-                      <p className='text-muted-foreground text-sm'>
-                        Несколько воронок ожидают изменений
-                      </p>
-                    </div>
-                  </div>
-                  <Button size='sm'>Перейти</Button>
+            <Card className='flex h-full flex-col p-6'>
+              <div className='mb-2 flex items-center justify-between'>
+                <h3 className='text-lg font-medium'>РОП</h3>
+                <div className='flex items-center'>
+                  <Switch />
+                  {/* <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">Текстовый</span> */}
                 </div>
-              </CardContent>
-            </Card> */}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>AI-ассистенты</CardTitle>
-                <CardDescription>
-                  Настройка и доработка ассистентов
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div className='flex items-center justify-between rounded-lg border p-4'>
-                  <div className='flex items-center gap-4'>
-                    <div className='bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full'>
-                      <IconAdjustments className='text-primary h-6 w-6' />
-                    </div>
-                    <div>
-                      <h3 className='font-medium'>
-                        {assistantsLoading
-                          ? 'Загрузка...'
-                          : assistantsCount !== null
-                            ? `${assistantsCount} ${assistantsCount === 1 ? 'ассистент' : assistantsCount >= 2 && assistantsCount <= 4 ? 'ассистента' : 'ассистентов'} этапов`
-                            : 'Ассистенты этапов не найдены'}
-                      </h3>
-                      <p className='text-muted-foreground text-sm'>
-                        Просмотр и редактирование
-                      </p>
-                    </div>
-                  </div>
-                  <Link href='/dashboard/management/ai-assistants/'>
-                    <Button size='sm'>Перейти</Button>
-                  </Link>
-                </div>
-              </CardContent>
+              </div>
+              <div className='text-muted-foreground mb-6 text-sm'>
+                Агент аналитики второго уровня
+              </div>
+              <div className='mt-auto'>
+                <Button
+                  className='w-full'
+                  onClick={() => setIsCreateModalOpen(true)}
+                >
+                  Создать
+                </Button>
+              </div>
             </Card>
           </div>
         </div>
+
+        {/* Модальное окно создания агента */}
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogContent className='sm:max-w-md'>
+            <DialogHeader>
+              <DialogTitle className='text-xl font-bold'>
+                Создать агента
+              </DialogTitle>
+              <DialogDescription>
+                Выбирите какого агента хотите создать
+              </DialogDescription>
+            </DialogHeader>
+            <div className='grid grid-cols-2 gap-4 py-4'>
+              <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border p-4 hover:border-black'>
+                <IconCreditCard className='mb-2 h-12 w-12' />
+                <span className='text-center'>Простой агент</span>
+              </div>
+              <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border border-black p-4 hover:border-black'>
+                <IconCreditCard className='mb-2 h-12 w-12' />
+                <span className='text-center'>Мультиагент</span>
+              </div>
+            </div>
+            <DialogFooter className='sm:justify-between'>
+              <Button
+                variant='outline'
+                onClick={() => setIsCreateModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type='button'>Создать</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </PageContainer>
     </Suspense>
   );

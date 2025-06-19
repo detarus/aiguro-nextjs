@@ -849,7 +849,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
             <>
               {/* Chat header */}
               <div className='border-b p-4'>
-                <div className='flex items-center gap-3'>
+                <div className='flex h-[28px] items-center gap-3'>
                   <Avatar className='h-8 w-8'>
                     <AvatarFallback className='bg-primary/10 text-primary text-sm'>
                       {getInitials(selectedDialog.client?.name || '')}
@@ -1023,9 +1023,9 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   </span>
                   <div className='flex items-center gap-2'>
                     <span className='text-sm'>Telegram</span>
-                    <Badge variant='outline' className='text-xs'>
+                    {/* <Badge variant='outline' className='text-xs'>
                       Активен
-                    </Badge>
+                    </Badge> */}
                   </div>
                 </div>
 
@@ -1124,7 +1124,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       </span>
                     </div>
 
-                    <div className='mb-2 flex flex-col'>
+                    {/* <div className='mb-2 flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         AI-ассистент
                       </span>
@@ -1133,7 +1133,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       >
                         {selectedDialog.ai ? 'Включен' : 'Выключен'}
                       </Badge>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               </div>

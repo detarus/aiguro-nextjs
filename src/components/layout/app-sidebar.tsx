@@ -133,7 +133,7 @@ export default function AppSidebar() {
       disabled: false
     },
     {
-      title: 'Команды AI-асистентов',
+      title: 'Шаблоны',
       url: '#',
       icon: 'userPen',
       isActive: false,

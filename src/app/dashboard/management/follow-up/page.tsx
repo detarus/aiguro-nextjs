@@ -680,7 +680,7 @@ export default function FollowUpPage() {
                       Добавить новый параметр
                     </h3>
 
-                    <div className='grid grid-cols-1 gap-4 md:grid-cols-4'>
+                    <div className='grid grid-cols-1 gap-4 md:grid-cols-5'>
                       <div className='space-y-2'>
                         <Label htmlFor='param-name'>Имя параметра</Label>
                         <Input
@@ -695,7 +695,7 @@ export default function FollowUpPage() {
                         />
                       </div>
 
-                      <div className='space-y-2'>
+                      <div className='col-span-2 space-y-2'>
                         <Label htmlFor='param-instruction'>
                           Инструкция для параметра
                         </Label>

@@ -121,9 +121,14 @@ export default function ManagementPage() {
                 Мультиагент, отвечающий за этапы воронки
               </div>
               <div className='mt-auto flex gap-3'>
-                <Button variant='outline' className='flex-1'>
-                  Тест агента
-                </Button>
+                <Link
+                  href='/dashboard/management/agent-testing?agent=ai-assistants'
+                  className='flex-1'
+                >
+                  <Button variant='outline' className='w-full'>
+                    Тест агента
+                  </Button>
+                </Link>
                 <Link
                   href='/dashboard/management/ai-assistants/'
                   className='flex-1'
@@ -142,9 +147,14 @@ export default function ManagementPage() {
                 Системный агент, отвечающий за напоминания клиентам
               </div>
               <div className='mt-auto flex gap-3'>
-                <Button variant='outline' className='flex-1'>
-                  Тест агента
-                </Button>
+                <Link
+                  href='/dashboard/management/agent-testing?agent=follow-up'
+                  className='flex-1'
+                >
+                  <Button variant='outline' className='w-full'>
+                    Тест агента
+                  </Button>
+                </Link>
                 <Link
                   href='/dashboard/management/follow-up/'
                   className='flex-1'
@@ -163,9 +173,14 @@ export default function ManagementPage() {
                 Агент, отвечающий за напоминания клиентам
               </div>
               <div className='mt-auto flex gap-3'>
-                <Button variant='outline' className='flex-1'>
-                  Тест агента
-                </Button>
+                <Link
+                  href='/dashboard/management/agent-testing?agent=follow-up-messages'
+                  className='flex-1'
+                >
+                  <Button variant='outline' className='w-full'>
+                    Тест агента
+                  </Button>
+                </Link>
                 <Link
                   href='/dashboard/management/follow-up-messages/'
                   className='flex-1'
@@ -184,9 +199,14 @@ export default function ManagementPage() {
                 Агент, отвечающий за аналитику данных
               </div>
               <div className='mt-auto flex gap-3'>
-                <Button variant='outline' className='flex-1'>
-                  Тест агента
-                </Button>
+                <Link
+                  href='/dashboard/management/agent-testing?agent=analysis'
+                  className='flex-1'
+                >
+                  <Button variant='outline' className='w-full'>
+                    Тест агента
+                  </Button>
+                </Link>
                 <Link href='/dashboard/management/analysis/' className='flex-1'>
                   <Button className='w-full'>Настройки</Button>
                 </Link>

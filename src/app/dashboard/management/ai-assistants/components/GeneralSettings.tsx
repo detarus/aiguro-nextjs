@@ -70,7 +70,7 @@ export function GeneralSettingsComponent({
       <CardHeader>
         <CardTitle>Настройки мультиагента</CardTitle>
         <p className='text-muted-foreground text-sm'>
-          Вы можете настроить и адаптировать под свои задачи в этом меню агента
+          Результаты работы агента будут отображаться в чате
         </p>
       </CardHeader>
       <CardContent className='space-y-4'>

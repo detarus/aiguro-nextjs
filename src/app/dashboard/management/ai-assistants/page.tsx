@@ -712,6 +712,11 @@ export default function AIAssistantsPage() {
 
   const activeStage = stages.find((stage) => stage.id === activeStageId);
 
+  // Обработчик возврата назад
+  const handleBack = () => {
+    router.push('/dashboard/management');
+  };
+
   // Показываем прогресс-бар только при первой загрузке без локальных данных
   if (loading && isFirstLoad && !hasLocalData) {
     const loadingSteps = [
@@ -738,14 +743,26 @@ export default function AIAssistantsPage() {
   return (
     <PageContainer>
       <div className='space-y-6'>
-        {/* Header */}
-        <div className='flex items-center gap-4'>
-          <Button variant='ghost' size='icon' className='rounded-full'>
-            <IconArrowLeft className='h-5 w-5' />
-          </Button>
-          <h1 className='text-2xl font-semibold'>
-            Настройки мультиагента этапов
-          </h1>
+        {/* Заголовок с кнопкой назад */}
+        <div className='flex items-center justify-between'>
+          <div className='flex items-center'>
+            <Button
+              variant='ghost'
+              size='icon'
+              onClick={handleBack}
+              className='mr-2'
+            >
+              <IconArrowLeft className='h-5 w-5' />
+            </Button>
+            <div>
+              <h1 className='text-2xl font-bold'>
+                Настройки мультиагента этапов
+              </h1>
+              <p className='text-muted-foreground'>
+                Настройка и управление AI-ассистентами для этапов воронки
+              </p>
+            </div>
+          </div>
           <Button
             className={`ml-auto ${hasChanges ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
             onClick={handleFinishSetup}

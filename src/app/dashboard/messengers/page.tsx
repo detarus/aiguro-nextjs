@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+// Добавлен переключатель Агент/Менеджер
 
 // Интерфейсы для типизации данных
 interface Dialog {

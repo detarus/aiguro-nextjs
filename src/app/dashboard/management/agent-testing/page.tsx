@@ -257,11 +257,10 @@ export default function AgentTestingPage() {
           <div className='space-y-6 md:col-span-1'>
             {/* Выбор агента */}
             <Card>
-              <CardHeader className='pb-3'>
-                <CardTitle>Настройки мультиагента</CardTitle>
-                <CardDescription>
-                  Вы можете настроить и адаптировать под свои задачи в этом меню
-                  агента
+              <CardHeader className='pb-2'>
+                <CardTitle>Настройки тестирования</CardTitle>
+                <CardDescription className='pt-2'>
+                  Основные параметры формата тестирования
                 </CardDescription>
               </CardHeader>
               <CardContent className='space-y-6'>
@@ -295,10 +294,10 @@ export default function AgentTestingPage() {
                         htmlFor='context-memory'
                         className='text-base font-medium'
                       >
-                        Память контекста
+                        Тестировать Follow Up
                       </Label>
                       <p className='text-muted-foreground text-sm'>
-                        Сохраняет информацию о предыдущих действиях пользователя
+                        Автоматический пропуск времени сообщений
                       </p>
                     </div>
                     <Switch
@@ -314,11 +313,11 @@ export default function AgentTestingPage() {
                         htmlFor='data-collection'
                         className='text-base font-medium'
                       >
-                        Сбор массива данных
+                        Общая аналитика
                       </Label>
                       <p className='text-muted-foreground text-sm'>
-                        Позволяет собирать анонимные данные о поведении
-                        пользователя
+                        Используем общий анализ для тестирования или же анализ
+                        Follow Up
                       </p>
                     </div>
                     <Switch
@@ -334,54 +333,16 @@ export default function AgentTestingPage() {
                         htmlFor='manager-pause'
                         className='text-base font-medium'
                       >
-                        Пауза после сообщения от менеджера
+                        Анализ в формате JSON
                       </Label>
                       <p className='text-muted-foreground text-sm'>
-                        Обеспечивает автоматическую остановку работы чат-агента
+                        Выводить результаты не текстом, а объектом JSON
                       </p>
                     </div>
                     <Switch
                       id='manager-pause'
                       checked={managerPause}
                       onCheckedChange={setManagerPause}
-                    />
-                  </div>
-
-                  <div className='flex items-center justify-between'>
-                    <div>
-                      <Label
-                        htmlFor='knowledge-base'
-                        className='text-base font-medium'
-                      >
-                        База знаний агента
-                      </Label>
-                      <p className='text-muted-foreground text-sm'>
-                        Даёт агенту доступ к внутренней базе знаний
-                      </p>
-                    </div>
-                    <Switch
-                      id='knowledge-base'
-                      checked={knowledgeBase}
-                      onCheckedChange={setKnowledgeBase}
-                    />
-                  </div>
-
-                  <div className='flex items-center justify-between'>
-                    <div>
-                      <Label
-                        htmlFor='voice-commands'
-                        className='text-base font-medium'
-                      >
-                        Голосовые запросы и ответы
-                      </Label>
-                      <p className='text-muted-foreground text-sm'>
-                        Активирует возможность обработки голосовых команд
-                      </p>
-                    </div>
-                    <Switch
-                      id='voice-commands'
-                      checked={voiceCommands}
-                      onCheckedChange={setVoiceCommands}
                     />
                   </div>
                 </div>
@@ -401,18 +362,18 @@ export default function AgentTestingPage() {
             {/* Интерфейс чата */}
             <Card className='flex flex-col'>
               <CardHeader className='pb-3'>
-                <CardTitle>Промпт агента/Тестирование</CardTitle>
+                <CardTitle>Чат с агентом</CardTitle>
               </CardHeader>
               <CardContent className='flex-1'>
                 <Tabs defaultValue='testing' className='w-full'>
-                  <TabsList className='mb-4'>
+                  {/* <TabsList className='mb-4'>
                     <TabsTrigger value='setup' disabled>
                       Настройка
                     </TabsTrigger>
                     <TabsTrigger value='testing'>Тестирование</TabsTrigger>
-                  </TabsList>
+                  </TabsList> */}
                   <TabsContent value='testing' className='space-y-4'>
-                    <div className='flex h-[500px] flex-col'>
+                    <div className='flex h-[468px] flex-col'>
                       {/* Область сообщений */}
                       <div className='mb-4 flex-1 overflow-y-auto rounded-md border bg-gray-50 p-4'>
                         {activeDialog.messages.length === 0 ? (

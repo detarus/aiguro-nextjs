@@ -371,7 +371,7 @@ export default function ChatPage() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${msg.role === 'user' ? 'justify-start' : msg.role === 'system' ? 'justify-center' : 'justify-end'}`}
+                className={`mb-2 flex ${msg.role === 'user' ? 'justify-start' : msg.role === 'system' ? 'justify-center' : 'justify-end'}`}
               >
                 {msg.role === 'system' ? (
                   <div className='max-w-[90%] rounded-lg bg-gray-100 p-2 text-center text-xs text-gray-500 dark:bg-gray-800/50 dark:text-gray-400'>
@@ -379,7 +379,7 @@ export default function ChatPage() {
                   </div>
                 ) : (
                   <div
-                    className={`max-w-[70%] rounded-lg p-3 ${
+                    className={`max-w-[70%] rounded-lg p-1 ${
                       msg.role === 'user'
                         ? 'bg-muted'
                         : msg.role === 'manager'

@@ -1207,8 +1207,6 @@ function IntegrationsPage() {
                     variant='outline'
                     onClick={() => {
                       setIsDialogOpen(false);
-                      setNewTokens({});
-                      setCreatingConnection({});
                     }}
                   >
                     Отмена
@@ -1220,7 +1218,7 @@ function IntegrationsPage() {
                       setCreatingConnection({});
                     }}
                   >
-                    Закрыть
+                    Сохранить
                   </Button>
                 </div>
               </Tabs>

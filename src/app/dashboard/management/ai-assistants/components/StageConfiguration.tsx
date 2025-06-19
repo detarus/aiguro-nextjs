@@ -305,17 +305,15 @@ export function StageConfiguration({
         </CardContent>
       </Card>
 
-      {/* Settings and Testing Tabs */}
+      {/* Agent Prompt - Updated with new chat interface design */}
       <Card className='h-fit'>
         <CardHeader>
-          <CardTitle>Настройка промптов и тестирование этапа</CardTitle>
-        </CardHeader>
-        <CardContent>
+          <CardTitle className='mb-2'>Промпт агента/Тестирование</CardTitle>
           <Tabs
             value={activeSettingsTab}
             onValueChange={(value) => onTabChange(value as 'setup' | 'test')}
           >
-            <TabsList className='w-full'>
+            <TabsList className='w-full pt-1'>
               <TabsTrigger value='setup' className='flex-1'>
                 Настройка
               </TabsTrigger>
@@ -324,22 +322,13 @@ export function StageConfiguration({
               </TabsTrigger>
             </TabsList>
           </Tabs>
-        </CardContent>
-      </Card>
-
-      {/* Agent Prompt - Updated with new chat interface design */}
-      <Card className='h-fit'>
-        {activeSettingsTab !== 'test' && (
-          <CardHeader>
-            <CardTitle>Промпт агента</CardTitle>
-          </CardHeader>
-        )}
+        </CardHeader>
         <CardContent className='p-0'>
           {/* Chat interface - only shown when in testing mode */}
           {activeSettingsTab === 'test' && (
-            <div className='flex h-[250px] flex-col'>
+            <div className='flex h-[320px] flex-col'>
               {/* Chat Header */}
-              <div className='flex items-center justify-between border-b pb-4'>
+              <div className='flex items-center justify-between border-b p-4'>
                 <div className='flex items-center gap-4'>
                   <div className='flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200'>
                     <img
@@ -400,7 +389,7 @@ export function StageConfiguration({
               </div>
 
               {/* Chat Messages */}
-              <div className='flex min-h-[130px] flex-col gap-2.5 overflow-y-auto py-4'>
+              <div className='flex min-h-[180px] flex-col gap-2.5 overflow-y-auto p-4'>
                 {activeDialog.messages.length > 0 ? (
                   activeDialog.messages.map((message) => (
                     <div key={message.id} className='flex flex-col gap-2.5'>
@@ -427,7 +416,7 @@ export function StageConfiguration({
               </div>
 
               {/* Chat Input */}
-              <div className='mt-auto border-t pt-4'>
+              <div className='mt-auto border-t p-4'>
                 <div className='flex gap-2'>
                   <input
                     type='text'
@@ -452,12 +441,12 @@ export function StageConfiguration({
 
           {/* Agent Prompt Editor - only shown when in setup mode */}
           {activeSettingsTab === 'setup' && (
-            <div>
+            <div className='p-4'>
               <Textarea
                 value={instructions}
                 onChange={(e) => onInstructionsChange(e.target.value)}
-                placeholder='Fix the grammar.'
-                className='h-[150px] w-full resize-none'
+                placeholder='Содержимое промпта агента.'
+                className='h-[234px] w-full resize-none'
               />
 
               {/* Success and Error Messages */}

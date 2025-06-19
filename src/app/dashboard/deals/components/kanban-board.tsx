@@ -14,6 +14,8 @@ import { useRouter } from 'next/navigation';
 
 interface KanbanBoardProps {
   clients: Client[];
+  onClientUpdate?: (updatedClient: Client) => void;
+  onRefresh?: () => void;
 }
 
 interface Stage {
@@ -93,13 +95,13 @@ function ClientCard({ client }: { client: Client }) {
       className='mb-3 cursor-pointer transition-all hover:shadow-md'
       onClick={handleCardClick}
     >
-      <CardContent className='px-4'>
+      <CardContent className='px-2'>
         {/* Заголовок карточки с именем и статусом */}
         <div className='mb-2 flex items-center justify-between'>
           <div className='flex items-center'>
-            <Avatar className='mr-2 h-8 w-8'>
+            <Avatar className='mr-2 h-6 w-6'>
               <AvatarImage src='' alt={client.name} />
-              <AvatarFallback className='bg-gray-200 text-gray-600'>
+              <AvatarFallback className='bg-gray-200 text-xs text-gray-600'>
                 {initials}
               </AvatarFallback>
             </Avatar>
@@ -124,7 +126,7 @@ function ClientCard({ client }: { client: Client }) {
         </div>
 
         {/* Описание задачи */}
-        <div className='mb-3 pt-3 text-xs text-gray-600'>
+        <div className='mb-1 max-h-[30px] min-h-[30px] overflow-hidden pt-0 text-xs text-gray-600'>
           {client.description || 'Описание отсутствует'}
         </div>
 
@@ -133,8 +135,9 @@ function ClientCard({ client }: { client: Client }) {
           <div className='text-2xl font-semibold text-gray-700'>
             {formattedPrice}
           </div>
-          <div className='text-sm text-gray-500'>
-            {client.channel || 'Telegram'}
+          <div className='text-xl text-gray-500'>
+            {/* {client.channel || 'Telegram'}   */}
+            {client.closeRatio || 62}%
           </div>
         </div>
 
@@ -146,13 +149,13 @@ function ClientCard({ client }: { client: Client }) {
               style={{ width: `${client.closeRatio || 62}%` }}
             ></div>
           </div>
-          <div className='mt-1 text-right text-sm font-medium text-gray-600'>
+          {/* <div className='mt-1 text-right text-sm font-medium text-gray-600'>
             {client.closeRatio || 62}%
-          </div>
+          </div> */}
         </div>
 
         {/* Кнопка открытия диалога */}
-        {client.dialogUuid && (
+        {/* {client.dialogUuid && (
           <div className='mt-3 flex justify-end'>
             <Button
               variant='outline'
@@ -166,7 +169,7 @@ function ClientCard({ client }: { client: Client }) {
               Открыть диалог
             </Button>
           </div>
-        )}
+        )} */}
 
         {/* Отладочная информация */}
         {/* {process.env.NODE_ENV !== 'production' && (
@@ -219,20 +222,24 @@ function KanbanColumn({ stage, clients }: { stage: Stage; clients: Client[] }) {
         ))}
 
         {/* Кнопка добавления нового клиента */}
-        <Button
+        {/* <Button
           variant='ghost'
           className='border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 h-12 w-full border-2 border-dashed'
           onClick={handleAddDialog}
         >
           <IconPlus className='mr-2 h-4 w-4' />
           Добавить диалог
-        </Button>
+        </Button> */}
       </div>
     </div>
   );
 }
 
-export function KanbanBoard({ clients }: KanbanBoardProps) {
+export function KanbanBoard({
+  clients,
+  onClientUpdate,
+  onRefresh
+}: KanbanBoardProps) {
   const { state } = useSidebar();
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
@@ -432,7 +439,7 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
   return (
     <div className='w-full'>
       {/* Отладочная информация */}
-      {process.env.NODE_ENV !== 'production' && (
+      {/* {process.env.NODE_ENV !== 'production' && (
         <div className='mb-4 rounded border border-gray-200 p-4 text-xs'>
           <details>
             <summary className='cursor-pointer font-medium'>
@@ -468,7 +475,7 @@ export function KanbanBoard({ clients }: KanbanBoardProps) {
             </div>
           </details>
         </div>
-      )}
+      )} */}
 
       {/* Контейнер с ограниченной шириной и горизонтальной прокруткой */}
       <div

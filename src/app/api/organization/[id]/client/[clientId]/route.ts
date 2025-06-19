@@ -116,7 +116,14 @@ export async function PUT(request: NextRequest) {
   const orgId = pathSegments[orgIdIndex];
   const clientId = pathSegments[clientIdIndex];
 
+  console.log('=== PUT /api/organization/[id]/client/[clientId] ===');
+  console.log('URL:', url.toString());
+  console.log('Path segments:', pathSegments);
+  console.log('Organization ID:', orgId);
+  console.log('Client ID:', clientId);
+
   if (!orgId) {
+    console.error('Organization ID not found in URL');
     return NextResponse.json(
       { error: 'Organization ID not found in URL' },
       { status: 400 }
@@ -124,6 +131,7 @@ export async function PUT(request: NextRequest) {
   }
 
   if (!clientId) {
+    console.error('Client ID not found in URL');
     return NextResponse.json(
       { error: 'Client ID not found in URL' },
       { status: 400 }
@@ -146,13 +154,48 @@ export async function PUT(request: NextRequest) {
   );
 
   try {
-    // Get request body
-    const body = await request.json();
+    // Get request body as text first for debugging
+    const bodyText = await request.text();
+    console.log('Raw request body:', bodyText);
+    console.log('Request body length:', bodyText.length);
+
+    // Parse the body as JSON
+    let body;
+    try {
+      body = JSON.parse(bodyText);
+      console.log('Parsed request body:', body);
+    } catch (e) {
+      console.error('Failed to parse request body as JSON:', e);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
+    // Check required fields
+    if (!body.name) {
+      console.error('Missing required field: name');
+      return NextResponse.json(
+        { error: 'Missing required field: name' },
+        { status: 400 }
+      );
+    }
+
+    // Ensure all fields are strings
+    const sanitizedBody = {
+      name: String(body.name || ''),
+      phone: String(body.phone || ''),
+      email: String(body.email || ''),
+      manager: String(body.manager || '')
+    };
+
+    console.log('Sanitized request body:', sanitizedBody);
 
     const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/client/${clientId}`;
     console.log(
       `[PUT /api/organization/[id]/client/[clientId]] Updating client at: ${apiUrl}`
     );
+    console.log('Request body to backend:', sanitizedBody);
 
     const response = await fetch(apiUrl, {
       method: 'PUT',
@@ -160,18 +203,28 @@ export async function PUT(request: NextRequest) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(sanitizedBody)
     });
 
     console.log(
       `[PUT /api/organization/[id]/client/[clientId]] Response status: ${response.status}`
     );
+    console.log('Response headers:', {
+      'content-type': response.headers.get('content-type'),
+      'content-length': response.headers.get('content-length')
+    });
+
+    // Get response as text first for debugging
+    const responseText = await response.text();
+    console.log('Raw response body:', responseText);
+    console.log('Response body length:', responseText.length);
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status} ${response.statusText}`;
 
       try {
-        const errorData = await response.json();
+        // Try to parse the response text as JSON
+        const errorData = responseText ? JSON.parse(responseText) : {};
         console.error(
           '[PUT /api/organization/[id]/client/[clientId]] API error response:',
           errorData
@@ -183,23 +236,36 @@ export async function PUT(request: NextRequest) {
           errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
         }
       } catch (parseError) {
-        try {
-          const errorText = await response.text();
-          if (errorText) {
-            errorMessage = `${errorMessage}\nServer response: ${errorText}`;
-          }
-        } catch (textError) {
-          errorMessage = `${errorMessage}\nUnable to read server response`;
-        }
+        console.error('Failed to parse error response as JSON:', parseError);
+        errorMessage = `${errorMessage}\nServer response: ${responseText}`;
       }
 
+      console.error('Returning error to client:', errorMessage);
       return NextResponse.json(
         { error: errorMessage },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
+    // Try to parse the response text as JSON
+    let data;
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      console.log(
+        '[PUT /api/organization/[id]/client/[clientId]] Successfully parsed response:',
+        data
+      );
+    } catch (parseError) {
+      console.error('Failed to parse success response as JSON:', parseError);
+      // Create a simple success response if parsing fails
+      data = {
+        success: true,
+        message: 'Client updated successfully',
+        clientId,
+        orgId
+      };
+    }
+
     console.log(
       '[PUT /api/organization/[id]/client/[clientId]] Successfully updated client:',
       data

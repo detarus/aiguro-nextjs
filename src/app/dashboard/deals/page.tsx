@@ -4,14 +4,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
-import PageContainer from '@/components/layout/page-container';
+import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSidebar } from '@/components/ui/sidebar';
-import { IconSearch, IconList, IconLayoutKanban } from '@tabler/icons-react';
+import {
+  IconSearch,
+  IconLayoutKanban,
+  IconList,
+  IconFileDownload,
+  IconFileReport
+} from '@tabler/icons-react';
 import { ClientTable, Client } from './components/client-table';
-import { ClientActions } from './components/client-actions';
 import { KanbanBoard } from './components/kanban-board';
+import { ClientActions } from './components/client-actions';
+import { toast } from 'sonner';
 
 // Interface for Dialog data
 export interface Dialog {
@@ -54,7 +61,7 @@ export interface Dialog {
 
 export default function DealsPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'new'>(
     'all'
   );
@@ -278,7 +285,7 @@ export default function DealsPage() {
           : 'Не указано',
         description:
           deal.description ||
-          'Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами',
+          'Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами. Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами. Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами. Задача клиента приобрести ряд компонентов связанных с бытовой химией и другими компонентами',
         tags: deal.tags || ['Новый клиент', 'Горячий', 'Горячий'],
         price: deal.price || Math.floor(Math.random() * 500000),
         channel: deal.channel || 'Telegram'
@@ -339,6 +346,124 @@ export default function DealsPage() {
   // Функция обновления данных
   const handleRefresh = () => {
     fetchAllData(true);
+  };
+
+  // Предоставляем функцию обновления данных для дочерних компонентов
+  const refreshData = useCallback(() => {
+    console.log('Запрос на обновление данных от дочернего компонента');
+    handleRefresh();
+  }, [handleRefresh]);
+
+  // Функция для обновления клиента в массиве сделок
+  const handleClientUpdate = (updatedClient: Client) => {
+    console.log('=== НАЧАЛО ОБНОВЛЕНИЯ КЛИЕНТА В СДЕЛКАХ ===');
+    console.log('Обновленный клиент:', updatedClient);
+    console.log('ID клиента для обновления:', updatedClient.id);
+    console.log('Текущее количество сделок:', deals.length);
+
+    // Проверка на существование client_id в сделках
+    const dealsWithClientId = deals.filter(
+      (deal) => deal.client_id === updatedClient.id
+    );
+    console.log(
+      `Найдено ${dealsWithClientId.length} сделок с client_id=${updatedClient.id}`
+    );
+
+    // Флаг для отслеживания, были ли внесены изменения
+    let updatesApplied = false;
+
+    // Находим соответствующие сделки по ID клиента
+    const updatedDeals = deals.map((deal) => {
+      // Проверяем соответствие по client_id
+      if (deal.client_id === updatedClient.id) {
+        console.log(
+          `Обновление сделки: ID=${deal.id}, client_id=${deal.client_id}`
+        );
+        updatesApplied = true;
+
+        // Сохраняем старые значения для отладки
+        const oldValues = {
+          name: deal.name,
+          email: deal.email,
+          phone: deal.phone,
+          assignedTo: deal.assignedTo,
+          clientName: deal.client?.name,
+          clientEmail: deal.client?.email,
+          clientPhone: deal.client?.phone,
+          clientManager: deal.client?.manager
+        };
+
+        // Обновляем данные клиента в сделке
+        const updatedDeal: Dialog = {
+          ...deal,
+          name: updatedClient.name,
+          email: updatedClient.email,
+          phone: updatedClient.phone,
+          assignedTo: updatedClient.assignedTo,
+          client: {
+            ...(deal.client || {}),
+            id: updatedClient.id,
+            name: updatedClient.name,
+            email: updatedClient.email,
+            phone: updatedClient.phone,
+            manager: updatedClient.assignedTo,
+            status: deal.client?.status || 'active',
+            close_ratio: deal.client?.close_ratio || 0,
+            messages_count: deal.client?.messages_count || 0
+          }
+        };
+
+        console.log('Изменения в сделке:', {
+          id: deal.id,
+          old: oldValues,
+          new: {
+            name: updatedDeal.name,
+            email: updatedDeal.email,
+            phone: updatedDeal.phone,
+            assignedTo: updatedDeal.assignedTo,
+            clientName: updatedDeal.client?.name,
+            clientEmail: updatedDeal.client?.email,
+            clientPhone: updatedDeal.client?.phone,
+            clientManager: updatedDeal.client?.manager
+          }
+        });
+
+        return updatedDeal;
+      }
+      return deal;
+    });
+
+    if (updatesApplied) {
+      console.log(`Обновлено ${dealsWithClientId.length} сделок`);
+
+      // Обновляем массив сделок
+      setDeals(updatedDeals);
+      // Обновляем кэш с новыми данными
+      saveToCache(updatedDeals);
+
+      console.log('Данные обновлены в состоянии и кэше');
+
+      // Показываем уведомление об успешном обновлении
+      toast.success('Данные клиента обновлены во всех сделках', {
+        duration: 3000
+      });
+    } else {
+      console.log(
+        'Не найдено сделок для обновления с client_id:',
+        updatedClient.id
+      );
+      console.log(
+        'Список ID клиентов в сделках:',
+        deals.map((deal) => deal.client_id)
+      );
+
+      // Показываем информационное уведомление
+      toast.info('Клиент обновлен, но не найдено связанных сделок', {
+        duration: 3000
+      });
+    }
+
+    console.log('=== ЗАВЕРШЕНИЕ ОБНОВЛЕНИЯ КЛИЕНТА В СДЕЛКАХ ===');
   };
 
   // Загружаем сделки при монтировании компонента и изменении организации/воронки
@@ -487,18 +612,10 @@ export default function DealsPage() {
         {/* Заголовок и кнопки действий */}
         <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'>
           <div className='flex items-center gap-4'>
-            <h1 className='text-xl font-semibold sm:text-2xl'>Диалоги</h1>
+            <h1 className='text-xl font-semibold sm:text-2xl'>Сделки</h1>
 
             {/* Переключатель видов */}
             <div className='flex items-center rounded-lg border p-1'>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size='sm'
-                onClick={() => setViewMode('list')}
-                className='h-8 w-8 p-0'
-              >
-                <IconList className='h-4 w-4' />
-              </Button>
               <Button
                 variant={viewMode === 'kanban' ? 'default' : 'ghost'}
                 size='sm'
@@ -506,6 +623,14 @@ export default function DealsPage() {
                 className='h-8 w-8 p-0'
               >
                 <IconLayoutKanban className='h-4 w-4' />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size='sm'
+                onClick={() => setViewMode('list')}
+                className='h-8 w-8 p-0'
+              >
+                <IconList className='h-4 w-4' />
               </Button>
             </div>
           </div>
@@ -567,6 +692,8 @@ export default function DealsPage() {
                 <ClientTable
                   clients={filteredClients}
                   backendOrgId={backendOrgId}
+                  onClientUpdate={undefined}
+                  onRefresh={refreshData}
                 />
 
                 {/* Пагинация */}
@@ -586,7 +713,11 @@ export default function DealsPage() {
               </>
             ) : (
               /* Kanban доска */
-              <KanbanBoard clients={filteredClients} />
+              <KanbanBoard
+                clients={filteredClients}
+                onClientUpdate={undefined}
+                onRefresh={refreshData}
+              />
             )}
           </div>
         </div>

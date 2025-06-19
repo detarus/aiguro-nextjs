@@ -743,7 +743,9 @@ export default function AIAssistantsPage() {
           <Button variant='ghost' size='icon' className='rounded-full'>
             <IconArrowLeft className='h-5 w-5' />
           </Button>
-          <h1 className='text-2xl font-semibold'>Настройки агента AI М1</h1>
+          <h1 className='text-2xl font-semibold'>
+            Настройки мультиагента этапов
+          </h1>
           <Button
             className={`ml-auto ${hasChanges ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
             onClick={handleFinishSetup}

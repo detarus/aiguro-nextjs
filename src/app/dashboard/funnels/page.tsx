@@ -363,14 +363,14 @@ export default function FunnelsPage() {
           </div>
         </div>
 
-        <div className='flex flex-wrap items-center gap-3'>
-          <div className='relative w-full sm:w-auto'>
+        <div className='flex flex-nowrap items-center gap-3 overflow-x-auto pb-2'>
+          <div className='relative w-64 flex-shrink-0'>
             <IconSearch className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
             <Input
               placeholder='Поиск...'
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className='h-9 pl-9'
+              className='h-9 w-full pl-9'
             />
           </div>
           <Input
@@ -378,15 +378,27 @@ export default function FunnelsPage() {
             placeholder='Начальная Дата'
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className='h-9 w-full sm:w-auto'
+            className='h-9 w-40 flex-shrink-0'
           />
           <Input
             type='date'
             placeholder='Конечная Дата'
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className='h-9 w-full sm:w-auto'
+            className='h-9 w-40 flex-shrink-0'
           />
+          <Button variant='outline' size='sm' className='flex-shrink-0'>
+            Фильтры
+          </Button>
+          <Button variant='outline' size='sm' className='flex-shrink-0'>
+            Сортировка
+          </Button>
+          <Button variant='outline' size='sm' className='flex-shrink-0'>
+            Экспорт
+          </Button>
+          <Button variant='outline' size='sm' className='flex-shrink-0'>
+            Импорт
+          </Button>
         </div>
 
         {filteredFunnels.length === 0 ? (
@@ -477,6 +489,22 @@ export default function FunnelsPage() {
             {isRefreshing && (
               <div className='text-sm text-blue-600'>Обновление данных...</div>
             )}
+          </div>
+
+          {/* Кнопки управления в горизонтальный ряд */}
+          <div className='flex space-x-2'>
+            <Button variant='outline' size='sm'>
+              Создать воронку
+            </Button>
+            <Button variant='outline' size='sm'>
+              Импорт
+            </Button>
+            <Button variant='outline' size='sm'>
+              Экспорт
+            </Button>
+            <Button variant='default' size='sm'>
+              Управление
+            </Button>
           </div>
         </div>
       </div>

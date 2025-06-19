@@ -805,21 +805,16 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                           ).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className='mb-1 flex items-center gap-2'>
-                        <IconPhone className='text-muted-foreground h-3 w-3' />
-                        <span className='text-muted-foreground text-xs'>
-                          {dialog.client?.phone || 'Неизвестно'}
-                        </span>
-                      </div>
+
                       <div className='mb-1 flex items-center gap-2'>
                         <span className='text-muted-foreground text-xs'>
-                          Telegram
+                          Хочу купить таблетки
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
-                        <p className='text-muted-foreground truncate text-xs'>
+                        {/* <p className='text-muted-foreground truncate text-xs'>
                           {dialog.lastMessage || 'Нет сообщений'}
-                        </p>
+                        </p> */}
 
                         {/* {dialog.client?.messages_count &&
                           dialog.client.messages_count > 0 && (
@@ -853,11 +848,9 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   </Avatar>
                   <div>
                     <h4 className='font-medium'>
-                      {selectedDialog.client?.name || 'Неизвестно'}
+                      {selectedDialog.client?.name || 'Неизвестно'} (
+                      {selectedDialog.client?.phone || 'Неизвестно'})
                     </h4>
-                    <p className='text-muted-foreground text-sm'>
-                      {selectedDialog.client?.phone || 'Неизвестно'}
-                    </p>
                   </div>
                   <div className='ml-auto flex items-center gap-3'>
                     <div className='text-sm text-gray-500'>Telegram</div>
@@ -881,13 +874,16 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[70%] min-w-[180px] rounded-lg border p-3 ${
+                        className={`max-w-[70%] min-w-[180px] rounded-lg border p-1 px-2 ${
                           message.role === 'user'
                             ? 'border-gray-600 bg-gray-700 text-white dark:border-gray-500 dark:bg-gray-600'
                             : 'border-gray-200 bg-gray-100 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'
                         }`}
                       >
-                        <div className='text-sm whitespace-pre-wrap'>
+                        <div
+                          className='text-sm whitespace-pre-wrap'
+                          style={{ lineHeight: '1.3' }}
+                        >
                           {message.text}
                         </div>
                         <div
@@ -957,85 +953,93 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
             </div>
             <div className='flex-1 overflow-auto p-4'>
               <div className='space-y-4'>
-                <div className='flex flex-col'>
+                <div className='mb-2 flex flex-col'>
                   <span className='text-muted-foreground text-sm font-medium'>
                     Имя
                   </span>
-                  <span>{selectedDialog.client?.name || 'Неизвестно'}</span>
+                  <span className='text-sm'>
+                    {selectedDialog.client?.name || 'Неизвестно'}
+                  </span>
                 </div>
 
-                <div className='flex flex-col'>
+                <div className='mb-2 flex flex-col'>
                   <span className='text-muted-foreground text-sm font-medium'>
                     Телефон
                   </span>
-                  <span>{selectedDialog.client?.phone || 'Неизвестно'}</span>
+                  <span className='text-sm'>
+                    {selectedDialog.client?.phone || 'Неизвестно'}
+                  </span>
                 </div>
 
-                <div className='flex flex-col'>
+                <div className='mb-2 flex flex-col'>
                   <span className='text-muted-foreground text-sm font-medium'>
                     Email
                   </span>
-                  <span>{selectedDialog.client?.email || 'Неизвестно'}</span>
+                  <span className='text-sm'>
+                    {selectedDialog.client?.email || 'Неизвестно'}
+                  </span>
                 </div>
 
-                <div className='flex flex-col'>
+                <div className='mb-4 flex flex-col'>
                   <span className='text-muted-foreground text-sm font-medium'>
                     Мессенджер
                   </span>
-                  <span>Telegram</span>
+                  <span className='text-sm'>Telegram</span>
                 </div>
 
-                <div className='flex flex-col'>
+                {/* <div className='flex flex-col mb-4'>
                   <span className='text-muted-foreground text-sm font-medium'>
                     UUID
                   </span>
-                  <span className='font-mono text-xs'>
+                  <span className='font-mono text-sm'>
                     {selectedDialog.uuid}
                   </span>
-                </div>
+                </div> */}
 
                 <div className='border-t pt-4'>
-                  <h4 className='mb-4 text-lg font-semibold'>
-                    Данные о сделке
-                  </h4>
+                  <h4 className='mb-3 font-semibold'>Данные о сделке</h4>
 
                   <div className='space-y-4'>
-                    <div className='flex flex-col'>
+                    <div className='mb-2 flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         Дата создания
                       </span>
-                      <span>
+                      <span className='text-sm'>
                         {new Date(
                           selectedDialog.created_at || ''
                         ).toLocaleString()}
                       </span>
                     </div>
 
-                    <div className='flex flex-col'>
+                    <div className='mb-2 flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         Количество сообщений
                       </span>
-                      <span>
+                      <span className='text-sm'>
                         {selectedDialog.client?.messages_count ||
                           selectedDialogMessages.length}
                       </span>
                     </div>
 
-                    <div className='flex flex-col'>
+                    <div className='mb-2 flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         Текущий этап
                       </span>
-                      <span>{selectedDialog.stage || 'Не указан'}</span>
+                      <span className='text-sm'>
+                        {selectedDialog.stage || 'Не указан'}
+                      </span>
                     </div>
 
-                    <div className='flex flex-col'>
+                    <div className='mb-2 flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         Ответственный
                       </span>
-                      <span>{selectedDialog.manager || 'Не назначен'}</span>
+                      <span className='text-sm'>
+                        {selectedDialog.manager || 'Не назначен'}
+                      </span>
                     </div>
 
-                    <div className='flex flex-col'>
+                    <div className='mb-4 flex flex-col'>
                       <span className='text-muted-foreground mb-2 text-sm font-medium'>
                         Статус
                       </span>
@@ -1061,7 +1065,9 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                           value={selectedDialog.close_ratio || 0}
                           className='flex-1'
                         />
-                        <span>{selectedDialog.close_ratio || 0}%</span>
+                        <span className='text-sm'>
+                          {selectedDialog.close_ratio || 0}%
+                        </span>
                       </div>
                     </div>
 
@@ -1069,14 +1075,14 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       <span className='text-muted-foreground text-sm font-medium'>
                         Обновлено
                       </span>
-                      <span>
+                      <span className='text-sm'>
                         {new Date(
                           selectedDialog.updated_at || ''
                         ).toLocaleString()}
                       </span>
                     </div>
 
-                    <div className='flex flex-col'>
+                    <div className='mb-2 flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
                         AI-ассистент
                       </span>

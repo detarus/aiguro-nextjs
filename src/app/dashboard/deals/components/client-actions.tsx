@@ -11,10 +11,10 @@ import {
 export function ClientActions() {
   return (
     <div className='flex flex-col items-center justify-start gap-2 sm:flex-row sm:gap-3'>
-      <Button className='w-full sm:w-auto' size='sm'>
+      {/* <Button className='w-full sm:w-auto' size='sm'>
         <IconPlus className='mr-2 h-4 w-4' />
         Добавить диалог
-      </Button>
+      </Button> */}
 
       <div className='flex gap-2'>
         <Button variant='outline' size='sm' className='hidden sm:flex'>

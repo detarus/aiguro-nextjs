@@ -8,14 +8,13 @@ import PageContainer from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSidebar } from '@/components/ui/sidebar';
-import { IconSearch, IconList, IconLayoutKanban } from '@tabler/icons-react';
+import { IconSearch } from '@tabler/icons-react';
 import { ClientTable, Client } from './components/client-table';
 import { ClientActions } from './components/client-actions';
-import { KanbanBoard } from './components/kanban-board';
 
 export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [viewMode, setViewMode] = useState<'list'>('list');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'new'>(
     'all'
   );
@@ -301,26 +300,6 @@ export default function ClientsPage() {
         <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'>
           <div className='flex items-center gap-4'>
             <h1 className='text-xl font-semibold sm:text-2xl'>Клиенты</h1>
-
-            {/* Переключатель видов */}
-            <div className='flex items-center rounded-lg border p-1'>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size='sm'
-                onClick={() => setViewMode('list')}
-                className='h-8 w-8 p-0'
-              >
-                <IconList className='h-4 w-4' />
-              </Button>
-              <Button
-                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                size='sm'
-                onClick={() => setViewMode('kanban')}
-                className='h-8 w-8 p-0'
-              >
-                <IconLayoutKanban className='h-4 w-4' />
-              </Button>
-            </div>
           </div>
 
           <ClientActions />
@@ -371,33 +350,24 @@ export default function ClientsPage() {
             maxWidth: getMaxWidth()
           }}
         >
-          <div className={viewMode === 'kanban' ? 'w-full' : 'min-w-[800px]'}>
-            {/* Контент в зависимости от выбранного режима */}
-            {viewMode === 'list' ? (
-              <>
-                {/* Таблица клиентов */}
-                <ClientTable clients={filteredClients} />
+          <div className='min-w-[800px]'>
+            {/* Таблица клиентов */}
+            <ClientTable clients={filteredClients} />
 
-                {/* Пагинация */}
-                <div className='mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row'>
-                  <div className='text-muted-foreground w-full text-center text-sm sm:w-auto sm:text-left'>
-                    Показано {filteredClients.length} из {clients.length}{' '}
-                    клиентов
-                  </div>
-                  <div className='flex w-full justify-center gap-1 sm:w-auto sm:justify-end'>
-                    <Button variant='outline' size='sm' disabled>
-                      Предыдущая
-                    </Button>
-                    <Button variant='outline' size='sm'>
-                      Следующая
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              /* Kanban доска */
-              <KanbanBoard clients={filteredClients} />
-            )}
+            {/* Пагинация */}
+            <div className='mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row'>
+              <div className='text-muted-foreground w-full text-center text-sm sm:w-auto sm:text-left'>
+                Показано {filteredClients.length} из {clients.length} клиентов
+              </div>
+              <div className='flex w-full justify-center gap-1 sm:w-auto sm:justify-end'>
+                <Button variant='outline' size='sm' disabled>
+                  Предыдущая
+                </Button>
+                <Button variant='outline' size='sm'>
+                  Следующая
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -15,6 +15,8 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 // Интерфейсы для типизации данных
 interface Dialog {
@@ -74,6 +76,11 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 
   // Ref для автоматической прокрутки к последнему сообщению
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Состояние для переключателя Агент/Менеджер
+  const [messageMode, setMessageMode] = useState<'assistant' | 'manager'>(
+    'assistant'
+  );
 
   const { organization } = useOrganization();
   const { currentFunnel } = useFunnels(
@@ -600,6 +607,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
     return `${time}, ${dateFormatted}`;
   };
 
+  // Обработчик отправки сообщения с учетом выбранного режима
   const handleSendMessage = async () => {
     if (newMessage.trim() && selectedDialogId) {
       console.log('Sending message:', newMessage);
@@ -612,13 +620,13 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 
       try {
         console.log(
-          `Posting message to dialog ${selectedDialogId} as role "manager"`
+          `Posting message to dialog ${selectedDialogId} as role "${messageMode}"`
         );
 
         // Debug log for the message body we're sending
         const messageBody = {
           text: newMessage,
-          role: 'manager'
+          role: messageMode // Используем выбранный режим
         };
         console.log('Message payload:', messageBody);
 
@@ -654,7 +662,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
         const newMsg: Message = {
           id: data.id || `temp_${Date.now()}`,
           text: newMessage,
-          role: 'manager',
+          role: messageMode,
           timestamp: new Date().toISOString(),
           time: new Date().toLocaleTimeString()
         };
@@ -853,7 +861,35 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                     </h4>
                   </div>
                   <div className='ml-auto flex items-center gap-3'>
-                    <div className='text-sm text-gray-500'>Telegram</div>
+                    <div className='flex items-center space-x-2'>
+                      <Label
+                        htmlFor='agent-mode'
+                        className={
+                          messageMode === 'assistant'
+                            ? 'font-medium'
+                            : 'text-muted-foreground'
+                        }
+                      >
+                        Агент
+                      </Label>
+                      <Switch
+                        id='agent-mode'
+                        checked={messageMode === 'manager'}
+                        onCheckedChange={(checked) =>
+                          setMessageMode(checked ? 'manager' : 'assistant')
+                        }
+                      />
+                      <Label
+                        htmlFor='agent-mode'
+                        className={
+                          messageMode === 'manager'
+                            ? 'font-medium'
+                            : 'text-muted-foreground'
+                        }
+                      >
+                        Менеджер
+                      </Label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -984,7 +1020,12 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   <span className='text-muted-foreground text-sm font-medium'>
                     Мессенджер
                   </span>
-                  <span className='text-sm'>Telegram</span>
+                  <div className='flex items-center gap-2'>
+                    <span className='text-sm'>Telegram</span>
+                    <Badge variant='outline' className='text-xs'>
+                      Активен
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* <div className='flex flex-col mb-4'>

@@ -125,13 +125,13 @@ function KanbanColumn({
         ))}
 
         {/* Кнопка добавления нового клиента */}
-        <Button
+        {/* <Button
           variant='ghost'
           className='border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50 h-12 w-full border-2 border-dashed'
         >
           <IconPlus className='mr-2 h-4 w-4' />
           Добавить клиента
-        </Button>
+        </Button> */}
       </div>
     </div>
   );

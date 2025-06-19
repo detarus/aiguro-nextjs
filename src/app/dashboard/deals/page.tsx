@@ -672,7 +672,8 @@ export default function DealsPage() {
               size='sm'
               onClick={() => setStatusFilter('new')}
             >
-              Новые ({dealsAsClients.filter((c) => c.stage === 'Новый').length})
+              Закрытые (
+              {dealsAsClients.filter((c) => c.stage === 'Новый').length})
             </Button>
           </div>
         </div>

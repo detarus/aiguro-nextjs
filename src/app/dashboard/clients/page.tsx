@@ -11,6 +11,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { IconSearch } from '@tabler/icons-react';
 import { ClientTable, Client } from './components/client-table';
 import { ClientActions } from './components/client-actions';
+import { ClientSelectionProvider } from './context/client-selection-context';
 
 export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -295,114 +296,119 @@ export default function ClientsPage() {
 
   return (
     <PageContainer>
-      <div className='flex w-full max-w-full flex-col space-y-4'>
-        {/* Заголовок и кнопки действий */}
-        <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'>
-          <div className='flex items-center gap-4'>
-            <h1 className='text-xl font-semibold sm:text-2xl'>Клиенты</h1>
+      <ClientSelectionProvider>
+        <div className='flex w-full max-w-full flex-col space-y-4'>
+          {/* Заголовок и кнопки действий */}
+          <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'>
+            <div className='flex items-center gap-4'>
+              <h1 className='text-xl font-semibold sm:text-2xl'>Клиенты</h1>
+            </div>
+
+            <ClientActions />
           </div>
 
-          <ClientActions />
-        </div>
+          {/* Поиск */}
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]'>
+            <div className='relative'>
+              <IconSearch className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
+              <Input
+                placeholder='Поиск клиентов...'
+                className='pl-8'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
 
-        {/* Поиск */}
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]'>
-          <div className='relative'>
-            <IconSearch className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
-            <Input
-              placeholder='Поиск клиентов...'
-              className='pl-8'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Быстрые фильтры для обоих режимов */}
-          <div className='hidden items-center gap-2 md:flex'>
-            <Button
-              variant={statusFilter === 'all' ? 'default' : 'outline'}
-              size='sm'
-              onClick={() => setStatusFilter('all')}
-            >
-              Все ({clients.length})
-            </Button>
-            <Button
-              variant={statusFilter === 'active' ? 'default' : 'outline'}
-              size='sm'
-              onClick={() => setStatusFilter('active')}
-            >
-              Активные ({clients.filter((c) => c.status === 'Активный').length})
-            </Button>
-            <Button
-              variant={statusFilter === 'new' ? 'default' : 'outline'}
-              size='sm'
-              onClick={() => setStatusFilter('new')}
-            >
-              Новые ({clients.filter((c) => c.stage === 'Новый').length})
-            </Button>
-          </div>
-        </div>
-
-        {/* Контейнер с горизонтальной прокруткой для контента */}
-        <div
-          className='overflow-x-auto'
-          style={{
-            maxWidth: getMaxWidth()
-          }}
-        >
-          <div className='min-w-[800px]'>
-            {/* Таблица клиентов */}
-            <ClientTable clients={filteredClients} />
-
-            {/* Пагинация */}
-            <div className='mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row'>
-              <div className='text-muted-foreground w-full text-center text-sm sm:w-auto sm:text-left'>
-                Показано {filteredClients.length} из {clients.length} клиентов
-              </div>
-              <div className='flex w-full justify-center gap-1 sm:w-auto sm:justify-end'>
-                <Button variant='outline' size='sm' disabled>
-                  Предыдущая
-                </Button>
-                <Button variant='outline' size='sm'>
-                  Следующая
-                </Button>
-              </div>
+            {/* Быстрые фильтры для обоих режимов */}
+            <div className='hidden items-center gap-2 md:flex'>
+              <Button
+                variant={statusFilter === 'all' ? 'default' : 'outline'}
+                size='sm'
+                onClick={() => setStatusFilter('all')}
+              >
+                Все ({clients.length})
+              </Button>
+              <Button
+                variant={statusFilter === 'active' ? 'default' : 'outline'}
+                size='sm'
+                onClick={() => setStatusFilter('active')}
+              >
+                Активные (
+                {clients.filter((c) => c.status === 'Активный').length})
+              </Button>
+              <Button
+                variant={statusFilter === 'new' ? 'default' : 'outline'}
+                size='sm'
+                onClick={() => setStatusFilter('new')}
+              >
+                Закрытые ({clients.filter((c) => c.stage === 'Новый').length})
+              </Button>
             </div>
           </div>
-        </div>
 
-        {/* Панель управления - перенесена в низ */}
-        <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
-          <div className='flex items-center gap-4'>
-            <div className='text-sm'>
-              <span className='font-medium'>Воронка:</span>{' '}
-              {currentFunnel?.display_name ||
-                currentFunnel?.name ||
-                'Неизвестно'}
-            </div>
-            {lastUpdated && (
-              <div className='text-muted-foreground text-sm'>
-                Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
-              </div>
-            )}
-            {isRefreshing && (
-              <div className='text-sm text-blue-600'>Обновление данных...</div>
-            )}
-          </div>
-          <Button
-            onClick={handleRefresh}
-            variant='outline'
-            size='sm'
-            disabled={isRefreshing}
-            className='flex items-center gap-2'
+          {/* Контейнер с горизонтальной прокруткой для контента */}
+          <div
+            className='overflow-x-auto'
+            style={{
+              maxWidth: getMaxWidth()
+            }}
           >
-            <div className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}>
-              ↻
+            <div className='min-w-[800px]'>
+              {/* Таблица клиентов */}
+              <ClientTable clients={filteredClients} />
+
+              {/* Пагинация */}
+              <div className='mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row'>
+                <div className='text-muted-foreground w-full text-center text-sm sm:w-auto sm:text-left'>
+                  Показано {filteredClients.length} из {clients.length} клиентов
+                </div>
+                <div className='flex w-full justify-center gap-1 sm:w-auto sm:justify-end'>
+                  <Button variant='outline' size='sm' disabled>
+                    Предыдущая
+                  </Button>
+                  <Button variant='outline' size='sm'>
+                    Следующая
+                  </Button>
+                </div>
+              </div>
             </div>
-            {isRefreshing ? 'Обновление...' : 'Обновить'}
-          </Button>
+          </div>
+
+          {/* Панель управления - перенесена в низ */}
+          <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
+            <div className='flex items-center gap-4'>
+              <div className='text-sm'>
+                <span className='font-medium'>Воронка:</span>{' '}
+                {currentFunnel?.display_name ||
+                  currentFunnel?.name ||
+                  'Неизвестно'}
+              </div>
+              {lastUpdated && (
+                <div className='text-muted-foreground text-sm'>
+                  Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
+                </div>
+              )}
+              {isRefreshing && (
+                <div className='text-sm text-blue-600'>
+                  Обновление данных...
+                </div>
+              )}
+            </div>
+            <Button
+              onClick={handleRefresh}
+              variant='outline'
+              size='sm'
+              disabled={isRefreshing}
+              className='flex items-center gap-2'
+            >
+              <div className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}>
+                ↻
+              </div>
+              {isRefreshing ? 'Обновление...' : 'Обновить'}
+            </Button>
+          </div>
         </div>
-      </div>
+      </ClientSelectionProvider>
     </PageContainer>
   );
 }

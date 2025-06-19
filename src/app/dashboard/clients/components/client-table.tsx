@@ -18,8 +18,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { IconDotsVertical } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useRouter } from 'next/navigation';
+import { ClientSelectionContext } from '../context/client-selection-context';
 
 // Типы для клиентов
 export interface Client {
@@ -39,9 +40,8 @@ interface ClientTableProps {
 }
 
 export function ClientTable({ clients }: ClientTableProps) {
-  const [selectedClients, setSelectedClients] = useState<Set<number>>(
-    new Set()
-  );
+  const { selectedClients, setSelectedClients, toggleClientSelection } =
+    useContext(ClientSelectionContext);
   const [showDeleteMessage, setShowDeleteMessage] = useState(false);
   const [editMode, setEditMode] = useState<Set<number>>(new Set());
   const [clientData, setClientData] = useState<Record<number, Partial<Client>>>(
@@ -49,18 +49,6 @@ export function ClientTable({ clients }: ClientTableProps) {
   );
 
   const router = useRouter();
-
-  const toggleClientSelection = (id: number) => {
-    setSelectedClients((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
 
   const deleteClient = (id: number) => {
     // Logic to visually hide the client row

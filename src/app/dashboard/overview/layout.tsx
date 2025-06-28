@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import PageContainer from '@/components/layout/page-container';
+import { TableHeader } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -31,23 +32,20 @@ import {
 } from '@tabler/icons-react';
 import { useFunnels } from '@/hooks/useFunnels';
 import AddFunnelModal from './AddFunnelModal';
-import { OrganizationDebug } from '@/components/organization-debug';
-import { UserDebug } from '@/components/user-debug';
-import { OrganizationApiDebug } from '@/components/organization-api-debug';
-import { FunnelDebug } from '@/components/funnel-debug';
-import { TokenDebug } from '@/components/token-debug';
-import { MessengerConnectionsDebug } from '@/components/messenger-connections-debug';
-import { AssistantsDebug } from '@/components/assistants-debug';
-import { DialogsDebug } from '@/components/dialogs-debug';
-import { ClientsDebug } from '@/components/clients-debug';
+import { OverviewProvider } from '@/contexts/OverviewContext';
 
 export default function OverViewLayout({
-  children
+  children,
+  area_stats,
+  pie_stats
 }: {
   children: React.ReactNode;
+  area_stats: React.ReactNode;
+  pie_stats: React.ReactNode;
 }) {
   const [activeTimeFilter, setActiveTimeFilter] = useState('week');
   const [showPercentage, setShowPercentage] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { organization } = useOrganization();
 
@@ -271,122 +269,26 @@ export default function OverViewLayout({
   };
 
   return (
-    <PageContainer>
-      <div className='flex w-full max-w-full flex-1 flex-col space-y-4'>
-        {/* Заголовок и селект воронки */}
-        <div className='flex w-full flex-col items-start justify-between gap-3 pt-2 pb-2 sm:flex-row sm:items-center'>
-          <div className='flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center'>
-            <h2 className='text-lg font-semibold text-gray-800 sm:text-xl dark:text-white'>
-              Дашборд
-            </h2>
-            {/* Условное отображение: кнопка если воронок нет, селект если есть */}
-            {funnels.length === 0 ? (
-              <Button
-                onClick={() => setAddModalOpen(true)}
-                variant='default'
-                size='sm'
-                className='h-8 w-full max-w-[180px] text-sm'
-              >
-                <IconPlus className='mr-2 h-4 w-4' />
-                Добавить воронку
-              </Button>
-            ) : (
-              <Select
-                value={currentFunnel?.id}
-                onValueChange={handleFunnelChange}
-              >
-                <SelectTrigger className='h-8 w-full max-w-[180px] text-sm'>
-                  <SelectValue className='truncate'>
-                    {currentFunnel?.display_name ||
-                      currentFunnel?.name ||
-                      'Выберите воронку'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {funnels.map((funnel) => (
-                    <SelectItem key={funnel.id} value={funnel.id}>
-                      {funnel.display_name || funnel.name}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value='add-funnel'>
-                    <span className='text-primary'>+ Добавить воронку</span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Переключатель процентов и фильтр времени */}
-          <div className='flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center'>
-            <div className='flex items-center space-x-2'>
-              <Label
-                htmlFor='show-percentage'
-                className='text-sm whitespace-nowrap'
-              >
-                Проценты
-              </Label>
-              <Switch
-                id='show-percentage'
-                checked={showPercentage}
-                onCheckedChange={setShowPercentage}
-              />
-            </div>
-
-            {/* Десктопный вид фильтров (скрыт на мобильном) */}
-            <div className='hidden items-center overflow-hidden rounded-md border shadow-sm sm:flex'>
-              {timeFilters.map((filter) => (
-                <Button
-                  key={filter.id}
-                  variant='ghost'
-                  className={cn(
-                    'h-8 rounded-none border-r px-3 text-xs font-medium last:border-r-0 sm:text-sm',
-                    activeTimeFilter === filter.id
-                      ? 'bg-background border-b-primary text-primary hover:bg-background border-b-2'
-                      : 'hover:bg-muted text-muted-foreground border-b-2 border-b-transparent'
-                  )}
-                  onClick={() => setActiveTimeFilter(filter.id)}
-                >
-                  {filter.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Мобильный вид фильтров (Select вместо кнопок) */}
-            <div className='w-full sm:hidden'>
-              <Select
-                value={activeTimeFilter}
-                onValueChange={setActiveTimeFilter}
-              >
-                <SelectTrigger className='h-8 w-full text-sm'>
-                  <SelectValue className='truncate'>
-                    {timeFilters.find((f) => f.id === activeTimeFilter)?.label}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {timeFilters.map((filter) => (
-                    <SelectItem key={filter.id} value={filter.id}>
-                      {filter.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* Карточки конверсии */}
-        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5'>
-          {conversionData.map(
-            (
-              data: {
-                absolute: number;
-                percentage: number;
-                stage: string;
-                name?: string;
-                assistant_code_name?: string;
-              },
-              index: number
-            ) => (
+    <OverviewProvider searchQuery={searchQuery}>
+      <TableHeader
+        title='Обзор'
+        funnels={
+          funnels?.map((funnel) => ({
+            id: funnel.id,
+            name: funnel.display_name || funnel.name || 'Без названия'
+          })) || []
+        }
+        selectedFunnel={currentFunnel?.id}
+        onFunnelChange={handleFunnelChange}
+        onSearch={setSearchQuery}
+        onTimeFilterChange={setActiveTimeFilter}
+        timeFilter={activeTimeFilter}
+      />
+      <PageContainer>
+        <div className='grid-cols-12 gap-6 space-y-6 py-6 lg:grid lg:space-y-0'>
+          {/* First row */}
+          <div className='col-span-12 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
+            {conversionData.map((data, index) => (
               <Card key={index} className='@container/card w-full'>
                 <CardHeader>
                   <CardDescription>
@@ -431,32 +333,17 @@ export default function OverViewLayout({
                   </div>
                 </CardFooter>
               </Card>
-            )
-          )}
+            ))}
+          </div>
 
-          {/* Пятая карточка с плюсом */}
-          <Card
-            className='hover:bg-muted/50 flex cursor-pointer items-center justify-center transition-colors'
-            onClick={() => alert('Добавление новой карточки')}
-          >
-            <IconPlus className='text-muted-foreground size-8 sm:size-12' />
-          </Card>
+          {/* Second row */}
+          <div className='col-span-12 grid grid-cols-1 gap-6 lg:grid-cols-2'>
+            {area_stats}
+            {pie_stats}
+          </div>
         </div>
 
-        {/* Отладочные блоки */}
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-          <OrganizationDebug />
-          <UserDebug />
-          <OrganizationApiDebug />
-          <FunnelDebug />
-          <TokenDebug />
-          <MessengerConnectionsDebug />
-          <AssistantsDebug />
-          <DialogsDebug />
-          <ClientsDebug />
-        </div>
-
-        {/* Модалка для добавления воронки */}
+        {/* Модальное окно для добавления воронки */}
         <AddFunnelModal
           isOpen={isAddModalOpen}
           onClose={() => setAddModalOpen(false)}
@@ -474,7 +361,7 @@ export default function OverViewLayout({
           handleRemoveFollowup={handleRemoveFollowup}
           handleFollowupChange={handleFollowupChange}
         />
-      </div>
-    </PageContainer>
+      </PageContainer>
+    </OverviewProvider>
   );
 }

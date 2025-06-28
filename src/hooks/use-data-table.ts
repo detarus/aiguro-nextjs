@@ -36,6 +36,7 @@ import type { ExtendedColumnSort } from '@/types/data-table';
 const PAGE_KEY = 'page';
 const PER_PAGE_KEY = 'perPage';
 const SORT_KEY = 'sort';
+const GLOBAL_FILTER_KEY = 'q';
 const ARRAY_SEPARATOR = ',';
 const DEBOUNCE_MS = 300;
 const THROTTLE_MS = 50;
@@ -108,6 +109,11 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>(initialState?.columnVisibility ?? {});
+
+  const [globalFilter, setGlobalFilter] = useQueryState(
+    GLOBAL_FILTER_KEY,
+    parseAsString.withOptions(queryStateOptions).withDefault('')
+  );
 
   const [page, setPage] = useQueryState(
     PAGE_KEY,
@@ -268,7 +274,8 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
       sorting,
       columnVisibility,
       rowSelection,
-      columnFilters
+      columnFilters,
+      globalFilter
     },
     defaultColumn: {
       ...tableProps.defaultColumn,
@@ -280,6 +287,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     onSortingChange,
     onColumnFiltersChange,
     onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

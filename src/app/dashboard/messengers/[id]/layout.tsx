@@ -1,13 +1,12 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { PageContainer } from '@/components/ui/page-container';
 
-interface MessengersIdLayoutProps {
+interface DialogsIdLayoutProps {
   children: ReactNode;
 }
 
-export default function MessengersIdLayout({
-  children
-}: MessengersIdLayoutProps) {
-  return <div className='h-full'>{children}</div>;
+export default function DialogsIdLayout({ children }: DialogsIdLayoutProps) {
+  return <PageContainer scrollable={false}>{children}</PageContainer>;
 }

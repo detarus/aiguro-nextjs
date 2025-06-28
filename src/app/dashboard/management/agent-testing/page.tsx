@@ -351,7 +351,7 @@ export default function AgentTestingPage() {
                   onClick={handleSaveSettings}
                   className='mt-4 w-full bg-gray-600 hover:bg-gray-700'
                 >
-                  Сохранить настройки общения
+                  Сохранить настройки
                 </Button>
               </CardContent>
             </Card>

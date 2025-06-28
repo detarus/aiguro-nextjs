@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
+import { TableHeader as PageTableHeader } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -337,177 +338,156 @@ export default function FunnelsPage() {
   }
 
   return (
-    <PageContainer>
-      <div className='space-y-4'>
-        <div className='flex items-center justify-between'>
-          <h1 className='text-2xl font-bold'>Воронки</h1>
-          <div className='flex gap-2'>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className='flex items-center gap-2'
-            >
-              <IconRefresh
-                className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}
-              />
-              {isRefreshing ? 'Обновление...' : 'Обновить'}
-            </Button>
-            <Button
-              variant='outline'
-              className='text-primary border-primary hover:bg-primary/10'
-            >
-              Инструкция
-            </Button>
-          </div>
-        </div>
+    <div className='min-h-screen bg-white dark:bg-gray-900'>
+      <PageTableHeader
+        title='Управление'
+        funnels={[
+          ...(funnels?.map((funnel) => ({
+            id: funnel.id,
+            name: funnel.display_name || funnel.name || 'Без названия'
+          })) || [])
+        ]}
+        selectedFunnel='all-funnels'
+        onFunnelChange={(funnelId) => {
+          if (funnelId === 'add-funnel') {
+            console.log('Create new funnel');
+            // Здесь должна быть логика открытия модального окна создания воронки
+          } else if (funnelId === 'all-funnels') {
+            console.log('Show all funnels');
+          } else {
+            console.log('Switch to funnel:', funnelId);
+            // Здесь должна быть логика смены воронки и перезагрузки данных
+            fetchFunnels(true); // Перезагружаем данные воронок
+          }
+        }}
+        onSearch={(query) => setSearchTerm(query)}
+        onTimeFilterChange={(period) => console.log('Time filter:', period)}
+        timeFilter='week'
+        timeFilterOptions={[
+          { value: 'week', label: 'За неделю' },
+          { value: 'month', label: 'За месяц' },
+          { value: 'year', label: 'За год' }
+        ]}
+        actions={{
+          onExport: () => console.log('Export funnels'),
+          onFilters: () => console.log('Toggle filters'),
+          onView: () => console.log('Change view'),
+          onData: handleRefresh
+        }}
+      />
 
-        <div className='flex flex-nowrap items-center gap-3 overflow-x-auto pb-2'>
-          <div className='relative w-64 flex-shrink-0'>
-            <IconSearch className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
-            <Input
-              placeholder='Поиск...'
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className='h-9 w-full pl-9'
-            />
-          </div>
-          <Input
-            type='date'
-            placeholder='Начальная Дата'
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className='h-9 w-40 flex-shrink-0'
-          />
-          <Input
-            type='date'
-            placeholder='Конечная Дата'
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className='h-9 w-40 flex-shrink-0'
-          />
-          <Button variant='outline' size='sm' className='flex-shrink-0'>
-            Фильтры
-          </Button>
-          <Button variant='outline' size='sm' className='flex-shrink-0'>
-            Сортировка
-          </Button>
-          <Button variant='outline' size='sm' className='flex-shrink-0'>
-            Экспорт
-          </Button>
-          <Button variant='outline' size='sm' className='flex-shrink-0'>
-            Импорт
-          </Button>
-        </div>
+      <PageContainer>
+        <div className='space-y-4'>
+          {filteredFunnels.length === 0 ? (
+            <div className='flex items-center justify-center py-12'>
+              <div className='text-center'>
+                <p className='text-muted-foreground mb-4'>
+                  {funnels.length === 0
+                    ? 'Воронки не найдены'
+                    : 'Нет воронок по вашему запросу'}
+                </p>
+                {searchTerm && (
+                  <Button variant='outline' onClick={() => setSearchTerm('')}>
+                    Очистить поиск
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className='overflow-x-auto'>
+              <Table>
+                <TableHeader>
+                  <TableRow className='hover:bg-transparent'>
+                    <TableHead className='w-[70px]'>Состояние</TableHead>
+                    <TableHead>Название</TableHead>
+                    <TableHead>Дата Создания</TableHead>
+                    <TableHead>Канал</TableHead>
+                    <TableHead>Состав</TableHead>
+                    <TableHead>Конверсия</TableHead>
+                    <TableHead>Цель</TableHead>
+                    <TableHead>Ответственный</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredFunnels.map((funnel) => (
+                    <TableRow key={funnel.id}>
+                      <TableCell>
+                        <Switch
+                          checked={funnel.is_active ?? false}
+                          onCheckedChange={(checked) =>
+                            toggleFunnelActive(funnel.id, checked)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell className='font-medium'>
+                        {funnel.display_name || funnel.name || 'Неизвестно'}
+                      </TableCell>
+                      <TableCell>{formatDate(funnel.created_at)}</TableCell>
+                      <TableCell>Telegram</TableCell>
+                      <TableCell>{renderComposition(funnel)}</TableCell>
+                      <TableCell>
+                        <div className='flex items-center gap-2'>
+                          <div className='h-1.5 w-24 rounded-full bg-gray-100 dark:bg-gray-600'>
+                            <div
+                              className='h-1.5 rounded-full bg-green-400'
+                              style={{ width: `${funnel.conversion || 0}%` }}
+                            ></div>
+                          </div>
+                          <span className='text-sm'>
+                            {funnel.conversion || 0}%
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>Неизвестно</TableCell>
+                      <TableCell>Неизвестно</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-        {filteredFunnels.length === 0 ? (
-          <div className='flex items-center justify-center py-12'>
-            <div className='text-center'>
-              <p className='text-muted-foreground mb-4'>
-                {funnels.length === 0
-                  ? 'Воронки не найдены'
-                  : 'Нет воронок по вашему запросу'}
-              </p>
-              {searchTerm && (
-                <Button variant='outline' onClick={() => setSearchTerm('')}>
-                  Очистить поиск
-                </Button>
+          {/* Панель управления - внизу */}
+          <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
+            <div className='flex items-center gap-4'>
+              <div className='text-sm'>
+                <span className='font-medium'>Воронок загружено:</span>{' '}
+                {funnels.length}
+              </div>
+              <div className='text-sm'>
+                <span className='font-medium'>Активных:</span>{' '}
+                {funnels.filter((f) => f.is_active).length}
+              </div>
+              {lastUpdated && (
+                <div className='text-muted-foreground text-sm'>
+                  Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
+                </div>
+              )}
+              {isRefreshing && (
+                <div className='text-sm text-blue-600'>
+                  Обновление данных...
+                </div>
               )}
             </div>
-          </div>
-        ) : (
-          <div className='overflow-x-auto'>
-            <Table>
-              <TableHeader>
-                <TableRow className='hover:bg-transparent'>
-                  <TableHead className='w-[70px]'>Состояние</TableHead>
-                  <TableHead>Название</TableHead>
-                  <TableHead>Дата Создания</TableHead>
-                  <TableHead>Канал</TableHead>
-                  <TableHead>Состав</TableHead>
-                  <TableHead>Конверсия</TableHead>
-                  <TableHead>Цель</TableHead>
-                  <TableHead>Ответственный</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredFunnels.map((funnel) => (
-                  <TableRow key={funnel.id}>
-                    <TableCell>
-                      <Switch
-                        checked={funnel.is_active ?? false}
-                        onCheckedChange={(checked) =>
-                          toggleFunnelActive(funnel.id, checked)
-                        }
-                      />
-                    </TableCell>
-                    <TableCell className='font-medium'>
-                      {funnel.display_name || funnel.name || 'Неизвестно'}
-                    </TableCell>
-                    <TableCell>{formatDate(funnel.created_at)}</TableCell>
-                    <TableCell>Telegram</TableCell>
-                    <TableCell>{renderComposition(funnel)}</TableCell>
-                    <TableCell>
-                      <div className='flex items-center gap-2'>
-                        <div className='h-1.5 w-24 rounded-full bg-gray-100 dark:bg-gray-600'>
-                          <div
-                            className='h-1.5 rounded-full bg-green-400'
-                            style={{ width: `${funnel.conversion || 0}%` }}
-                          ></div>
-                        </div>
-                        <span className='text-sm'>
-                          {funnel.conversion || 0}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>Неизвестно</TableCell>
-                    <TableCell>Неизвестно</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
 
-        {/* Панель управления - внизу */}
-        <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
-          <div className='flex items-center gap-4'>
-            <div className='text-sm'>
-              <span className='font-medium'>Воронок загружено:</span>{' '}
-              {funnels.length}
+            {/* Кнопки управления в горизонтальный ряд */}
+            <div className='flex space-x-2'>
+              <Button variant='outline' size='sm'>
+                Создать воронку
+              </Button>
+              <Button variant='outline' size='sm'>
+                Импорт
+              </Button>
+              <Button variant='outline' size='sm'>
+                Экспорт
+              </Button>
+              <Button variant='default' size='sm'>
+                Управление
+              </Button>
             </div>
-            <div className='text-sm'>
-              <span className='font-medium'>Активных:</span>{' '}
-              {funnels.filter((f) => f.is_active).length}
-            </div>
-            {lastUpdated && (
-              <div className='text-muted-foreground text-sm'>
-                Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
-              </div>
-            )}
-            {isRefreshing && (
-              <div className='text-sm text-blue-600'>Обновление данных...</div>
-            )}
-          </div>
-
-          {/* Кнопки управления в горизонтальный ряд */}
-          <div className='flex space-x-2'>
-            <Button variant='outline' size='sm'>
-              Создать воронку
-            </Button>
-            <Button variant='outline' size='sm'>
-              Импорт
-            </Button>
-            <Button variant='outline' size='sm'>
-              Экспорт
-            </Button>
-            <Button variant='default' size='sm'>
-              Управление
-            </Button>
           </div>
         </div>
-      </div>
-    </PageContainer>
+      </PageContainer>
+    </div>
   );
 }

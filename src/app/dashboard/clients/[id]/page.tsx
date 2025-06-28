@@ -576,7 +576,7 @@ export default function ClientDetailPage() {
 
                     <div className='flex flex-col'>
                       <span className='text-muted-foreground text-sm font-medium'>
-                        Активные диалоги
+                        Активные сделки
                       </span>
                       <span>
                         {dialogs.filter((d) => d.status === 'Активный').length}

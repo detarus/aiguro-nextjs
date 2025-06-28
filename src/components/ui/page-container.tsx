@@ -16,13 +16,13 @@ export function PageContainer({
   return (
     <>
       {scrollable ? (
-        <ScrollArea className='h-[calc(100dvh-52px)]'>
-          <div className={cn('container px-4 py-6 md:px-6 md:py-8', className)}>
+        <ScrollArea className='h-[calc(100vh-120px)]'>
+          <div className={cn('container px-4 py-6 md:p-4 md:px-6', className)}>
             {children}
           </div>
         </ScrollArea>
       ) : (
-        <div className={cn('container px-4 py-6 md:px-6 md:py-8', className)}>
+        <div className={cn('container px-4 py-6 md:p-4 md:px-6', className)}>
           {children}
         </div>
       )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
@@ -12,6 +12,8 @@ import { IconSearch } from '@tabler/icons-react';
 import { ClientTable, Client } from './components/client-table';
 import { ClientActions } from './components/client-actions';
 import { ClientSelectionProvider } from './context/client-selection-context';
+import AddFunnelModal from '../overview/AddFunnelModal';
+import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 
 export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,12 +26,42 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const [newFunnelName, setNewFunnelName] = useState('');
+  const [stages, setStages] = useState([
+    {
+      id: Date.now() + Math.random(),
+      name: 'Квалификация',
+      prompt: '',
+      followups: [60]
+    },
+    {
+      id: Date.now() + Math.random() + 1,
+      name: 'Презентация',
+      prompt: '',
+      followups: [60]
+    },
+    {
+      id: Date.now() + Math.random() + 2,
+      name: 'Закрытие',
+      prompt: '',
+      followups: [60]
+    }
+  ]);
+  const [showFollowup, setShowFollowup] = useState<{ [key: number]: boolean }>(
+    {}
+  );
 
   const { state } = useSidebar();
   const { organization } = useOrganization();
-  const { currentFunnel } = useFunnels(
-    organization?.publicMetadata?.id_backend as string
-  );
+  const {
+    currentFunnel,
+    funnels,
+    selectFunnel,
+    refreshFunnels,
+    setNewFunnelAsSelected
+  } = useFunnels(organization?.publicMetadata?.id_backend as string);
+  const { updateConfig } = usePageHeaderContext();
 
   // Получаем backend ID организации
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
@@ -183,6 +215,118 @@ export default function ClientsPage() {
     fetchAllData(true);
   };
 
+  // Обработка смены воронки (как в дашборде)
+  const handleFunnelChange = (funnelId: string) => {
+    if (funnelId === 'create') {
+      setAddModalOpen(true);
+    } else if (funnelId === 'all') {
+      console.log('Show all funnels');
+      // Здесь можно добавить логику показа всех воронок
+    } else {
+      const funnel = funnels?.find((f) => f.id === funnelId);
+      if (funnel) {
+        selectFunnel(funnel);
+        console.log('Все воронки:', funnels);
+        console.log('Выбрана воронка:', funnel);
+      }
+    }
+  };
+
+  // Функции для модального окна (скопированы из дашборда)
+  const handleAddStage = () => {
+    setStages([
+      ...stages,
+      { id: Date.now() + Math.random(), name: '', prompt: '', followups: [60] }
+    ]);
+  };
+
+  const handleRemoveStage = (id: number) => {
+    setStages(stages.filter((stage) => stage.id !== id));
+  };
+
+  const handleStageChange = (id: number, field: string, value: string) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id ? { ...stage, [field]: value } : stage
+      )
+    );
+  };
+
+  const handleAddFollowup = (id: number) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id && stage.followups.length < 5
+          ? { ...stage, followups: [...stage.followups, 60] }
+          : stage
+      )
+    );
+  };
+
+  const handleRemoveFollowup = (id: number, followupIdx: number) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id
+          ? {
+              ...stage,
+              followups: stage.followups.filter((_, j) => j !== followupIdx)
+            }
+          : stage
+      )
+    );
+  };
+
+  const handleFollowupChange = (
+    id: number,
+    followupIdx: number,
+    value: number
+  ) => {
+    setStages(
+      stages.map((stage) =>
+        stage.id === id
+          ? {
+              ...stage,
+              followups: stage.followups.map((f, j) =>
+                j === followupIdx ? value : f
+              )
+            }
+          : stage
+      )
+    );
+  };
+
+  const handleAddFunnel = async (newFunnel?: any) => {
+    console.log('handleAddFunnel called with:', newFunnel);
+
+    if (newFunnel) {
+      setNewFunnelAsSelected(newFunnel);
+    } else {
+      refreshFunnels();
+    }
+
+    setAddModalOpen(false);
+    setNewFunnelName('');
+    setStages([
+      {
+        id: Date.now() + Math.random(),
+        name: 'Квалификация',
+        prompt: '',
+        followups: [60]
+      },
+      {
+        id: Date.now() + Math.random() + 1,
+        name: 'Презентация',
+        prompt: '',
+        followups: [60]
+      },
+      {
+        id: Date.now() + Math.random() + 2,
+        name: 'Закрытие',
+        prompt: '',
+        followups: [60]
+      }
+    ]);
+  };
+
   // Загружаем клиентов при монтировании компонента и изменении организации/воронки
   useEffect(() => {
     if (organization && currentFunnel) {
@@ -202,6 +346,14 @@ export default function ClientsPage() {
     return () => clearInterval(interval);
   }, [backendOrgId, currentFunnel?.id, CACHE_DURATION, fetchAllData]);
 
+  useEffect(() => {
+    updateConfig({
+      onSearch: setSearchQuery
+    });
+    // Очищаем конфиг при размонтировании
+    return () => updateConfig({});
+  }, [updateConfig]);
+
   // Динамически рассчитываем max-width в зависимости от состояния сайдбара
   const getMaxWidth = () => {
     if (state === 'collapsed') {
@@ -210,142 +362,95 @@ export default function ClientsPage() {
     return 'calc(100vw - 16rem - 2rem)'; // 16rem для развернутого сайдбара + 2rem отступы
   };
 
-  // Фильтрация клиентов на основе поиска и статуса
-  const filteredClients = clients.filter((client) => {
-    // Поисковая фильтрация
-    let matchesSearch = true;
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      matchesSearch =
-        client.name.toLowerCase().includes(query) ||
-        client.email.toLowerCase().includes(query) ||
-        client.phone.toLowerCase().includes(query);
+  // Фильтрация клиентов на стороне клиента
+  const filteredClients = useMemo(() => {
+    if (!searchQuery) {
+      return clients;
     }
-
-    // Фильтрация по статусу
-    let matchesStatus = true;
-    if (statusFilter === 'active') {
-      matchesStatus = client.status === 'Активный';
-    } else if (statusFilter === 'new') {
-      matchesStatus = client.stage === 'Новый';
-    }
-
-    return matchesSearch && matchesStatus;
-  });
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return clients.filter((client) => {
+      const name = client.name?.toLowerCase() || '';
+      const email = client.email?.toLowerCase() || '';
+      const phone = client.phone?.toLowerCase() || '';
+      return (
+        name.includes(lowercasedQuery) ||
+        email.includes(lowercasedQuery) ||
+        phone.includes(lowercasedQuery)
+      );
+    });
+  }, [clients, searchQuery]);
 
   // Показываем индикатор загрузки
   if (loading) {
     return (
-      <PageContainer>
-        <div className='flex min-h-[400px] items-center justify-center'>
-          <div className='text-center'>
-            <div className='mx-auto w-64'>
-              <div className='mb-4 flex items-center justify-between'>
-                <div className='text-sm font-medium'>Загрузка клиентов...</div>
-                <span className='text-xs font-normal'>
-                  Пожалуйста, подождите
-                </span>
-              </div>
-              <div className='bg-muted h-2 w-full overflow-hidden rounded-full'>
-                <div className='animate-progress-indeterminate bg-primary h-full rounded-full'></div>
+      <div className='min-h-screen bg-white dark:bg-gray-900'>
+        <div className='p-6'>
+          <div className='flex min-h-[400px] items-center justify-center'>
+            <div className='text-center'>
+              <div className='mx-auto w-64'>
+                <div className='mb-4 flex items-center justify-between'>
+                  <div className='text-sm font-medium'>
+                    Загрузка клиентов...
+                  </div>
+                  <span className='text-xs font-normal'>
+                    Пожалуйста, подождите
+                  </span>
+                </div>
+                <div className='bg-muted h-2 w-full overflow-hidden rounded-full'>
+                  <div className='animate-progress-indeterminate bg-primary h-full rounded-full'></div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   // Показываем сообщение об ошибке
   if (error) {
     return (
-      <PageContainer>
-        <div className='flex min-h-[400px] items-center justify-center'>
-          <div className='text-center'>
-            <p className='mb-4 text-red-600'>
-              Ошибка загрузки клиентов: {error}
-            </p>
-            <Button onClick={() => fetchAllData(true)} variant='outline'>
-              Попробовать снова
-            </Button>
+      <div className='min-h-screen bg-white dark:bg-gray-900'>
+        <div className='p-6'>
+          <div className='flex min-h-[400px] items-center justify-center'>
+            <div className='text-center'>
+              <p className='mb-4 text-red-600'>
+                Ошибка загрузки клиентов: {error}
+              </p>
+              <Button onClick={() => fetchAllData(true)} variant='outline'>
+                Попробовать снова
+              </Button>
+            </div>
           </div>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
-  // Показываем сообщение, если нет организации или воронки
-  if (!backendOrgId || !currentFunnel) {
+  // Показываем сообщение, если нет организации
+  if (!backendOrgId) {
     return (
-      <PageContainer>
-        <div className='flex min-h-[400px] items-center justify-center'>
-          <div className='text-center'>
-            <p className='text-muted-foreground mb-4'>
-              {!backendOrgId
-                ? 'Организация не выбрана или не настроена'
-                : 'Воронка не выбрана'}
-            </p>
-            <p className='text-muted-foreground text-sm'>
-              Выберите организацию и воронку для просмотра клиентов
-            </p>
+      <div className='min-h-screen bg-white dark:bg-gray-900'>
+        <div className='p-6'>
+          <div className='flex min-h-[400px] items-center justify-center'>
+            <div className='text-center'>
+              <p className='text-muted-foreground mb-4'>
+                Организация не выбрана или не настроена
+              </p>
+              <p className='text-muted-foreground text-sm'>
+                Выберите организацию для просмотра клиентов
+              </p>
+            </div>
           </div>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   return (
-    <PageContainer>
-      <ClientSelectionProvider>
-        <div className='flex w-full max-w-full flex-col space-y-4'>
-          {/* Заголовок и кнопки действий */}
-          <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'>
-            <div className='flex items-center gap-4'>
-              <h1 className='text-xl font-semibold sm:text-2xl'>Клиенты</h1>
-            </div>
-
-            <ClientActions />
-          </div>
-
-          {/* Поиск */}
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]'>
-            <div className='relative'>
-              <IconSearch className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
-              <Input
-                placeholder='Поиск клиентов...'
-                className='pl-8'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            {/* Быстрые фильтры для обоих режимов */}
-            <div className='hidden items-center gap-2 md:flex'>
-              <Button
-                variant={statusFilter === 'all' ? 'default' : 'outline'}
-                size='sm'
-                onClick={() => setStatusFilter('all')}
-              >
-                Все ({clients.length})
-              </Button>
-              <Button
-                variant={statusFilter === 'active' ? 'default' : 'outline'}
-                size='sm'
-                onClick={() => setStatusFilter('active')}
-              >
-                Активные (
-                {clients.filter((c) => c.status === 'Активный').length})
-              </Button>
-              <Button
-                variant={statusFilter === 'new' ? 'default' : 'outline'}
-                size='sm'
-                onClick={() => setStatusFilter('new')}
-              >
-                Закрытые ({clients.filter((c) => c.stage === 'Новый').length})
-              </Button>
-            </div>
-          </div>
-
+    <div className='min-h-screen bg-white dark:bg-gray-900'>
+      <div className='p-6'>
+        <ClientSelectionProvider>
           {/* Контейнер с горизонтальной прокруткой для контента */}
           <div
             className='overflow-x-auto'
@@ -361,14 +466,6 @@ export default function ClientsPage() {
               <div className='mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row'>
                 <div className='text-muted-foreground w-full text-center text-sm sm:w-auto sm:text-left'>
                   Показано {filteredClients.length} из {clients.length} клиентов
-                </div>
-                <div className='flex w-full justify-center gap-1 sm:w-auto sm:justify-end'>
-                  <Button variant='outline' size='sm' disabled>
-                    Предыдущая
-                  </Button>
-                  <Button variant='outline' size='sm'>
-                    Следующая
-                  </Button>
                 </div>
               </div>
             </div>
@@ -407,8 +504,27 @@ export default function ClientsPage() {
               {isRefreshing ? 'Обновление...' : 'Обновить'}
             </Button>
           </div>
-        </div>
-      </ClientSelectionProvider>
-    </PageContainer>
+        </ClientSelectionProvider>
+
+        {/* Модальное окно для создания воронки */}
+        <AddFunnelModal
+          isOpen={isAddModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          onAdd={handleAddFunnel}
+          newFunnelName={newFunnelName}
+          setNewFunnelName={setNewFunnelName}
+          stages={stages}
+          setStages={setStages}
+          showFollowup={showFollowup}
+          setShowFollowup={setShowFollowup}
+          handleStageChange={handleStageChange}
+          handleAddStage={handleAddStage}
+          handleRemoveStage={handleRemoveStage}
+          handleAddFollowup={handleAddFollowup}
+          handleRemoveFollowup={handleRemoveFollowup}
+          handleFollowupChange={handleFollowupChange}
+        />
+      </div>
+    </div>
   );
 }

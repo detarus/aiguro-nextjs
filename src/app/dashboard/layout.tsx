@@ -1,11 +1,13 @@
 import KBar from '@/components/kbar';
 import AppSidebar from '@/components/layout/app-sidebar';
-import Header from '@/components/layout/header';
+import ConditionalHeader from '@/components/layout/conditional-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { OrganizationGuard } from '@/components/organization-guard';
 import { OrganizationCreationProvider } from '@/contexts/OrganizationCreationContext';
+import { PageHeaderProvider } from '@/contexts/PageHeaderContext';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import FunnelModalWrapper from './FunnelModalWrapper';
 
 export const metadata: Metadata = {
   title: 'AI Guro Sales Platform',
@@ -23,19 +25,22 @@ export default async function DashboardLayout({
   return (
     <OrganizationGuard>
       <OrganizationCreationProvider>
-        <KBar>
-          <SidebarProvider defaultOpen={defaultOpen}>
-            <AppSidebar />
-            <SidebarInset>
-              <Header />
-              {/* Onboarding modal (client-side only) */}
-              {/* <OnboardingModalWrapper /> */}
-              {/* page main content */}
-              {children}
-              {/* page main content ends */}
-            </SidebarInset>
-          </SidebarProvider>
-        </KBar>
+        <PageHeaderProvider>
+          <KBar>
+            <SidebarProvider defaultOpen={defaultOpen}>
+              <AppSidebar />
+              <SidebarInset>
+                <ConditionalHeader />
+                {/* Onboarding modal (client-side only) */}
+                {/* <OnboardingModalWrapper /> */}
+                {/* page main content */}
+                {children}
+                {/* page main content ends */}
+              </SidebarInset>
+            </SidebarProvider>
+          </KBar>
+          <FunnelModalWrapper />
+        </PageHeaderProvider>
       </OrganizationCreationProvider>
     </OrganizationGuard>
   );

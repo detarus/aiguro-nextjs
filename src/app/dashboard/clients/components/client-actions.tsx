@@ -38,7 +38,7 @@ export function ClientActions() {
                   className='hidden sm:flex'
                   disabled={!hasSelectedClients}
                 >
-                  <IconDownload className='mr-2 h-4 w-4' />
+                  <IconUpload className='mr-2 h-4 w-4' />
                   Экспорт
                 </Button>
               </div>
@@ -52,7 +52,7 @@ export function ClientActions() {
         </TooltipProvider>
 
         {/* <Button variant='outline' size='sm' className='hidden sm:flex'>
-          <IconUpload className='mr-2 h-4 w-4' />
+          <IconDownload className='mr-2 h-4 w-4' />
           Импорт
         </Button> */}
 

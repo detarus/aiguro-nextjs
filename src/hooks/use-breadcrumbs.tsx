@@ -12,6 +12,10 @@ type BreadcrumbItem = {
 // This allows to add custom title as well
 const routeMapping: Record<string, BreadcrumbItem[]> = {
   '/dashboard': [{ title: 'Панель управления', link: '/dashboard' }],
+  '/dashboard/deals': [
+    { title: 'Панель управления', link: '/dashboard' },
+    { title: 'Сделки', link: '/dashboard/deals' }
+  ],
   '/dashboard/employee': [
     { title: 'Панель управления', link: '/dashboard' },
     { title: 'Сотрудник', link: '/dashboard/employee' }
@@ -39,16 +43,19 @@ export function useBreadcrumbs() {
   const pathname = usePathname();
 
   const breadcrumbs = useMemo(() => {
-    // Special case for dashboard root
-    if (pathname === '/dashboard') {
-      return [{ title: 'Панель управления', link: '/dashboard' }];
+    // Check for custom route mapping first
+    const cleanPathname = pathname.split('?')[0];
+    if (routeMapping[cleanPathname]) {
+      return routeMapping[cleanPathname];
     }
 
     // Try to build breadcrumbs from segments
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = cleanPathname.split('/').filter(Boolean);
     return segments.map((segment, index) => {
       const path = `/${segments.slice(0, index + 1).join('/')}`;
       let title: string | undefined;
+
+      // Special case for dashboard root
       if (path === '/dashboard') {
         title = 'Панель управления';
       } else {

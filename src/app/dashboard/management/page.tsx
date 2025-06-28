@@ -25,6 +25,10 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
+import { StagesBlock } from '@/components/ui/stages-block';
+import { AgentTeamSelection } from '@/components/ui/agent-team-selection';
+import { StageSettings } from '@/components/ui/stage-settings';
+import { FunnelSettingsSidebar } from '@/components/ui/funnel-settings-sidebar';
 
 export default function ManagementPage() {
   const { organization } = useOrganization();
@@ -35,6 +39,11 @@ export default function ManagementPage() {
   const [assistantsCount, setAssistantsCount] = useState<number | null>(null);
   const [assistantsLoading, setAssistantsLoading] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [funnelStages, setFunnelStages] = useState<any[]>([]);
+  const [selectedStage, setSelectedStage] = useState<{
+    index: number;
+    stage: any;
+  } | null>(null);
 
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
@@ -76,18 +85,33 @@ export default function ManagementPage() {
               stage.assistant_code_name.trim() !== ''
           );
           setAssistantsCount(stagesWithAssistants.length);
+
+          // Сохраняем этапы для отображения в блоке этапов
+          setFunnelStages(funnelData.stages);
         } else {
           setAssistantsCount(0);
+          setFunnelStages([]);
         }
       } else {
         console.error('Failed to fetch funnel data:', response.status);
         setAssistantsCount(0);
+        setFunnelStages([]);
       }
     } catch (error) {
       console.error('Error fetching funnel data:', error);
       setAssistantsCount(0);
+      setFunnelStages([]);
     } finally {
       setAssistantsLoading(false);
+    }
+  };
+
+  // Обработчик выбора этапа
+  const handleStageSelect = (stageIndex: number | null, stage?: any) => {
+    if (stageIndex !== null && stage) {
+      setSelectedStage({ index: stageIndex, stage });
+    } else {
+      setSelectedStage(null);
     }
   };
 
@@ -100,120 +124,150 @@ export default function ManagementPage() {
 
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <PageContainer scrollable={true}>
-        <div className='space-y-6'>
-          <div>
-            <h1 className='text-3xl font-bold tracking-tight'>
-              Управление воронкой
-            </h1>
-            <p className='text-muted-foreground'>
-              Административная панель управления системой
-            </p>
-          </div>
+      <div className='flex h-screen'>
+        {/* Боковой блок настроек воронки - всегда показан */}
+        <FunnelSettingsSidebar funnelName={currentFunnel?.name} />
 
-          <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4'>
-            <Card className='flex h-full flex-col p-6'>
-              <div className='mb-2 flex items-center justify-between'>
-                <h3 className='text-lg font-medium'>AI-ассистенты</h3>
-                <Switch />
+        {/* Основной контент */}
+        <div className='flex-1 overflow-hidden'>
+          <PageContainer scrollable={true} className='p-4'>
+            {/* Блок этапов сделок */}
+            {currentFunnel && backendOrgId ? (
+              <div className='mb-6'>
+                <StagesBlock
+                  organizationId={backendOrgId}
+                  funnelId={currentFunnel.id}
+                  stages={funnelStages}
+                  onStageUpdate={fetchAssistantsCount}
+                  onStageSelect={handleStageSelect}
+                />
               </div>
-              <div className='text-muted-foreground mb-6 text-sm'>
-                Мультиагент, отвечающий за этапы воронки
+            ) : (
+              <div className='mb-6'>
+                <div className='text-muted-foreground py-8 text-center'>
+                  Выберите воронку для просмотра этапов
+                </div>
               </div>
-              <div className='mt-auto flex gap-3'>
-                <Link
-                  href='/dashboard/management/agent-testing?agent=ai-assistants'
-                  className='flex-1'
-                >
-                  <Button variant='outline' className='w-full'>
-                    Тест агента
-                  </Button>
-                </Link>
-                <Link
-                  href='/dashboard/management/ai-assistants/'
-                  className='flex-1'
-                >
-                  <Button className='w-full'>Настройки</Button>
-                </Link>
-              </div>
-            </Card>
+            )}
 
-            <Card className='flex h-full flex-col p-6'>
-              <div className='mb-2 flex items-center justify-between'>
-                <h3 className='text-lg font-medium'>Фоллоу Ап (анализ)</h3>
-                <Switch />
-              </div>
-              <div className='text-muted-foreground mb-6 text-sm'>
-                Системный агент, отвечающий за напоминания клиентам
-              </div>
-              <div className='mt-auto flex gap-3'>
-                <Link
-                  href='/dashboard/management/agent-testing?agent=follow-up'
-                  className='flex-1'
-                >
-                  <Button variant='outline' className='w-full'>
-                    Тест агента
-                  </Button>
-                </Link>
-                <Link
-                  href='/dashboard/management/follow-up/'
-                  className='flex-1'
-                >
-                  <Button className='w-full'>Настройки</Button>
-                </Link>
-              </div>
-            </Card>
+            {/* Условное отображение: либо настройки этапа, либо блок выбора команды агентов */}
+            {selectedStage ? (
+              <StageSettings
+                stage={selectedStage.stage}
+                stageIndex={selectedStage.index}
+              />
+            ) : (
+              <AgentTeamSelection />
+            )}
 
-            <Card className='flex h-full flex-col p-6'>
-              <div className='mb-2 flex items-center justify-between'>
-                <h3 className='text-lg font-medium'>Фоллоу Ап (сообы)</h3>
-                <Switch />
-              </div>
-              <div className='text-muted-foreground mb-6 text-sm'>
-                Агент, отвечающий за напоминания клиентам
-              </div>
-              <div className='mt-auto flex gap-3'>
-                <Link
-                  href='/dashboard/management/agent-testing?agent=follow-up-messages'
-                  className='flex-1'
-                >
-                  <Button variant='outline' className='w-full'>
-                    Тест агента
-                  </Button>
-                </Link>
-                <Link
-                  href='/dashboard/management/follow-up-messages/'
-                  className='flex-1'
-                >
-                  <Button className='w-full'>Настройки</Button>
-                </Link>
-              </div>
-            </Card>
+            {/* Временно скрыто - основная сетка блоков */}
+            <div className='hidden space-y-6'>
+              <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4'>
+                <Card className='flex h-full flex-col p-6'>
+                  <div className='mb-2 flex items-center justify-between'>
+                    <h3 className='text-lg font-medium'>AI-ассистенты</h3>
+                    <Switch />
+                  </div>
+                  <div className='text-muted-foreground mb-6 text-sm'>
+                    Мультиагент, отвечающий за этапы воронки
+                  </div>
+                  <div className='mt-auto flex gap-3'>
+                    <Link
+                      href='/dashboard/management/agent-testing?agent=ai-assistants'
+                      className='flex-1'
+                    >
+                      <Button variant='outline' className='w-full'>
+                        Тест агента
+                      </Button>
+                    </Link>
+                    <Link
+                      href='/dashboard/management/ai-assistants/'
+                      className='flex-1'
+                    >
+                      <Button className='w-full'>Настройки</Button>
+                    </Link>
+                  </div>
+                </Card>
 
-            <Card className='flex h-full flex-col p-6'>
-              <div className='mb-2 flex items-center justify-between'>
-                <h3 className='text-lg font-medium'>Анализ</h3>
-                <Switch />
-              </div>
-              <div className='text-muted-foreground mb-6 text-sm'>
-                Агент, отвечающий за аналитику данных
-              </div>
-              <div className='mt-auto flex gap-3'>
-                <Link
-                  href='/dashboard/management/agent-testing?agent=analysis'
-                  className='flex-1'
-                >
-                  <Button variant='outline' className='w-full'>
-                    Тест агента
-                  </Button>
-                </Link>
-                <Link href='/dashboard/management/analysis/' className='flex-1'>
-                  <Button className='w-full'>Настройки</Button>
-                </Link>
-              </div>
-            </Card>
+                <Card className='flex h-full flex-col p-6'>
+                  <div className='mb-2 flex items-center justify-between'>
+                    <h3 className='text-lg font-medium'>Фоллоу Ап (анализ)</h3>
+                    <Switch />
+                  </div>
+                  <div className='text-muted-foreground mb-6 text-sm'>
+                    Системный агент, отвечающий за напоминания клиентам
+                  </div>
+                  <div className='mt-auto flex gap-3'>
+                    <Link
+                      href='/dashboard/management/agent-testing?agent=follow-up'
+                      className='flex-1'
+                    >
+                      <Button variant='outline' className='w-full'>
+                        Тест агента
+                      </Button>
+                    </Link>
+                    <Link
+                      href='/dashboard/management/follow-up/'
+                      className='flex-1'
+                    >
+                      <Button className='w-full'>Настройки</Button>
+                    </Link>
+                  </div>
+                </Card>
 
-            {/* <Card className="h-full flex flex-col p-6">
+                <Card className='flex h-full flex-col p-6'>
+                  <div className='mb-2 flex items-center justify-between'>
+                    <h3 className='text-lg font-medium'>Фоллоу Ап (сообы)</h3>
+                    <Switch />
+                  </div>
+                  <div className='text-muted-foreground mb-6 text-sm'>
+                    Агент, отвечающий за напоминания клиентам
+                  </div>
+                  <div className='mt-auto flex gap-3'>
+                    <Link
+                      href='/dashboard/management/agent-testing?agent=follow-up-messages'
+                      className='flex-1'
+                    >
+                      <Button variant='outline' className='w-full'>
+                        Тест агента
+                      </Button>
+                    </Link>
+                    <Link
+                      href='/dashboard/management/follow-up-messages/'
+                      className='flex-1'
+                    >
+                      <Button className='w-full'>Настройки</Button>
+                    </Link>
+                  </div>
+                </Card>
+
+                <Card className='flex h-full flex-col p-6'>
+                  <div className='mb-2 flex items-center justify-between'>
+                    <h3 className='text-lg font-medium'>Анализ</h3>
+                    <Switch />
+                  </div>
+                  <div className='text-muted-foreground mb-6 text-sm'>
+                    Агент, отвечающий за аналитику данных
+                  </div>
+                  <div className='mt-auto flex gap-3'>
+                    <Link
+                      href='/dashboard/management/agent-testing?agent=analysis'
+                      className='flex-1'
+                    >
+                      <Button variant='outline' className='w-full'>
+                        Тест агента
+                      </Button>
+                    </Link>
+                    <Link
+                      href='/dashboard/management/analysis/'
+                      className='flex-1'
+                    >
+                      <Button className='w-full'>Настройки</Button>
+                    </Link>
+                  </div>
+                </Card>
+
+                {/* <Card className="h-full flex flex-col p-6">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium text-lg">РОП</h3>
                 <Switch />
@@ -229,62 +283,67 @@ export default function ManagementPage() {
               </div>
             </Card> */}
 
-            <Card className='flex h-full flex-col p-6'>
-              <div className='mb-2 flex items-center justify-between'>
-                <h3 className='text-lg font-medium'>РОП</h3>
-                <div className='flex items-center'>
-                  <Switch />
-                  {/* <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">Текстовый</span> */}
-                </div>
-              </div>
-              <div className='text-muted-foreground mb-6 text-sm'>
-                Агент аналитики второго уровня
-              </div>
-              <div className='mt-auto'>
-                <Button
-                  className='w-full'
-                  onClick={() => setIsCreateModalOpen(true)}
-                >
-                  Создать
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </div>
-
-        {/* Модальное окно создания агента */}
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogContent className='sm:max-w-md'>
-            <DialogHeader>
-              <DialogTitle className='text-xl font-bold'>
-                Создать агента
-              </DialogTitle>
-              <DialogDescription>
-                Выбирите какого агента хотите создать
-              </DialogDescription>
-            </DialogHeader>
-            <div className='grid grid-cols-2 gap-4 py-4'>
-              <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border p-4 hover:border-black'>
-                <IconCreditCard className='mb-2 h-12 w-12' />
-                <span className='text-center'>Простой агент</span>
-              </div>
-              <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border border-black p-4 hover:border-black'>
-                <IconCreditCard className='mb-2 h-12 w-12' />
-                <span className='text-center'>Мультиагент</span>
+                <Card className='flex h-full flex-col p-6'>
+                  <div className='mb-2 flex items-center justify-between'>
+                    <h3 className='text-lg font-medium'>РОП</h3>
+                    <div className='flex items-center'>
+                      <Switch />
+                      {/* <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">Текстовый</span> */}
+                    </div>
+                  </div>
+                  <div className='text-muted-foreground mb-6 text-sm'>
+                    Агент аналитики второго уровня
+                  </div>
+                  <div className='mt-auto'>
+                    <Button
+                      className='w-full'
+                      onClick={() => setIsCreateModalOpen(true)}
+                    >
+                      Создать
+                    </Button>
+                  </div>
+                </Card>
               </div>
             </div>
-            <DialogFooter className='sm:justify-between'>
-              <Button
-                variant='outline'
-                onClick={() => setIsCreateModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type='button'>Создать</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </PageContainer>
+
+            {/* Модальное окно создания агента */}
+            <Dialog
+              open={isCreateModalOpen}
+              onOpenChange={setIsCreateModalOpen}
+            >
+              <DialogContent className='sm:max-w-md'>
+                <DialogHeader>
+                  <DialogTitle className='text-xl font-bold'>
+                    Создать агента
+                  </DialogTitle>
+                  <DialogDescription>
+                    Выбирите какого агента хотите создать
+                  </DialogDescription>
+                </DialogHeader>
+                <div className='grid grid-cols-2 gap-4 py-4'>
+                  <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border p-4 hover:border-black'>
+                    <IconCreditCard className='mb-2 h-12 w-12' />
+                    <span className='text-center'>Простой агент</span>
+                  </div>
+                  <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border border-black p-4 hover:border-black'>
+                    <IconCreditCard className='mb-2 h-12 w-12' />
+                    <span className='text-center'>Мультиагент</span>
+                  </div>
+                </div>
+                <DialogFooter className='sm:justify-between'>
+                  <Button
+                    variant='outline'
+                    onClick={() => setIsCreateModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type='button'>Создать</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </PageContainer>
+        </div>
+      </div>
     </Suspense>
   );
 }

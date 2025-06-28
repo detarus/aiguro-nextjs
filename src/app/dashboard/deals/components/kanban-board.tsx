@@ -4,7 +4,15 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { IconPhone, IconClock, IconUser, IconPlus } from '@tabler/icons-react';
+import { Separator } from '@/components/ui/separator';
+import {
+  IconPhone,
+  IconClock,
+  IconUser,
+  IconPlus,
+  IconChevronDown,
+  IconChevronUp
+} from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Client } from './client-table';
 import { useFunnels } from '@/hooks/useFunnels';
@@ -183,35 +191,136 @@ function ClientCard({ client }: { client: Client }) {
 }
 
 // Компонент колонки Kanban
-function KanbanColumn({ stage, clients }: { stage: Stage; clients: Client[] }) {
+function KanbanColumn({
+  stage,
+  clients,
+  stageIndex
+}: {
+  stage: Stage;
+  clients: Client[];
+  stageIndex: number;
+}) {
   const router = useRouter();
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Обработчик для добавления нового диалога
   const handleAddDialog = () => {
     router.push(`/dashboard/messengers?new=true`);
   };
 
+  // Обработчик для раскрытия/скрытия статистики
+  const handleToggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
+
   return (
     <div className='max-w-[320px] min-w-[300px] flex-1'>
       {/* Заголовок колонки */}
-      <div className='mb-4'>
+      <div className='mb-4 rounded-lg border border-gray-200'>
         <div className={`h-1 w-full rounded-t-lg ${stage.color}`} />
-        <div className='bg-muted/50 rounded-b-lg px-4 py-3'>
+        <div className='bg-muted/50 relative rounded-b-lg px-4 py-3'>
           <div className='flex items-center justify-between'>
-            <h2 className='text-sm font-semibold text-gray-700'>
-              {stage.title}
-              {stage.assistant_code_name && (
-                <span className='ml-2 text-xs font-normal text-gray-500'>
-                  ({stage.assistant_code_name})
-                </span>
+            <div
+              className='flex h-8 w-8 cursor-help items-center justify-center rounded-full border border-gray-300 bg-gray-100'
+              title={
+                stage.assistant_code_name
+                  ? stage.assistant_code_name
+                  : `Этап ${stage.title}`
+              }
+            >
+              <span className='text-xs font-medium text-gray-700'>
+                {stageIndex + 1}
+              </span>
+            </div>
+            <div className='mx-3 flex-1 text-center'>
+              <h2 className='text-sm font-semibold text-gray-700'>
+                {stage.title}: 52%
+              </h2>
+              <p className='mt-1 text-xs text-gray-500'>
+                На этапе: {clients.length} сделок
+              </p>
+            </div>
+            <button
+              className='flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-gray-100 transition-colors hover:bg-gray-200'
+              onClick={handleToggleExpanded}
+              title='Показать/скрыть статистику'
+            >
+              {isExpanded ? (
+                <IconChevronUp className='h-4 w-4 text-gray-600' />
+              ) : (
+                <IconChevronDown className='h-4 w-4 text-gray-600' />
               )}
-            </h2>
-            <Badge variant='outline' className='bg-gray-100 text-gray-600'>
-              {clients.length}
-            </Badge>
+            </button>
           </div>
+
+          {/* Расширенная статистика */}
+          {isExpanded && (
+            <div className='mt-4'>
+              <Separator className='mb-4' />
+              <div className='space-y-2'>
+                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                  <div className='flex items-center gap-2'>
+                    <div className='h-2 w-2 rounded-full bg-green-500'></div>
+                    <span className='text-muted-foreground text-sm font-medium'>
+                      Конверсия
+                    </span>
+                  </div>
+                  <span className='text-sm font-semibold text-green-600'>
+                    12.5%
+                  </span>
+                </div>
+
+                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                  <div className='flex items-center gap-2'>
+                    <div className='h-2 w-2 rounded-full bg-blue-500'></div>
+                    <span className='text-muted-foreground text-sm font-medium'>
+                      Среднее время
+                    </span>
+                  </div>
+                  <span className='text-sm font-semibold text-blue-600'>
+                    2.3 дня
+                  </span>
+                </div>
+
+                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                  <div className='flex items-center gap-2'>
+                    <div className='h-2 w-2 rounded-full bg-purple-500'></div>
+                    <span className='text-muted-foreground text-sm font-medium'>
+                      Общий доход
+                    </span>
+                  </div>
+                  <span className='text-sm font-semibold text-purple-600'>
+                    ₽847K
+                  </span>
+                </div>
+
+                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                  <div className='flex items-center gap-2'>
+                    <div className='h-2 w-2 rounded-full bg-orange-500'></div>
+                    <span className='text-muted-foreground text-sm font-medium'>
+                      Рост активности
+                    </span>
+                  </div>
+                  <span className='text-sm font-semibold text-orange-600'>
+                    +15%
+                  </span>
+                </div>
+
+                <Separator className='my-3' />
+
+                <div className='bg-muted/20 flex items-center justify-between rounded-md p-2'>
+                  <span className='text-foreground text-sm font-medium'>
+                    Всего сделок
+                  </span>
+                  <span className='text-foreground text-sm font-bold'>
+                    {clients.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -484,12 +593,13 @@ export function KanbanBoard({
           maxWidth: getMaxWidth()
         }}
       >
-        <div className='flex min-w-[1400px] gap-6 pb-4'>
-          {stages.map((stage) => (
+        <div className='flex gap-6 pb-4'>
+          {stages.map((stage, index) => (
             <KanbanColumn
               key={stage.id}
               stage={stage}
               clients={clientsByStage[stage.id] || []}
+              stageIndex={index}
             />
           ))}
         </div>

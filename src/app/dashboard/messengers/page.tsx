@@ -1,11 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/hooks/useFunnels';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { PageSkeleton } from '@/components/page-skeleton';
+import { PageContainer } from '@/components/ui/page-container';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 // Добавлен переключатель Агент/Менеджер
 
 // Интерфейсы для типизации данных
@@ -83,22 +85,53 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
     'assistant'
   );
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const { updateConfig } = usePageHeaderContext();
+
   const { organization } = useOrganization();
-  const { currentFunnel } = useFunnels(
+  const { currentFunnel, funnels } = useFunnels(
     organization?.publicMetadata?.id_backend as string
   );
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    updateConfig({
+      onSearch: setSearchQuery
+    });
+    return () => updateConfig({});
+  }, [updateConfig]);
+
+  const filteredDialogs = useMemo(() => {
+    if (!searchQuery) {
+      return dialogs;
+    }
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return dialogs.filter((dialog) => {
+      const client = dialog.client;
+      if (!client) return false;
+
+      const name = client.name?.toLowerCase() || '';
+      const email = client.email?.toLowerCase() || '';
+      const phone = client.phone?.toLowerCase() || '';
+
+      return (
+        name.includes(lowercasedQuery) ||
+        email.includes(lowercasedQuery) ||
+        phone.includes(lowercasedQuery)
+      );
+    });
+  }, [dialogs, searchQuery]);
 
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
   // Константы для localStorage
   const CACHE_DURATION = 10 * 60 * 1000; // 10 минут в миллисекундах
   const getDialogsCacheKey = () =>
-    `messengers_dialogs_${backendOrgId}_${currentFunnel?.id}`;
+    `dialogs_list_${backendOrgId}_${currentFunnel?.id}`;
   const getMessagesCacheKey = (dialogUuid: string) =>
-    `messengers_messages_${backendOrgId}_${currentFunnel?.id}_${dialogUuid}`;
+    `dialogs_messages_${backendOrgId}_${currentFunnel?.id}_${dialogUuid}`;
   const getLastUpdatedKey = () =>
-    `messengers_last_updated_${backendOrgId}_${currentFunnel?.id}`;
+    `dialogs_last_updated_${backendOrgId}_${currentFunnel?.id}`;
 
   // Проверка актуальности кэша
   const isCacheValid = () => {
@@ -770,20 +803,18 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
         {/* Left panel - Dialogs list */}
         <div className='flex w-1/4 flex-col border-r'>
           <div className='border-b p-4'>
-            <h3 className='text-lg font-semibold'>
-              Диалоги ({dialogs.length})
-            </h3>
+            <h3 className='text-lg font-semibold'>Сделки ({dialogs.length})</h3>
             {isRefreshing && (
               <p className='mt-1 text-sm text-blue-600'>Обновление данных...</p>
             )}
           </div>
           <div className='flex-1 overflow-auto'>
-            {dialogs.length === 0 ? (
+            {filteredDialogs.length === 0 ? (
               <div className='text-muted-foreground p-4 text-center'>
-                Диалоги не найдены
+                Сделки не найдены
               </div>
             ) : (
-              dialogs.map((dialog) => (
+              filteredDialogs.map((dialog) => (
                 <div
                   key={dialog.uuid}
                   onClick={() => {
@@ -1175,7 +1206,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
   );
 }
 
-export default function MessengersPage() {
+function DialogsPageMain() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showDialogNotFoundModal, setShowDialogNotFoundModal] = useState(false);
@@ -1183,6 +1214,11 @@ export default function MessengersPage() {
   const [shownNotFoundThreadIds, setShownNotFoundThreadIds] = useState<
     Set<string>
   >(new Set());
+
+  const { organization } = useOrganization();
+  const { currentFunnel, funnels } = useFunnels(
+    organization?.publicMetadata?.id_backend as string
+  );
 
   // Функция для закрытия модального окна "диалог не найден"
   const handleCloseDialogNotFoundModal = () => {
@@ -1207,95 +1243,10 @@ export default function MessengersPage() {
     setShowDialogNotFoundModal(true);
   };
 
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-  const [showDeleteMessage, setShowDeleteMessage] = useState(false);
-  const [editMode, setEditMode] = useState<Set<number>>(new Set());
-  const [requests, setRequests] = useState<Record<number, string>>({
-    1: 'хочет интегрировать CRM систему в свой бизнес',
-    2: 'интересуется автоматизацией бизнес-процессов',
-    3: 'ищет решение для управления продажами',
-    4: 'нужна помощь с настройкой интеграции',
-    5: 'рассматривает внедрение системы для среднего бизнеса'
-  });
-  const [stages, setStages] = useState<Record<number, string>>({
-    1: 'Знакомство',
-    2: 'Квалификация',
-    3: 'Презентация',
-    4: 'Закрытие',
-    5: 'Знакомство'
-  });
-
-  const toggleRowSelection = (id: number) => {
-    setSelectedRows((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const deleteRow = (id: number) => {
-    const row = document.getElementById(`row-${id}`);
-    if (row) {
-      row.style.transition = 'opacity 0.5s ease-out';
-      row.style.opacity = '0';
-      setTimeout(() => {
-        row.style.display = 'none';
-        setShowDeleteMessage(true);
-        setTimeout(() => {
-          setShowDeleteMessage(false);
-        }, 3000);
-      }, 500);
-    }
-  };
-
-  const deleteSelectedRows = () => {
-    selectedRows.forEach((id: number) => {
-      deleteRow(id);
-    });
-    setSelectedRows(new Set());
-  };
-
-  const toggleEditMode = (id: number) => {
-    setEditMode((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const handleRequestChange = (id: number, value: string) => {
-    setRequests((prev) => ({ ...prev, [id]: value }));
-  };
-
-  const handleStageChange = (id: number, value: string) => {
-    setStages((prev) => ({ ...prev, [id]: value }));
-  };
-
-  const navigateToChat = (id: number) => {
-    router.push(`/dashboard/messengers?id=${id}`);
-  };
-
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <div className='p-6'>
+      <PageContainer>
         <div className='w-full space-y-4'>
-          {/* Заголовок, табы и кнопка экспорта в одной строке */}
-          <div className='flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
-            <div className='flex flex-col gap-4 sm:flex-row sm:items-center'>
-              <h1 className='text-xl font-semibold sm:text-2xl'>Мессенджеры</h1>
-            </div>
-
-            <Button variant='outline'>Экспорт</Button>
-          </div>
-
           {/* Основной контент */}
           <div className='w-full space-y-4'>
             <DialogsView onDialogNotFound={handleDialogNotFound} />
@@ -1350,7 +1301,9 @@ export default function MessengersPage() {
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
     </Suspense>
   );
 }
+
+export default DialogsPageMain;

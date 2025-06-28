@@ -19,6 +19,8 @@ import { ClientTable, Client } from './components/client-table';
 import { KanbanBoard } from './components/kanban-board';
 import { ClientActions } from './components/client-actions';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 
 // Interface for Dialog data
 export interface Dialog {
@@ -73,9 +75,10 @@ export default function DealsPage() {
 
   const { state } = useSidebar();
   const { organization } = useOrganization();
-  const { currentFunnel } = useFunnels(
+  const { currentFunnel, funnels } = useFunnels(
     organization?.publicMetadata?.id_backend as string
   );
+  const { updateConfig, clearConfig } = usePageHeaderContext();
 
   // Получаем backend ID организации
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
@@ -485,6 +488,34 @@ export default function DealsPage() {
     return () => clearInterval(interval);
   }, [backendOrgId, currentFunnel?.id, CACHE_DURATION, fetchAllData]);
 
+  // Обновляем конфигурацию заголовка при изменении состояния
+  useEffect(() => {
+    updateConfig({
+      title: 'Сделки',
+      viewMode,
+      onViewModeChange: setViewMode,
+      showViewToggle: true,
+      onSearch: (query) => setSearchQuery(query),
+      onTimeFilterChange: (period) => console.log('Time filter:', period),
+      timeFilterOptions: [
+        { value: 'week', label: 'За неделю' },
+        { value: 'month', label: 'За месяц' },
+        { value: 'year', label: 'За год' }
+      ],
+      actions: {
+        onExport: () => console.log('Export'),
+        onFilters: () => console.log('Filters'),
+        onView: () => console.log('View'),
+        onData: () => console.log('Data')
+      }
+    });
+
+    // Очистка конфигурации при размонтировании компонента
+    return () => {
+      clearConfig();
+    };
+  }, [viewMode, updateConfig, clearConfig]);
+
   // Динамически рассчитываем max-width в зависимости от состояния сайдбара
   const getMaxWidth = () => {
     if (state === 'collapsed') {
@@ -608,152 +639,18 @@ export default function DealsPage() {
 
   return (
     <PageContainer>
-      <div className='flex w-full max-w-full flex-col space-y-4'>
-        {/* Заголовок и кнопки действий */}
-        <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'>
-          <div className='flex items-center gap-4'>
-            <h1 className='text-xl font-semibold sm:text-2xl'>Сделки</h1>
-
-            {/* Переключатель видов */}
-            <div className='flex items-center rounded-lg border p-1'>
-              <Button
-                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                size='sm'
-                onClick={() => setViewMode('kanban')}
-                className='h-8 w-8 p-0'
-              >
-                <IconLayoutKanban className='h-4 w-4' />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size='sm'
-                onClick={() => setViewMode('list')}
-                className='h-8 w-8 p-0'
-              >
-                <IconList className='h-4 w-4' />
-              </Button>
-            </div>
-          </div>
-
-          <ClientActions />
-        </div>
-
-        {/* Поиск */}
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]'>
-          <div className='relative'>
-            <IconSearch className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
-            <Input
-              placeholder='Поиск диалогов...'
-              className='pl-8'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Быстрые фильтры для обоих режимов */}
-          <div className='hidden items-center gap-2 md:flex'>
-            <Button
-              variant={statusFilter === 'all' ? 'default' : 'outline'}
-              size='sm'
-              onClick={() => setStatusFilter('all')}
-            >
-              Все ({deals.length})
-            </Button>
-            <Button
-              variant={statusFilter === 'active' ? 'default' : 'outline'}
-              size='sm'
-              onClick={() => setStatusFilter('active')}
-            >
-              Активные (
-              {dealsAsClients.filter((c) => c.status === 'Активный').length})
-            </Button>
-            <Button
-              variant={statusFilter === 'new' ? 'default' : 'outline'}
-              size='sm'
-              onClick={() => setStatusFilter('new')}
-            >
-              Закрытые (
-              {dealsAsClients.filter((c) => c.stage === 'Новый').length})
-            </Button>
-          </div>
-        </div>
-
-        {/* Контейнер с горизонтальной прокруткой для контента */}
-        <div
-          className='overflow-x-auto'
-          style={{
-            maxWidth: getMaxWidth()
-          }}
-        >
-          <div className={viewMode === 'kanban' ? 'w-full' : 'min-w-[800px]'}>
-            {/* Контент в зависимости от выбранного режима */}
-            {viewMode === 'list' ? (
-              <>
-                {/* Таблица сделок */}
-                <ClientTable
-                  clients={filteredClients}
-                  backendOrgId={backendOrgId}
-                  onClientUpdate={undefined}
-                  onRefresh={refreshData}
-                />
-
-                {/* Пагинация */}
-                <div className='mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row'>
-                  <div className='text-muted-foreground w-full text-center text-sm sm:w-auto sm:text-left'>
-                    Показано {filteredClients.length} из {deals.length} сделок
-                  </div>
-                  <div className='flex w-full justify-center gap-1 sm:w-auto sm:justify-end'>
-                    <Button variant='outline' size='sm' disabled>
-                      Предыдущая
-                    </Button>
-                    <Button variant='outline' size='sm'>
-                      Следующая
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              /* Kanban доска */
-              <KanbanBoard
-                clients={filteredClients}
-                onClientUpdate={undefined}
-                onRefresh={refreshData}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Панель управления - перенесена в низ */}
-        <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
-          <div className='flex items-center gap-4'>
-            <div className='text-sm'>
-              <span className='font-medium'>Воронка:</span>{' '}
-              {currentFunnel?.display_name ||
-                currentFunnel?.name ||
-                'Неизвестно'}
-            </div>
-            {lastUpdated && (
-              <div className='text-muted-foreground text-sm'>
-                Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
-              </div>
-            )}
-            {isRefreshing && (
-              <div className='text-sm text-blue-600'>Обновление данных...</div>
-            )}
-          </div>
-          <Button
-            onClick={handleRefresh}
-            variant='outline'
-            size='sm'
-            disabled={isRefreshing}
-            className='flex items-center gap-2'
-          >
-            <div className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}>
-              ↻
-            </div>
-            {isRefreshing ? 'Обновление...' : 'Обновить'}
-          </Button>
-        </div>
+      <div className='space-y-6'>
+        {/* Отображение в зависимости от выбранного режима */}
+        {viewMode === 'kanban' ? (
+          <KanbanBoard clients={filteredClients} />
+        ) : (
+          <ClientTable
+            clients={filteredClients}
+            backendOrgId={backendOrgId}
+            onClientUpdate={handleClientUpdate}
+            onRefresh={handleRefresh}
+          />
+        )}
       </div>
     </PageContainer>
   );

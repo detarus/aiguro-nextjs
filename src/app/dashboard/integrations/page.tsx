@@ -29,6 +29,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 
 // Интерфейсы для API данных
 interface Funnel {
@@ -220,6 +221,8 @@ function IntegrationsPage() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(
     null
   );
+  const [searchQuery, setSearchQuery] = useState('');
+  const { updateConfig } = usePageHeaderContext();
 
   const [funnels, setFunnels] = useState<Funnel[]>([]);
   const [messengerConnections, setMessengerConnections] = useState<
@@ -601,6 +604,21 @@ function IntegrationsPage() {
     return () => clearInterval(interval);
   }, [backendOrgId, loadData, CACHE_DURATION]);
 
+  useEffect(() => {
+    updateConfig({ onSearch: setSearchQuery });
+    return () => updateConfig({});
+  }, [updateConfig]);
+
+  const filteredIntegrationServices = React.useMemo(() => {
+    if (!searchQuery) {
+      return integrationServices;
+    }
+    const lowercasedQuery = searchQuery.toLowerCase();
+    return integrationServices.filter((service) =>
+      service.name.toLowerCase().includes(lowercasedQuery)
+    );
+  }, [searchQuery]);
+
   const handleIntegrationClick = (integrationId: string) => {
     const integration = integrationServices.find((i) => i.id === integrationId);
     if (integration && integration.clickable) {
@@ -823,450 +841,517 @@ function IntegrationsPage() {
 
   return (
     <PageContainer>
-      <div className='space-y-6'>
-        <div className='flex items-center justify-between'>
-          <div>
-            <h1 className='text-3xl font-bold tracking-tight'>Интеграции</h1>
-            <p className='text-muted-foreground'>
-              Управление подключениями мессенджеров и внешних сервисов
-            </p>
-          </div>
-          <div className='flex items-center gap-2'>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-            >
-              <IconRefresh
-                size={16}
-                className={cn('mr-2', isRefreshing && 'animate-spin')}
-              />
-              {isRefreshing ? 'Обновление...' : 'Обновить'}
-            </Button>
-          </div>
-        </div>
+      <div className='flex h-full flex-col'>
+        <main className='flex-1 p-4 md:p-6'>
+          <Tabs defaultValue='all'>
+            <TabsList>
+              <TabsTrigger value='all'>Все</TabsTrigger>
+              <TabsTrigger value='active'>Активные</TabsTrigger>
+              <TabsTrigger value='crm'>CRM</TabsTrigger>
+              <TabsTrigger value='messengers'>Мессенджеры</TabsTrigger>
+            </TabsList>
 
-        {error && (
-          <div className='rounded-lg border border-red-200 bg-red-50 p-4'>
-            <p className='text-sm text-red-800'>{error}</p>
-          </div>
-        )}
-
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'>
-          {integrationServices.map((service) => {
-            const IconComponent = service.icon;
-            const isActive = integrationStatuses[service.id];
-            const firstThreeAccounts = getFirstThreeAccounts(service.id);
-
-            return (
-              <Card
-                key={service.id}
-                className={cn(
-                  'min-h-[280px] cursor-pointer transition-all hover:shadow-md',
-                  service.clickable
-                    ? 'hover:border-primary'
-                    : 'cursor-not-allowed opacity-60',
-                  isActive
-                    ? 'border-green-500 bg-green-50 dark:bg-green-950'
-                    : ''
-                )}
-                onClick={() => handleIntegrationClick(service.id)}
-              >
-                <CardHeader className='pb-3'>
-                  <div className='flex items-center justify-between'>
-                    <div className='flex items-center space-x-3'>
-                      <IconComponent size={24} className='text-primary' />
-                      <CardTitle className='text-lg'>{service.name}</CardTitle>
-                    </div>
-                    <Badge
-                      variant={isActive ? 'default' : 'secondary'}
-                      className={isActive ? 'bg-green-500' : ''}
-                    >
-                      {isActive ? 'Активна' : 'Неактивна'}
-                    </Badge>
-                  </div>
-
-                  {/* Переключатель активности для кликабельных интеграций */}
-                  {service.clickable && (
-                    <div className='mt-3 flex items-center space-x-2'>
-                      <Label
-                        htmlFor={`switch-${service.id}`}
-                        className='text-sm font-medium'
-                      >
-                        Активность:
-                      </Label>
+            <TabsContent value='all' className='mt-4'>
+              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'>
+                {filteredIntegrationServices.map((service) => (
+                  <Card
+                    key={service.id}
+                    className={cn(
+                      'min-h-[280px] cursor-pointer transition-all hover:shadow-md',
+                      service.clickable
+                        ? 'hover:border-primary'
+                        : 'cursor-not-allowed opacity-60',
+                      integrationStatuses[service.id]
+                        ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                        : ''
+                    )}
+                    onClick={() =>
+                      service.clickable && handleIntegrationClick(service.id)
+                    }
+                  >
+                    <CardHeader className='flex flex-row items-center justify-between'>
+                      <div className='flex items-center gap-2'>
+                        <service.icon className='h-6 w-6' />
+                        <CardTitle className='text-lg'>
+                          {service.name}
+                        </CardTitle>
+                      </div>
                       <Switch
-                        id={`switch-${service.id}`}
-                        checked={isActive}
+                        checked={integrationStatuses[service.id]}
                         onCheckedChange={(checked) =>
                           handleStatusToggle(service.id, checked)
                         }
                         onClick={handleSwitchClick}
                       />
-                    </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className='text-muted-foreground text-sm'>
+                        {service.description}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value='active' className='mt-4'>
+              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'>
+                {filteredIntegrationServices
+                  .filter((service) => integrationStatuses[service.id])
+                  .map((service) => (
+                    <Card
+                      key={service.id}
+                      className={cn(
+                        'min-h-[280px] cursor-pointer transition-all hover:shadow-md',
+                        service.clickable
+                          ? 'hover:border-primary'
+                          : 'cursor-not-allowed opacity-60',
+                        integrationStatuses[service.id]
+                          ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                          : ''
+                      )}
+                      onClick={() =>
+                        service.clickable && handleIntegrationClick(service.id)
+                      }
+                    >
+                      <CardHeader className='flex flex-row items-center justify-between'>
+                        <div className='flex items-center gap-2'>
+                          <service.icon className='h-6 w-6' />
+                          <CardTitle className='text-lg'>
+                            {service.name}
+                          </CardTitle>
+                        </div>
+                        <Switch
+                          checked={integrationStatuses[service.id]}
+                          onCheckedChange={(checked) =>
+                            handleStatusToggle(service.id, checked)
+                          }
+                          onClick={handleSwitchClick}
+                        />
+                      </CardHeader>
+                      <CardContent>
+                        <p className='text-muted-foreground text-sm'>
+                          {service.description}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value='crm' className='mt-4'>
+              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'>
+                {filteredIntegrationServices
+                  .filter((service) =>
+                    ['amocrm', 'bitrix'].includes(service.id)
+                  )
+                  .map((service) => (
+                    <Card
+                      key={service.id}
+                      className={cn(
+                        'min-h-[280px] cursor-pointer transition-all hover:shadow-md',
+                        service.clickable
+                          ? 'hover:border-primary'
+                          : 'cursor-not-allowed opacity-60',
+                        integrationStatuses[service.id]
+                          ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                          : ''
+                      )}
+                      onClick={() =>
+                        service.clickable && handleIntegrationClick(service.id)
+                      }
+                    >
+                      <CardHeader className='flex flex-row items-center justify-between'>
+                        <div className='flex items-center gap-2'>
+                          <service.icon className='h-6 w-6' />
+                          <CardTitle className='text-lg'>
+                            {service.name}
+                          </CardTitle>
+                        </div>
+                        <Switch
+                          checked={integrationStatuses[service.id]}
+                          onCheckedChange={(checked) =>
+                            handleStatusToggle(service.id, checked)
+                          }
+                          onClick={handleSwitchClick}
+                        />
+                      </CardHeader>
+                      <CardContent>
+                        <p className='text-muted-foreground text-sm'>
+                          {service.description}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value='messengers' className='mt-4'>
+              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'>
+                {filteredIntegrationServices
+                  .filter((service) =>
+                    [
+                      'telegram',
+                      'whatsapp',
+                      'instagram',
+                      'facebook',
+                      'viber',
+                      'slack'
+                    ].includes(service.id)
+                  )
+                  .map((service) => (
+                    <Card
+                      key={service.id}
+                      className={cn(
+                        'min-h-[280px] cursor-pointer transition-all hover:shadow-md',
+                        service.clickable
+                          ? 'hover:border-primary'
+                          : 'cursor-not-allowed opacity-60',
+                        integrationStatuses[service.id]
+                          ? 'border-green-500 bg-green-50 dark:bg-green-950'
+                          : ''
+                      )}
+                      onClick={() =>
+                        service.clickable && handleIntegrationClick(service.id)
+                      }
+                    >
+                      <CardHeader className='flex flex-row items-center justify-between'>
+                        <div className='flex items-center gap-2'>
+                          <service.icon className='h-6 w-6' />
+                          <CardTitle className='text-lg'>
+                            {service.name}
+                          </CardTitle>
+                        </div>
+                        <Switch
+                          checked={integrationStatuses[service.id]}
+                          onCheckedChange={(checked) =>
+                            handleStatusToggle(service.id, checked)
+                          }
+                          onClick={handleSwitchClick}
+                        />
+                      </CardHeader>
+                      <CardContent>
+                        <p className='text-muted-foreground text-sm'>
+                          {service.description}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+
+      {/* Integration Configuration Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className='flex max-h-[80vh] max-w-2xl flex-col overflow-hidden'>
+          <DialogHeader>
+            <DialogTitle className='flex items-center gap-2'>
+              {selectedIntegration && (
+                <>
+                  {React.createElement(
+                    integrationServices.find(
+                      (s) => s.id === selectedIntegration
+                    )?.icon || IconSettings,
+                    { size: 24 }
                   )}
-                </CardHeader>
+                  Настройка интеграции:{' '}
+                  {
+                    integrationServices.find(
+                      (s) => s.id === selectedIntegration
+                    )?.name
+                  }
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Настройте интеграцию для каждой воронки в вашей организации.
+              Введите необходимые данные подключения или оставьте поле пустым.
+            </DialogDescription>
+          </DialogHeader>
 
-                <CardContent className='space-y-3'>
-                  <p className='text-muted-foreground text-sm'>
-                    {service.description}
-                  </p>
-
-                  {/* Отображение первых трех аккаунтов для интеграций с подключениями */}
-                  {service.clickable && firstThreeAccounts.length > 0 && (
-                    <div className='space-y-2'>
-                      <div className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                        Подключенные воронки:
-                      </div>
-                      <div className='space-y-1'>
-                        {firstThreeAccounts.map((account) => (
-                          <div
-                            key={account.id}
-                            className='flex items-center justify-between rounded bg-gray-50 p-2 text-xs dark:bg-gray-800'
-                          >
-                            <span className='font-medium text-gray-600 dark:text-gray-400'>
-                              {account.label}:
-                            </span>
-                            <span className='max-w-[120px] truncate text-gray-800 dark:text-gray-200'>
-                              {account.value || 'Не указан'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {service.clickable && (
-                    <div className='flex justify-end pt-2'>
-                      <Button variant='outline' size='sm'>
-                        <IconSettings size={16} className='mr-2' />
-                        Настроить
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Integration Configuration Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className='flex max-h-[80vh] max-w-2xl flex-col overflow-hidden'>
-            <DialogHeader>
-              <DialogTitle className='flex items-center gap-2'>
-                {selectedIntegration && (
-                  <>
-                    {React.createElement(
-                      integrationServices.find(
-                        (s) => s.id === selectedIntegration
-                      )?.icon || IconSettings,
-                      { size: 24 }
-                    )}
-                    Настройка интеграции:{' '}
-                    {
-                      integrationServices.find(
-                        (s) => s.id === selectedIntegration
-                      )?.name
-                    }
-                  </>
-                )}
-              </DialogTitle>
-              <DialogDescription>
-                Настройте интеграцию для каждой воронки в вашей организации.
-                Введите необходимые данные подключения или оставьте поле пустым.
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedIntegration && funnels.length > 0 && (
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className='flex w-full flex-1 flex-col overflow-hidden'
+          {selectedIntegration && funnels.length > 0 && (
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className='flex w-full flex-1 flex-col overflow-hidden'
+            >
+              <div
+                className='flex-shrink-0 overflow-x-auto'
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#cbd5e0 #f7fafc'
+                }}
               >
-                <div
-                  className='flex-shrink-0 overflow-x-auto'
-                  style={{
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: '#cbd5e0 #f7fafc'
-                  }}
-                >
-                  <TabsList className='bg-muted text-muted-foreground flex h-10 w-max min-w-full items-center justify-start rounded-md p-1'>
-                    {funnels.map((funnel) => (
-                      <TabsTrigger
-                        key={funnel.id}
-                        value={funnel.id}
-                        className='data-[state=active]:bg-background data-[state=active]:text-foreground flex-shrink-0 px-3 py-1.5 text-sm whitespace-nowrap data-[state=active]:shadow-sm'
-                      >
-                        {funnel.display_name || funnel.name}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </div>
+                <TabsList className='bg-muted text-muted-foreground flex h-10 w-max min-w-full items-center justify-start rounded-md p-1'>
+                  {funnels.map((funnel) => (
+                    <TabsTrigger
+                      key={funnel.id}
+                      value={funnel.id}
+                      className='data-[state=active]:bg-background data-[state=active]:text-foreground flex-shrink-0 px-3 py-1.5 text-sm whitespace-nowrap data-[state=active]:shadow-sm'
+                    >
+                      {funnel.display_name || funnel.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
 
-                <div className='flex-1 overflow-y-auto'>
-                  {funnels.map((funnel) => {
-                    // Отладочная информация
-                    console.log(
-                      'Funnel:',
-                      funnel.id,
-                      funnel.name || funnel.display_name
-                    );
-                    console.log(
-                      'All messengerConnections:',
-                      messengerConnections
-                    );
-                    console.log('Selected integration:', selectedIntegration);
+              <div className='flex-1 overflow-y-auto'>
+                {funnels.map((funnel) => {
+                  // Отладочная информация
+                  console.log(
+                    'Funnel:',
+                    funnel.id,
+                    funnel.name || funnel.display_name
+                  );
+                  console.log(
+                    'All messengerConnections:',
+                    messengerConnections
+                  );
+                  console.log('Selected integration:', selectedIntegration);
 
-                    return (
-                      <TabsContent
-                        key={funnel.id}
-                        value={funnel.id}
-                        className='mt-4 space-y-4 focus:outline-none'
-                      >
-                        <div className='space-y-4'>
-                          <h3 className='text-lg font-medium'>
-                            Подключения для воронки &quot;
-                            {funnel.display_name || funnel.name}&quot;
-                          </h3>
+                  return (
+                    <TabsContent
+                      key={funnel.id}
+                      value={funnel.id}
+                      className='mt-4 space-y-4 focus:outline-none'
+                    >
+                      <div className='space-y-4'>
+                        <h3 className='text-lg font-medium'>
+                          Подключения для воронки &quot;
+                          {funnel.display_name || funnel.name}&quot;
+                        </h3>
 
-                          {/* Добавление нового подключения */}
-                          <div className='space-y-3 border-t pt-4'>
-                            <div className='space-y-2'>
-                              <Label
-                                htmlFor={`new-connection-${funnel.id}`}
-                                className='text-sm'
+                        {/* Добавление нового подключения */}
+                        <div className='space-y-3 border-t pt-4'>
+                          <div className='space-y-2'>
+                            <Label
+                              htmlFor={`new-connection-${funnel.id}`}
+                              className='text-sm'
+                            >
+                              Введите уникальный токен бота:
+                            </Label>
+                            <div className='flex gap-2'>
+                              <Input
+                                id={`new-connection-${funnel.id}`}
+                                value={newTokens[funnel.id] || ''}
+                                placeholder={`Введите токен для подключения`}
+                                onChange={(e) =>
+                                  handleNewTokenChange(
+                                    funnel.id,
+                                    e.target.value
+                                  )
+                                }
+                                className='flex-1'
+                                disabled={creatingConnection[funnel.id]}
+                              />
+                              <Button
+                                onClick={() =>
+                                  handleCreateConnection(funnel.id)
+                                }
+                                disabled={
+                                  !newTokens[funnel.id]?.trim() ||
+                                  creatingConnection[funnel.id]
+                                }
+                                className='px-4'
                               >
-                                Введите уникальный токен бота:
-                              </Label>
-                              <div className='flex gap-2'>
-                                <Input
-                                  id={`new-connection-${funnel.id}`}
-                                  value={newTokens[funnel.id] || ''}
-                                  placeholder={`Введите токен для подключения`}
-                                  onChange={(e) =>
-                                    handleNewTokenChange(
-                                      funnel.id,
-                                      e.target.value
-                                    )
-                                  }
-                                  className='flex-1'
-                                  disabled={creatingConnection[funnel.id]}
-                                />
-                                <Button
-                                  onClick={() =>
-                                    handleCreateConnection(funnel.id)
-                                  }
-                                  disabled={
-                                    !newTokens[funnel.id]?.trim() ||
-                                    creatingConnection[funnel.id]
-                                  }
-                                  className='px-4'
-                                >
-                                  {creatingConnection[funnel.id]
-                                    ? 'Добавление...'
-                                    : 'Добавить'}
-                                </Button>
-                              </div>
+                                {creatingConnection[funnel.id]
+                                  ? 'Добавление...'
+                                  : 'Добавить'}
+                              </Button>
                             </div>
                           </div>
+                        </div>
 
-                          {/* Существующие подключения для этой воронки */}
-                          {(() => {
-                            // Находим подключения для этой воронки из основного массива messengerConnections
-                            const funnelConnections =
-                              messengerConnections.filter((conn) => {
-                                const matches =
-                                  conn.messenger_type === selectedIntegration &&
-                                  (conn.funnel_id === funnel.id ||
-                                    conn.funnel_id === funnel.id.toString());
+                        {/* Существующие подключения для этой воронки */}
+                        {(() => {
+                          // Находим подключения для этой воронки из основного массива messengerConnections
+                          const funnelConnections = messengerConnections.filter(
+                            (conn) => {
+                              const matches =
+                                conn.messenger_type === selectedIntegration &&
+                                (conn.funnel_id === funnel.id ||
+                                  conn.funnel_id === funnel.id.toString());
 
-                                // Отладочная информация для каждого подключения
-                                if (
-                                  conn.messenger_type === selectedIntegration
-                                ) {
-                                  console.log(
-                                    `Checking connection ${conn.id}:`,
-                                    {
-                                      messenger_type: conn.messenger_type,
-                                      funnel_id: conn.funnel_id,
-                                      funnel_name: conn.funnel_name,
-                                      target_funnel_id: funnel.id,
-                                      matches
-                                    }
-                                  );
-                                }
+                              // Отладочная информация для каждого подключения
+                              if (conn.messenger_type === selectedIntegration) {
+                                console.log(`Checking connection ${conn.id}:`, {
+                                  messenger_type: conn.messenger_type,
+                                  funnel_id: conn.funnel_id,
+                                  funnel_name: conn.funnel_name,
+                                  target_funnel_id: funnel.id,
+                                  matches
+                                });
+                              }
 
-                                return matches;
-                              });
-
-                            if (funnelConnections.length === 0) {
-                              return (
-                                <div className='rounded-lg border bg-gray-50 py-6 text-center text-gray-500 dark:bg-gray-800/50'>
-                                  <p className='text-sm'>
-                                    Нет подключений{' '}
-                                    {
-                                      integrationServices.find(
-                                        (s) => s.id === selectedIntegration
-                                      )?.name
-                                    }{' '}
-                                    для воронки &quot;
-                                    {funnel.display_name || funnel.name}&quot;
-                                  </p>
-                                  <p className='mt-1 text-xs text-gray-400'>
-                                    Используйте поле ниже для создания нового
-                                    подключения
-                                  </p>
-                                </div>
-                              );
+                              return matches;
                             }
+                          );
 
+                          if (funnelConnections.length === 0) {
                             return (
-                              <div className='space-y-3'>
-                                <h4 className='text-sm font-medium text-gray-700 dark:text-gray-300'>
-                                  Список активных подключений (
-                                  {funnelConnections.length}):
-                                </h4>
-                                {funnelConnections.map((connection) => {
-                                  const isConnectionActive =
-                                    connection.is_active === true;
-                                  const connectionName =
-                                    connection.name ||
-                                    connection.connection_data?.account ||
-                                    connection.connection_data?.username ||
-                                    connection.connection_data?.token ||
-                                    `Подключение для ${connection.funnel_name || 'воронки'}`;
-
-                                  return (
-                                    <div
-                                      key={connection.id}
-                                      className='space-y-2 rounded-lg border bg-blue-50 p-3 dark:bg-blue-900/20'
-                                    >
-                                      <div className='flex items-center justify-between'>
-                                        <div className='flex items-center gap-2'>
-                                          <span className='text-sm font-medium'>
-                                            {connectionName}
-                                          </span>
-                                          {isConnectionActive && (
-                                            <Badge
-                                              variant='default'
-                                              className='bg-green-500 text-xs'
-                                            >
-                                              Активно
-                                            </Badge>
-                                          )}
-                                          {!isConnectionActive && (
-                                            <Badge
-                                              variant='secondary'
-                                              className='text-xs'
-                                            >
-                                              Неактивно
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <Button
-                                          variant='ghost'
-                                          size='sm'
-                                          onClick={() =>
-                                            handleDeleteConnection(
-                                              connection.id
-                                            )
-                                          }
-                                          className='h-6 w-6 p-0 text-red-500 hover:text-red-700'
-                                        >
-                                          <IconTrash size={14} />
-                                        </Button>
-                                      </div>
-                                      <div
-                                        className={cn(
-                                          'rounded px-2 py-1 text-xs',
-                                          isConnectionActive
-                                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                        )}
-                                      >
-                                        {isConnectionActive
-                                          ? '✓ Подключение активно для этой воронки'
-                                          : '○ Подключение настроено для этой воронки'}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                              <div className='rounded-lg border bg-gray-50 py-6 text-center text-gray-500 dark:bg-gray-800/50'>
+                                <p className='text-sm'>
+                                  Нет подключений{' '}
+                                  {
+                                    integrationServices.find(
+                                      (s) => s.id === selectedIntegration
+                                    )?.name
+                                  }{' '}
+                                  для воронки &quot;
+                                  {funnel.display_name || funnel.name}&quot;
+                                </p>
+                                <p className='mt-1 text-xs text-gray-400'>
+                                  Используйте поле ниже для создания нового
+                                  подключения
+                                </p>
                               </div>
                             );
-                          })()}
-                        </div>
-                      </TabsContent>
-                    );
-                  })}
-                </div>
+                          }
 
-                <div className='mt-6 flex flex-shrink-0 justify-end gap-2 border-t pt-4'>
-                  <Button
-                    variant='outline'
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                    }}
-                  >
-                    Отмена
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      setNewTokens({});
-                      setCreatingConnection({});
-                    }}
-                  >
-                    Сохранить
-                  </Button>
-                </div>
-              </Tabs>
-            )}
+                          return (
+                            <div className='space-y-3'>
+                              <h4 className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                                Список активных подключений (
+                                {funnelConnections.length}):
+                              </h4>
+                              {funnelConnections.map((connection) => {
+                                const isConnectionActive =
+                                  connection.is_active === true;
+                                const connectionName =
+                                  connection.name ||
+                                  connection.connection_data?.account ||
+                                  connection.connection_data?.username ||
+                                  connection.connection_data?.token ||
+                                  `Подключение для ${connection.funnel_name || 'воронки'}`;
 
-            {selectedIntegration && funnels.length === 0 && (
-              <div className='py-8 text-center'>
-                <p className='text-muted-foreground'>
-                  В организации нет воронок для настройки интеграций
-                </p>
+                                return (
+                                  <div
+                                    key={connection.id}
+                                    className='space-y-2 rounded-lg border bg-blue-50 p-3 dark:bg-blue-900/20'
+                                  >
+                                    <div className='flex items-center justify-between'>
+                                      <div className='flex items-center gap-2'>
+                                        <span className='text-sm font-medium'>
+                                          {connectionName}
+                                        </span>
+                                        {isConnectionActive && (
+                                          <Badge
+                                            variant='default'
+                                            className='bg-green-500 text-xs'
+                                          >
+                                            Активно
+                                          </Badge>
+                                        )}
+                                        {!isConnectionActive && (
+                                          <Badge
+                                            variant='secondary'
+                                            className='text-xs'
+                                          >
+                                            Неактивно
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <Button
+                                        variant='ghost'
+                                        size='sm'
+                                        onClick={() =>
+                                          handleDeleteConnection(connection.id)
+                                        }
+                                        className='h-6 w-6 p-0 text-red-500 hover:text-red-700'
+                                      >
+                                        <IconTrash size={14} />
+                                      </Button>
+                                    </div>
+                                    <div
+                                      className={cn(
+                                        'rounded px-2 py-1 text-xs',
+                                        isConnectionActive
+                                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                      )}
+                                    >
+                                      {isConnectionActive
+                                        ? '✓ Подключение активно для этой воронки'
+                                        : '○ Подключение настроено для этой воронки'}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </TabsContent>
+                  );
+                })}
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
 
-        {/* Панель управления - внизу страницы */}
-        <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
-          <div className='flex items-center gap-4'>
-            <div className='text-sm'>
-              <span className='font-medium'>Активных интеграций:</span>{' '}
-              {Object.values(integrationStatuses).filter(Boolean).length}
-            </div>
-            <div className='text-sm'>
-              <span className='font-medium'>Всего подключений:</span>{' '}
-              {messengerConnections.length}
-            </div>
-            {lastUpdated && (
-              <div className='text-muted-foreground text-sm'>
-                Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
+              <div className='mt-6 flex flex-shrink-0 justify-end gap-2 border-t pt-4'>
+                <Button
+                  variant='outline'
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                  }}
+                >
+                  Отмена
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    setNewTokens({});
+                    setCreatingConnection({});
+                  }}
+                >
+                  Сохранить
+                </Button>
               </div>
-            )}
-            {isRefreshing && (
-              <div className='text-sm text-blue-600'>Обновление данных...</div>
-            )}
+            </Tabs>
+          )}
+
+          {selectedIntegration && funnels.length === 0 && (
+            <div className='py-8 text-center'>
+              <p className='text-muted-foreground'>
+                В организации нет воронок для настройки интеграций
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Панель управления - внизу страницы */}
+      <div className='bg-muted/50 mt-4 flex items-center justify-between rounded-lg border p-3'>
+        <div className='flex items-center gap-4'>
+          <div className='text-sm'>
+            <span className='font-medium'>Активных интеграций:</span>{' '}
+            {Object.values(integrationStatuses).filter(Boolean).length}
           </div>
-          <Button
-            onClick={handleRefresh}
-            variant='outline'
-            size='sm'
-            disabled={isRefreshing}
-            className='flex items-center gap-2'
-          >
-            <div className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}>
-              ↻
+          <div className='text-sm'>
+            <span className='font-medium'>Всего подключений:</span>{' '}
+            {messengerConnections.length}
+          </div>
+          {lastUpdated && (
+            <div className='text-muted-foreground text-sm'>
+              Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')}
             </div>
-            {isRefreshing ? 'Обновление...' : 'Обновить'}
-          </Button>
+          )}
+          {isRefreshing && (
+            <div className='text-sm text-blue-600'>Обновление данных...</div>
+          )}
         </div>
+        <Button
+          onClick={handleRefresh}
+          variant='outline'
+          size='sm'
+          disabled={isRefreshing}
+          className='flex items-center gap-2'
+        >
+          <div className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`}>
+            ↻
+          </div>
+          {isRefreshing ? 'Обновление...' : 'Обновить'}
+        </Button>
       </div>
     </PageContainer>
   );

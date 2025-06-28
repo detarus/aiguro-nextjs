@@ -30,7 +30,7 @@ export const navItems: NavItem[] = [
     items: []
   },
   {
-    title: 'Мессенджеры',
+    title: 'Диалоги',
     url: '/dashboard/messengers',
     icon: 'messengers',
     isActive: true,
@@ -49,7 +49,7 @@ export const navItems: NavItem[] = [
     ]
   },
   {
-    title: 'Управление воронкой',
+    title: 'Управление',
     url: '/dashboard/management',
     icon: 'management',
     isActive: true,

@@ -64,6 +64,7 @@ interface TableHeaderProps {
   selectedFunnel?: string;
   onFunnelChange?: (funnelId: string) => void;
   onSearch?: (query: string) => void;
+  searchValue?: string; // Текущее значение поиска
   onTimeFilterChange?: (period: string) => void;
   timeFilter?: string;
   timeFilterOptions?: Array<{ value: string; label: string }>;
@@ -86,6 +87,7 @@ export function TableHeader({
   selectedFunnel = 'all',
   onFunnelChange,
   onSearch,
+  searchValue = '',
   onTimeFilterChange,
   timeFilter = 'week',
   timeFilterOptions = [
@@ -217,6 +219,7 @@ export function TableHeader({
             <div className='relative'>
               <input
                 type='text'
+                value={searchValue}
                 placeholder='Поиск...'
                 className={cn(
                   'h-8 w-full rounded-md border border-gray-300 bg-white pr-3 pl-8 text-sm text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-400'

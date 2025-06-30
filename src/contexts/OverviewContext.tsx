@@ -2,8 +2,18 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
+interface StageStats {
+  name: string;
+  count: number;
+  assistant_code_name?: string;
+}
+
 interface OverviewContextType {
   searchQuery: string;
+  stageStats: StageStats[];
+  totalDialogs: number;
+  dialogsData: any[];
+  loading: boolean;
 }
 
 const OverviewContext = createContext<OverviewContextType | undefined>(
@@ -12,13 +22,29 @@ const OverviewContext = createContext<OverviewContextType | undefined>(
 
 export function OverviewProvider({
   children,
-  searchQuery
+  searchQuery,
+  stageStats = [],
+  totalDialogs = 0,
+  dialogsData = [],
+  loading = false
 }: {
   children: ReactNode;
   searchQuery: string;
+  stageStats?: StageStats[];
+  totalDialogs?: number;
+  dialogsData?: any[];
+  loading?: boolean;
 }) {
   return (
-    <OverviewContext.Provider value={{ searchQuery }}>
+    <OverviewContext.Provider
+      value={{
+        searchQuery,
+        stageStats,
+        totalDialogs,
+        dialogsData,
+        loading
+      }}
+    >
       {children}
     </OverviewContext.Provider>
   );

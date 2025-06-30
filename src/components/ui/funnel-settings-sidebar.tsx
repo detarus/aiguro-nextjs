@@ -26,10 +26,10 @@ export function FunnelSettingsSidebar({
     <div className='flex h-full w-64 flex-col border-r border-gray-200 bg-white p-4'>
       {/* Настройки мультиагента */}
       <div className='mb-4 flex-1'>
-        <h3 className='mb-1 text-base font-medium'>Настройки воронки</h3>
-        <p className='mb-3 text-xs text-gray-600'>
+        <h3 className='mb-1 pb-4 text-base font-medium'>Настройки воронки</h3>
+        {/* <p className='mb-8П text-xs text-gray-600 pb-8'>
           Вы можете настроить и адаптировать под свои задачи в этом меню агента
-        </p>
+        </p> */}
 
         <div className='space-y-3'>
           {/* Strictly Necessary */}

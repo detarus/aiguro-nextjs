@@ -218,6 +218,7 @@ export default function ConditionalHeader() {
       selectedFunnel={currentFunnel?.id}
       onFunnelChange={handleFunnelChange}
       onSearch={config?.onSearch || ((query) => console.log('Search:', query))}
+      searchValue={config?.searchValue || ''}
       onTimeFilterChange={handleTimeFilterChange}
       timeFilter={timeFilter}
       timeFilterOptions={

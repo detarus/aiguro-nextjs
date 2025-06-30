@@ -20,6 +20,7 @@ const PageHeaderContext = createContext<PageHeaderContextType | undefined>(
 export interface PageHeaderConfig {
   title?: string;
   onSearch?: (query: string) => void;
+  searchValue?: string; // Текущее значение поиска
   onTimeFilterChange?: (period: string) => void;
   timeFilterOptions?: Array<{ value: string; label: string }>;
   onFunnelChange?: (funnelId: string) => void;

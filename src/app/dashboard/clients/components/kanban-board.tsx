@@ -164,7 +164,7 @@ function KanbanColumn({
             <div className='mt-4'>
               <Separator className='mb-4' />
               <div className='space-y-3'>
-                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                <div className='hover:bg-muted/30 mb-0 flex items-center justify-between rounded-md p-2 transition-colors'>
                   <div className='flex items-center gap-2'>
                     <div className='h-2 w-2 rounded-full bg-green-500'></div>
                     <span className='text-muted-foreground text-sm font-medium'>
@@ -176,7 +176,7 @@ function KanbanColumn({
                   </span>
                 </div>
 
-                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                <div className='hover:bg-muted/30 mb-0 flex items-center justify-between rounded-md p-2 transition-colors'>
                   <div className='flex items-center gap-2'>
                     <div className='h-2 w-2 rounded-full bg-blue-500'></div>
                     <span className='text-muted-foreground text-sm font-medium'>
@@ -188,7 +188,7 @@ function KanbanColumn({
                   </span>
                 </div>
 
-                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                <div className='hover:bg-muted/30 mb-0 flex items-center justify-between rounded-md p-2 transition-colors'>
                   <div className='flex items-center gap-2'>
                     <div className='h-2 w-2 rounded-full bg-purple-500'></div>
                     <span className='text-muted-foreground text-sm font-medium'>
@@ -200,7 +200,7 @@ function KanbanColumn({
                   </span>
                 </div>
 
-                <div className='hover:bg-muted/30 flex items-center justify-between rounded-md p-2 transition-colors'>
+                <div className='hover:bg-muted/30 mb-0 flex items-center justify-between rounded-md p-2 transition-colors'>
                   <div className='flex items-center gap-2'>
                     <div className='h-2 w-2 rounded-full bg-orange-500'></div>
                     <span className='text-muted-foreground text-sm font-medium'>
@@ -214,7 +214,7 @@ function KanbanColumn({
 
                 <Separator className='my-3' />
 
-                <div className='bg-muted/20 flex items-center justify-between rounded-md p-2'>
+                <div className='bg-muted/20 mb-0 flex items-center justify-between rounded-md p-2'>
                   <span className='text-foreground text-sm font-medium'>
                     Всего клиентов
                   </span>

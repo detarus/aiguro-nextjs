@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { IconTrendingUp } from '@tabler/icons-react';
+import { IconTrendingUp, IconArrowRight } from '@tabler/icons-react';
+import { useRouter } from 'next/navigation';
 import { Label, Pie, PieChart } from 'recharts';
 
 import {
@@ -12,24 +13,27 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent
 } from '@/components/ui/chart';
+import { useOverviewContext } from '@/contexts/OverviewContext';
 
-const chartData = [
-  { browser: 'chrome', visitors: 275, fill: 'var(--primary)' },
-  { browser: 'safari', visitors: 200, fill: 'var(--primary-light)' },
-  { browser: 'firefox', visitors: 287, fill: 'var(--primary-lighter)' },
-  { browser: 'edge', visitors: 173, fill: 'var(--primary-dark)' },
-  { browser: 'other', visitors: 190, fill: 'var(--primary-darker)' }
+// Fallback данные
+const fallbackChartData = [
+  { browser: 'chrome', visitors: 0, fill: 'var(--primary)' },
+  { browser: 'safari', visitors: 0, fill: 'var(--primary-light)' },
+  { browser: 'firefox', visitors: 0, fill: 'var(--primary-lighter)' },
+  { browser: 'edge', visitors: 0, fill: 'var(--primary-dark)' },
+  { browser: 'other', visitors: 0, fill: 'var(--primary-darker)' }
 ];
 
 const chartConfig = {
   visitors: {
-    label: 'Rjydthcbq'
+    label: 'Конверсий'
   },
   chrome: {
     label: 'Знакомство',
@@ -54,9 +58,38 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function PieGraph() {
+  const router = useRouter();
+  const { stageStats, totalDialogs, loading } = useOverviewContext();
+
+  const handleNavigateToDialogs = () => {
+    router.push('/dashboard/messengers');
+  };
+
+  // Создаем данные для графика на основе реальных данных
+  const chartData = React.useMemo(() => {
+    if (loading || !stageStats.length) {
+      return fallbackChartData;
+    }
+
+    const browserKeys = ['chrome', 'safari', 'firefox', 'edge', 'other'];
+    const fillColors = [
+      'var(--primary)',
+      'var(--primary-light)',
+      'var(--primary-lighter)',
+      'var(--primary-dark)',
+      'var(--primary-darker)'
+    ];
+
+    return stageStats.slice(0, 5).map((stat, index) => ({
+      browser: browserKeys[index] || 'other',
+      visitors: stat.count,
+      fill: fillColors[index] || 'var(--primary-darker)'
+    }));
+  }, [stageStats, loading]);
+
   const totalVisitors = React.useMemo(() => {
     return chartData.reduce((acc, curr) => acc + curr.visitors, 0);
-  }, []);
+  }, [chartData]);
 
   return (
     <Card className='@container/card'>
@@ -148,14 +181,27 @@ export function PieGraph() {
           </PieChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className='flex-col gap-2 text-sm'>
-        <div className='flex items-center gap-2 leading-none font-medium'>
-          Общий рост превышает{' '}
-          {((chartData[0].visitors / totalVisitors) * 100).toFixed(1)}%{' '}
-          <IconTrendingUp className='h-4 w-4' />
-        </div>
-        <div className='text-muted-foreground leading-none'>
-          Основано на данных 11 Мая - 15 Мая 2025
+      <CardFooter className='flex-col gap-3 text-sm'>
+        <div className='flex w-full items-start justify-between gap-2'>
+          <div className='grid gap-2'>
+            <div className='flex items-center gap-2 leading-none font-medium'>
+              Общий рост превышает{' '}
+              {((chartData[0].visitors / totalVisitors) * 100).toFixed(1)}%{' '}
+              <IconTrendingUp className='h-4 w-4' />
+            </div>
+            <div className='text-muted-foreground leading-none'>
+              Основано на данных 11 Мая - 15 Мая 2025
+            </div>
+          </div>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={handleNavigateToDialogs}
+            className='flex items-center gap-2'
+          >
+            К диалогам
+            <IconArrowRight className='h-4 w-4' />
+          </Button>
         </div>
       </CardFooter>
     </Card>

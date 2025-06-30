@@ -96,10 +96,19 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
 
   useEffect(() => {
     updateConfig({
-      onSearch: setSearchQuery
+      onSearch: setSearchQuery,
+      searchValue: searchQuery
     });
     return () => updateConfig({});
-  }, [updateConfig]);
+  }, [updateConfig, searchQuery]);
+
+  // Чтение параметра search из URL и установка его в поле поиска
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchQuery(decodeURIComponent(searchParam));
+    }
+  }, [searchParams]);
 
   const filteredDialogs = useMemo(() => {
     if (!searchQuery) {
@@ -897,29 +906,29 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                       <Label
                         htmlFor='agent-mode'
                         className={
-                          messageMode === 'assistant'
-                            ? 'font-medium'
-                            : 'text-muted-foreground'
-                        }
-                      >
-                        Агент
-                      </Label>
-                      <Switch
-                        id='agent-mode'
-                        checked={messageMode === 'manager'}
-                        onCheckedChange={(checked) =>
-                          setMessageMode(checked ? 'manager' : 'assistant')
-                        }
-                      />
-                      <Label
-                        htmlFor='agent-mode'
-                        className={
                           messageMode === 'manager'
                             ? 'font-medium'
                             : 'text-muted-foreground'
                         }
                       >
                         Менеджер
+                      </Label>
+                      <Switch
+                        id='agent-mode'
+                        checked={messageMode === 'assistant'}
+                        onCheckedChange={(checked) =>
+                          setMessageMode(checked ? 'assistant' : 'manager')
+                        }
+                      />
+                      <Label
+                        htmlFor='agent-mode'
+                        className={
+                          messageMode === 'assistant'
+                            ? 'font-medium'
+                            : 'text-muted-foreground'
+                        }
+                      >
+                        Агент
                       </Label>
                     </div>
                   </div>
@@ -986,10 +995,19 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder='Введите сообщение...'
+                    placeholder={
+                      messageMode === 'assistant'
+                        ? 'Недоступно в режиме агента'
+                        : 'Введите сообщение...'
+                    }
                     className='flex-1'
+                    disabled={messageMode === 'assistant'}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (
+                        e.key === 'Enter' &&
+                        !e.shiftKey &&
+                        messageMode !== 'assistant'
+                      ) {
                         e.preventDefault();
                         handleSendMessage();
                       }
@@ -997,7 +1015,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
                   />
                   <Button
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
+                    disabled={!newMessage.trim() || messageMode === 'assistant'}
                   >
                     Отправить
                   </Button>

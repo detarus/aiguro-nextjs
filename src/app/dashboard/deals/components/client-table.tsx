@@ -729,212 +729,278 @@ export function ClientTable({
   };
 
   return (
-    <div className='w-full overflow-auto'>
-      <table className='w-full border-collapse'>
-        <thead>
-          <tr className='bg-gray-50 text-left text-xs tracking-wider text-gray-500 uppercase dark:bg-gray-800 dark:text-gray-400'>
-            <th className='w-12 p-4'>
-              <input
-                type='checkbox'
-                checked={
-                  selectedClients.size === clients.length && clients.length > 0
-                }
-                onChange={toggleSelectAll}
-                className='h-4 w-4 rounded border-gray-300 text-blue-600'
-              />
-            </th>
-            <th className='p-4'>Имя</th>
-            <th className='p-4'>Телефон</th>
-            <th className='p-4'>Email</th>
-            <th className='p-4'>Запрос</th>
-            <th className='p-4'>Цена</th>
-            <th className='p-4'>Стадия</th>
-            <th className='hidden p-4 lg:table-cell'>Ответственный</th>
-            <th className='p-4'>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clients.map((client) => (
-            <tr
-              key={client.id}
-              className='border-b border-gray-200 text-sm dark:border-gray-700'
-            >
-              <td className='p-4 text-xs'>
-                <input
-                  type='checkbox'
-                  checked={selectedClients.has(client.id)}
-                  onChange={() => toggleClientSelection(client.id)}
-                  className='h-4 w-4 rounded border-gray-300 text-xs text-blue-600'
+    <div className='overflow-hidden rounded-md'>
+      <div className='overflow-x-auto'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className='w-[40px]'>
+                <Checkbox
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedClients(
+                        new Set(clients.map((client) => client.id))
+                      );
+                    } else {
+                      setSelectedClients(new Set());
+                    }
+                  }}
                 />
-              </td>
-              <td className='p-4'>
-                {editMode.has(client.id) ? (
-                  <Input
-                    type='text'
-                    value={getEditValue(client.id, 'name')}
-                    onChange={(e) =>
-                      handleInputChange(client.id, 'name', e.target.value)
-                    }
-                    className='w-full rounded border p-1'
-                    placeholder='Не указано'
-                  />
-                ) : (
-                  <div
-                    className='cursor-pointer'
-                    onClick={() => {
-                      if (client.dialogUuid) {
-                        router.push(
-                          `/dashboard/messengers?uuid=${client.dialogUuid}`
-                        );
-                      }
-                    }}
-                  >
-                    {getDisplayValue(client.id, 'name')}
-                  </div>
-                )}
-              </td>
-              <td className='p-4'>
-                {editMode.has(client.id) ? (
-                  <Input
-                    type='text'
-                    value={getEditValue(client.id, 'phone')}
-                    onChange={(e) =>
-                      handleInputChange(client.id, 'phone', e.target.value)
-                    }
-                    className='w-full rounded border p-1'
-                    placeholder='Не указано'
-                  />
-                ) : (
-                  getDisplayValue(client.id, 'phone')
-                )}
-              </td>
-              <td className='p-4'>
-                {editMode.has(client.id) ? (
-                  <Input
-                    type='text'
-                    value={getEditValue(client.id, 'email')}
-                    onChange={(e) =>
-                      handleInputChange(client.id, 'email', e.target.value)
-                    }
-                    className='w-full rounded border p-1'
-                    placeholder='Не указано'
-                  />
-                ) : (
-                  getDisplayValue(client.id, 'email')
-                )}
-              </td>
-              <td className='p-4'>
-                {editMode.has(client.id) ? (
-                  <Input
-                    type='text'
-                    value={getEditValue(client.id, 'request')}
-                    onChange={(e) =>
-                      handleInputChange(client.id, 'request', e.target.value)
-                    }
-                    className='w-full rounded border p-1'
-                    placeholder='Не указано'
-                  />
-                ) : (
-                  getDisplayValue(client.id, 'request', 'Не указано')
-                )}
-              </td>
-              <td className='p-4'>
-                {editMode.has(client.id) ? (
-                  <Input
-                    type='text'
-                    value={getEditValue(client.id, 'price')}
-                    onChange={(e) =>
-                      handleInputChange(client.id, 'price', e.target.value)
-                    }
-                    className='w-full rounded border p-1'
-                    placeholder='0 ₽'
-                  />
-                ) : client.price ? (
-                  new Intl.NumberFormat('ru-RU', {
-                    style: 'currency',
-                    currency: 'RUB',
-                    maximumFractionDigits: 0
-                  })
-                    .format(client.price)
-                    .replace('RUB', '₽')
-                ) : (
-                  '0 ₽'
-                )}
-              </td>
-              <td className='p-4'>{renderStage(client.stage)}</td>
-              <td className='hidden p-4 lg:table-cell'>
-                {editMode.has(client.id) ? (
-                  <Input
-                    type='text'
-                    value={getEditValue(client.id, 'assignedTo')}
-                    onChange={(e) =>
-                      handleInputChange(client.id, 'assignedTo', e.target.value)
-                    }
-                    className='w-full rounded border p-1'
-                    placeholder='Не указано'
-                  />
-                ) : (
-                  getDisplayValue(client.id, 'assignedTo')
-                )}
-              </td>
-              <td className='p-4'>
-                <div className='flex items-center space-x-2'>
-                  {editMode.has(client.id) ? (
-                    <>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => handleSaveChanges(client.id)}
-                        disabled={
-                          updateStatus.id === client.id &&
-                          updateStatus.status === 'loading'
+              </TableHead>
+              <TableHead className='min-w-[150px]'>Имя</TableHead>
+              <TableHead className='hidden min-w-[120px] md:table-cell'>
+                Телефон
+              </TableHead>
+              <TableHead className='hidden min-w-[150px] lg:table-cell'>
+                Email
+              </TableHead>
+              <TableHead className='hidden min-w-[120px] xl:table-cell'>
+                Запрос
+              </TableHead>
+              <TableHead className='min-w-[100px]'>Цена</TableHead>
+              <TableHead className='min-w-[100px]'>Стадия</TableHead>
+              <TableHead className='hidden min-w-[150px] xl:table-cell'>
+                Ответственный
+              </TableHead>
+              <TableHead className='w-[60px] text-right'>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {clients.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={9}
+                  className='text-muted-foreground py-8 text-center'
+                >
+                  Сделки не найдены
+                </TableCell>
+              </TableRow>
+            ) : (
+              clients.map((client) => (
+                <TableRow
+                  key={client.id}
+                  id={`client-row-${client.id}`}
+                  className='group'
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedClients.has(client.id)}
+                      onCheckedChange={() => toggleClientSelection(client.id)}
+                    />
+                  </TableCell>
+                  <TableCell className='font-medium'>
+                    {editMode.has(client.id) ? (
+                      <Input
+                        type='text'
+                        value={getEditValue(client.id, 'name')}
+                        onChange={(e) =>
+                          handleInputChange(client.id, 'name', e.target.value)
                         }
+                        className='w-full rounded border p-1'
+                        placeholder='Не указано'
+                      />
+                    ) : (
+                      <div
+                        className='cursor-pointer'
+                        onClick={() => {
+                          if (client.dialogUuid) {
+                            router.push(
+                              `/dashboard/messengers?uuid=${client.dialogUuid}`
+                            );
+                          }
+                        }}
                       >
-                        {updateStatus.id === client.id &&
-                        updateStatus.status === 'loading' ? (
-                          <div className='h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600' />
-                        ) : (
-                          <IconCheck className='h-4 w-4 text-green-500' />
-                        )}
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => cancelEdit(client.id)}
-                      >
-                        <IconX className='h-4 w-4 text-red-500' />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => startEdit(client.id)}
-                      >
-                        <IconEdit className='h-4 w-4' />
-                      </Button>
-                      {client.dialogUuid && (
+                        {getDisplayValue(client.id, 'name')}
+                      </div>
+                    )}
+                    <div className='text-muted-foreground mt-1 text-xs md:hidden'>
+                      {getDisplayValue(client.id, 'phone')}
+                    </div>
+                    <div className='text-muted-foreground mt-1 max-w-[150px] truncate text-xs md:hidden lg:hidden'>
+                      {getDisplayValue(client.id, 'email')}
+                    </div>
+                  </TableCell>
+                  <TableCell className='hidden md:table-cell'>
+                    {editMode.has(client.id) ? (
+                      <Input
+                        type='text'
+                        value={getEditValue(client.id, 'phone')}
+                        onChange={(e) =>
+                          handleInputChange(client.id, 'phone', e.target.value)
+                        }
+                        className='w-full rounded border p-1'
+                        placeholder='Не указано'
+                      />
+                    ) : (
+                      getDisplayValue(client.id, 'phone')
+                    )}
+                  </TableCell>
+                  <TableCell className='hidden lg:table-cell'>
+                    {editMode.has(client.id) ? (
+                      <Input
+                        type='text'
+                        value={getEditValue(client.id, 'email')}
+                        onChange={(e) =>
+                          handleInputChange(client.id, 'email', e.target.value)
+                        }
+                        className='w-full rounded border p-1'
+                        placeholder='Не указано'
+                      />
+                    ) : (
+                      getDisplayValue(client.id, 'email')
+                    )}
+                  </TableCell>
+                  <TableCell className='hidden xl:table-cell'>
+                    {editMode.has(client.id) ? (
+                      <Input
+                        type='text'
+                        value={getEditValue(client.id, 'request')}
+                        onChange={(e) =>
+                          handleInputChange(
+                            client.id,
+                            'request',
+                            e.target.value
+                          )
+                        }
+                        className='w-full rounded border p-1'
+                        placeholder='Не указано'
+                      />
+                    ) : (
+                      getDisplayValue(client.id, 'request', 'Не указано')
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {editMode.has(client.id) ? (
+                      <Input
+                        type='text'
+                        value={getEditValue(client.id, 'price')}
+                        onChange={(e) =>
+                          handleInputChange(client.id, 'price', e.target.value)
+                        }
+                        className='w-full rounded border p-1'
+                        placeholder='0 ₽'
+                      />
+                    ) : client.price ? (
+                      new Intl.NumberFormat('ru-RU', {
+                        style: 'currency',
+                        currency: 'RUB',
+                        maximumFractionDigits: 0
+                      })
+                        .format(client.price)
+                        .replace('RUB', '₽')
+                    ) : (
+                      '0 ₽'
+                    )}
+                  </TableCell>
+                  <TableCell>{renderStage(client.stage)}</TableCell>
+                  <TableCell className='hidden xl:table-cell'>
+                    {editMode.has(client.id) ? (
+                      <Input
+                        type='text'
+                        value={getEditValue(client.id, 'assignedTo')}
+                        onChange={(e) =>
+                          handleInputChange(
+                            client.id,
+                            'assignedTo',
+                            e.target.value
+                          )
+                        }
+                        className='w-full rounded border p-1'
+                        placeholder='Не указано'
+                      />
+                    ) : (
+                      getDisplayValue(client.id, 'assignedTo')
+                    )}
+                  </TableCell>
+                  <TableCell className='text-right'>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
                           variant='ghost'
                           size='icon'
-                          onClick={() =>
-                            router.push(
-                              `/dashboard/messengers?uuid=${client.dialogUuid}`
-                            )
-                          }
+                          className='opacity-0 group-hover:opacity-100 sm:opacity-100'
                         >
-                          <IconArrowRight className='h-4 w-4 text-blue-500' />
+                          <IconDotsVertical className='h-4 w-4' />
                         </Button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end'>
+                        {editMode.has(client.id) ? (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => handleSaveChanges(client.id)}
+                              disabled={
+                                updateStatus.id === client.id &&
+                                updateStatus.status === 'loading'
+                              }
+                            >
+                              {updateStatus.id === client.id &&
+                              updateStatus.status === 'loading' ? (
+                                <>
+                                  <div className='mr-2 h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600' />
+                                  Сохранение...
+                                </>
+                              ) : (
+                                <>
+                                  <IconCheck className='mr-2 h-4 w-4 text-green-500' />
+                                  Сохранить
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => cancelEdit(client.id)}
+                            >
+                              <IconX className='mr-2 h-4 w-4 text-red-500' />
+                              Отменить
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <>
+                            {client.dialogUuid && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(
+                                    `/dashboard/messengers?uuid=${client.dialogUuid}`
+                                  )
+                                }
+                              >
+                                <IconArrowRight className='mr-2 h-4 w-4' />
+                                Посмотреть
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => startEdit(client.id)}
+                            >
+                              <IconEdit className='mr-2 h-4 w-4' />
+                              Редактировать
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => deleteClient(client.id)}
+                            >
+                              Удалить
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      {selectedClients.size > 0 && (
+        <div className='fixed right-4 bottom-4'>
+          <Button variant='destructive' onClick={deleteSelectedClients}>
+            Удалить выбранные
+          </Button>
+        </div>
+      )}
+      {showDeleteMessage && (
+        <div className='fixed right-4 bottom-16 rounded bg-green-500 p-2 text-white'>
+          Элементы были удалены
+        </div>
+      )}
     </div>
   );
 }

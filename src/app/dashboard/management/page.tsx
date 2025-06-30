@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageSkeleton } from '@/components/page-skeleton';
 import {
   Card,
@@ -30,8 +31,11 @@ import { AgentTeamSelection } from '@/components/ui/agent-team-selection';
 import { StageSettings } from '@/components/ui/stage-settings';
 import { FunnelSettingsSidebar } from '@/components/ui/funnel-settings-sidebar';
 
-export default function ManagementPage() {
+function ManagementPageContent() {
   const { organization } = useOrganization();
+  const searchParams = useSearchParams();
+  const stageParam = searchParams?.get('stage');
+
   const { currentFunnel } = useFunnels(
     organization?.publicMetadata?.id_backend as string
   );
@@ -115,6 +119,29 @@ export default function ManagementPage() {
     }
   };
 
+  // Автоматический выбор этапа по URL параметру
+  useEffect(() => {
+    if (stageParam && funnelStages.length > 0 && !assistantsLoading) {
+      // Небольшая задержка для обеспечения полной загрузки данных
+      const timer = setTimeout(() => {
+        try {
+          const decodedStageParam = decodeURIComponent(stageParam);
+          const stageIndex = funnelStages.findIndex(
+            (stage) => stage.name === decodedStageParam
+          );
+
+          if (stageIndex !== -1) {
+            handleStageSelect(stageIndex, funnelStages[stageIndex]);
+          }
+        } catch (error) {
+          console.error('Error decoding stage parameter:', error);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [stageParam, funnelStages, assistantsLoading]);
+
   // Загружаем данные при монтировании и изменении организации/воронки
   useEffect(() => {
     if (organization && currentFunnel) {
@@ -129,15 +156,19 @@ export default function ManagementPage() {
         <FunnelSettingsSidebar funnelName={currentFunnel?.name} />
 
         {/* Основной контент */}
-        <div className='flex-1 overflow-hidden'>
-          <PageContainer scrollable={true} className='p-4'>
+        <div className='max-w-full min-w-0 flex-1 overflow-hidden'>
+          <PageContainer
+            scrollable={true}
+            className='w-full max-w-full min-w-0 p-4'
+          >
             {/* Блок этапов сделок */}
             {currentFunnel && backendOrgId ? (
-              <div className='mb-6'>
+              <div className='mb-6 w-full max-w-full min-w-0 overflow-hidden'>
                 <StagesBlock
                   organizationId={backendOrgId}
                   funnelId={currentFunnel.id}
                   stages={funnelStages}
+                  isLoading={assistantsLoading}
                   onStageUpdate={fetchAssistantsCount}
                   onStageSelect={handleStageSelect}
                 />
@@ -344,6 +375,14 @@ export default function ManagementPage() {
           </PageContainer>
         </div>
       </div>
+    </Suspense>
+  );
+}
+
+export default function ManagementPage() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <ManagementPageContent />
     </Suspense>
   );
 }

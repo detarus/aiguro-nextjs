@@ -1,6 +1,7 @@
 'use client';
 
-import { IconTrendingUp } from '@tabler/icons-react';
+import { IconTrendingUp, IconArrowRight } from '@tabler/icons-react';
+import { useRouter } from 'next/navigation';
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 
 import {
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   ChartConfig,
   ChartContainer,
@@ -42,6 +44,12 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function AreaGraph() {
+  const router = useRouter();
+
+  const handleNavigateToDeals = () => {
+    router.push('/dashboard/deals');
+  };
+
   return (
     <Card className='@container/card'>
       <CardHeader>
@@ -117,7 +125,7 @@ export function AreaGraph() {
         </ChartContainer>
       </CardContent>
       <CardFooter>
-        <div className='flex w-full items-start gap-2 text-sm'>
+        <div className='flex w-full items-start justify-between gap-2 text-sm'>
           <div className='grid gap-2'>
             <div className='flex items-center gap-2 leading-none font-medium'>
               Trending up by 5.2% this month{' '}
@@ -127,6 +135,15 @@ export function AreaGraph() {
               January - June 2024
             </div>
           </div>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={handleNavigateToDeals}
+            className='flex items-center gap-2'
+          >
+            К сделкам
+            <IconArrowRight className='h-4 w-4' />
+          </Button>
         </div>
       </CardFooter>
     </Card>

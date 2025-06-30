@@ -618,7 +618,7 @@ export default function FollowUpPage() {
                           <div className='space-y-1'>
                             <div className='flex items-center gap-2'>
                               <span className='font-medium'>{param.name}</span>
-                              <Badge variant='outline'>{param.type}</Badge>
+                              {/* <Badge variant='outline'>{param.type}</Badge> */}
                             </div>
                             <p className='text-muted-foreground text-sm'>
                               {param.instruction}

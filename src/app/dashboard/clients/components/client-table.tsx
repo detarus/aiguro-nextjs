@@ -95,7 +95,14 @@ export function ClientTable({ clients }: ClientTableProps) {
   };
 
   const navigateToClientDetail = (id: number) => {
-    router.push(`/dashboard/clients/${id}`);
+    // Находим клиента по id для получения его имени
+    const client = clients.find((c) => c.id === id);
+    if (client) {
+      // Переходим на страницу диалогов с фильтром по имени клиента
+      router.push(
+        `/dashboard/messengers?search=${encodeURIComponent(client.name)}`
+      );
+    }
   };
 
   useEffect(() => {
@@ -108,7 +115,7 @@ export function ClientTable({ clients }: ClientTableProps) {
   }, [clients]);
 
   return (
-    <div className='overflow-hidden rounded-md border'>
+    <div className='overflow-hidden rounded-md'>
       <div className='overflow-x-auto'>
         <Table>
           <TableHeader>

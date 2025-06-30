@@ -20,12 +20,13 @@ import { useOverviewContext } from '@/contexts/OverviewContext';
 
 export const description = 'An interactive bar chart';
 
-const chartData = [
-  { stage: 'Квалификация', desktop: 222, mobile: 150 },
-  { stage: 'Презентация', desktop: 97, mobile: 180 },
-  { stage: 'Переговоры', desktop: 167, mobile: 120 },
-  { stage: 'Закрытие', desktop: 242, mobile: 260 },
-  { stage: 'Отказ', desktop: 373, mobile: 290 }
+// Моковые данные используются как fallback
+const fallbackChartData = [
+  { stage: 'Квалификация', desktop: 0, mobile: 0 },
+  { stage: 'Презентация', desktop: 0, mobile: 0 },
+  { stage: 'Переговоры', desktop: 0, mobile: 0 },
+  { stage: 'Закрытие', desktop: 0, mobile: 0 },
+  { stage: 'Отказ', desktop: 0, mobile: 0 }
 ];
 
 const chartConfig = {
@@ -47,16 +48,30 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function BarGraph() {
-  const { searchQuery } = useOverviewContext();
+  const { searchQuery, stageStats, totalDialogs, loading } =
+    useOverviewContext();
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>('desktop');
+
+  // Создаем данные для графика на основе реальных данных
+  const chartData = React.useMemo(() => {
+    if (loading || !stageStats.length) {
+      return fallbackChartData;
+    }
+
+    return stageStats.map((stat) => ({
+      stage: stat.name,
+      desktop: stat.count,
+      mobile: Math.floor(stat.count * 0.7) // Примерное соотношение для голосовых
+    }));
+  }, [stageStats, loading]);
 
   const filteredData = React.useMemo(() => {
     if (!searchQuery) return chartData;
     return chartData.filter((item) =>
       item.stage.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [searchQuery, chartData]);
 
   const total = React.useMemo(
     () => ({

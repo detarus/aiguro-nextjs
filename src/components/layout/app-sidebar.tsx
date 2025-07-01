@@ -142,10 +142,10 @@ const navigationSections = [
       },
       {
         title: 'Поддержка',
-        url: '#',
+        url: '/dashboard/support',
         icon: IconHeadset,
         isActive: false,
-        disabled: true
+        disabled: false
       },
       {
         title: 'Дебаг',

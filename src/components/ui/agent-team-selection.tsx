@@ -17,7 +17,7 @@ interface AgentTeam {
   id: string;
   name: string;
   date: string;
-  type: 'Multiagent' | 'SingleAgent';
+  type: 'Мультиагент' | 'Одиночный';
   isActive: boolean;
   isEnabled: boolean;
   stats: {
@@ -36,7 +36,7 @@ const mockTeams: AgentTeam[] = [
     id: '1',
     name: 'Агент1',
     date: '23-11-2024',
-    type: 'Multiagent',
+    type: 'Мультиагент',
     isActive: true,
     isEnabled: true,
     stats: { users: 1, warnings: 4, errors: 2, success: 1 },
@@ -48,7 +48,7 @@ const mockTeams: AgentTeam[] = [
     id: '2',
     name: 'Агент2',
     date: '23-11-2024',
-    type: 'SingleAgent',
+    type: 'Одиночный',
     isActive: false,
     isEnabled: false,
     stats: { users: 1, warnings: 4, errors: 2, success: 1 },
@@ -60,7 +60,7 @@ const mockTeams: AgentTeam[] = [
     id: '3',
     name: 'Агент3',
     date: '23-11-2024',
-    type: 'Multiagent',
+    type: 'Мультиагент',
     isActive: false,
     isEnabled: false,
     stats: { users: 1, warnings: 4, errors: 2, success: 1 },
@@ -128,7 +128,7 @@ export function AgentTeamSelection() {
                     <Badge
                       variant='outline'
                       className={`px-1 py-0 text-xs ${
-                        team.type === 'Multiagent'
+                        team.type === 'Мультиагент'
                           ? 'border-purple-200 bg-purple-50 text-purple-700'
                           : 'border-gray-200 bg-gray-50 text-gray-700'
                       }`}

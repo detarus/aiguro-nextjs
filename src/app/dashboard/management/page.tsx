@@ -1,388 +1,725 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { PageSkeleton } from '@/components/page-skeleton';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
-import { IconAdjustments, IconCreditCard } from '@tabler/icons-react';
-import { Button } from '@/components/ui/button';
-import { PageContainer } from '@/components/ui/page-container';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOrganization } from '@clerk/nextjs';
+import { useSearchParams } from 'next/navigation';
 import { useFunnels } from '@/hooks/useFunnels';
-import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { PageContainer } from '@/components/ui/page-container';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
-import { StagesBlock } from '@/components/ui/stages-block';
-import { AgentTeamSelection } from '@/components/ui/agent-team-selection';
-import { StageSettings } from '@/components/ui/stage-settings';
-import { FunnelSettingsSidebar } from '@/components/ui/funnel-settings-sidebar';
+import { Textarea } from '@/components/ui/textarea';
+import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import {
+  IconBrandTelegram,
+  IconBrandWhatsapp,
+  IconBrandInstagram,
+  IconBrandFacebook,
+  IconSettings,
+  IconUsers,
+  IconAlertTriangle
+} from '@tabler/icons-react';
+
+// Импорт Kanban компонентов
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+
+// Интерфейсы
+interface Integration {
+  id: string;
+  name: string;
+  type: 'telegram' | 'whatsapp' | 'instagram' | 'facebook' | 'other';
+  status: 'connected' | 'disconnected' | 'error';
+  funnel_id?: string;
+  connection_name?: string;
+  last_activity?: string;
+}
+
+interface AgentTeam {
+  id: string;
+  name: string;
+  type: 'Мультиагент' | 'Одиночный';
+  cv: number;
+  users: number;
+  warnings: number;
+  errors: number;
+  success: number;
+  enabled: boolean;
+  meetingType?: string;
+}
+
+interface Stage {
+  name: string;
+  assistant_code_name: string;
+  prompt?: string;
+  followups?: { delay_minutes: number }[];
+  deals_count?: number;
+  deals_amount?: number;
+}
+
+// Конфигурация интеграций
+const integrationIcons = {
+  telegram: IconBrandTelegram,
+  whatsapp: IconBrandWhatsapp,
+  instagram: IconBrandInstagram,
+  facebook: IconBrandFacebook,
+  default: IconSettings
+};
+
+// Компонент перемещаемой карточки подключения
+function ConnectionCard({
+  connection,
+  isOverlay
+}: {
+  connection: Integration;
+  isOverlay?: boolean;
+}) {
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: connection.id,
+    data: {
+      type: 'Connection',
+      connection
+    }
+  });
+
+  const style = {
+    transition,
+    transform: CSS.Translate.toString(transform)
+  };
+
+  const IconComponent =
+    integrationIcons[connection.type as keyof typeof integrationIcons] ||
+    integrationIcons.default;
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`mb-2 cursor-grab ${isDragging || isOverlay ? 'opacity-50' : ''}`}
+      {...attributes}
+      {...listeners}
+    >
+      <CardContent className='p-3'>
+        <div className='flex items-center gap-2'>
+          <IconComponent className='h-4 w-4' />
+          <div>
+            <div className='text-sm font-medium'>
+              {connection.connection_name || connection.name}
+            </div>
+            <div className='text-xs text-gray-500'>{connection.type}</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Компонент колонки Kanban
+function KanbanColumn({
+  title,
+  children,
+  className = '',
+  headerContent,
+  isDropZone = false
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+  headerContent?: React.ReactNode;
+  isDropZone?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-lg border bg-gray-50 ${className}`}
+      style={{ minHeight: '500px', width: '300px' }}
+    >
+      <div className='rounded-t-lg border-b bg-white p-4'>
+        <h3 className='text-sm font-semibold tracking-wide text-gray-700 uppercase'>
+          {title}
+        </h3>
+        {headerContent}
+      </div>
+      <div className='p-3'>
+        <ScrollArea className='h-[400px]'>{children}</ScrollArea>
+      </div>
+    </div>
+  );
+}
 
 function ManagementPageContent() {
-  const { organization } = useOrganization();
   const searchParams = useSearchParams();
-  const stageParam = searchParams?.get('stage');
-
-  const { currentFunnel } = useFunnels(
-    organization?.publicMetadata?.id_backend as string
-  );
-
-  const [assistantsCount, setAssistantsCount] = useState<number | null>(null);
-  const [assistantsLoading, setAssistantsLoading] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [funnelStages, setFunnelStages] = useState<any[]>([]);
-  const [selectedStage, setSelectedStage] = useState<{
-    index: number;
-    stage: any;
-  } | null>(null);
-
+  const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
-  // Функция для загрузки количества ассистентов по этапам из воронки
-  const fetchAssistantsCount = async () => {
-    if (!backendOrgId || !currentFunnel?.id) {
-      return;
-    }
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [funnelStages, setFunnelStages] = useState<Stage[]>([]);
+  const [assistantsLoading, setAssistantsLoading] = useState(true);
+  const [selectedStage, setSelectedStage] = useState<{
+    index: number;
+    stage: Stage;
+  } | null>(null);
 
-    const token = getClerkTokenFromClientCookie();
-    if (!token) {
-      return;
-    }
+  // Состояния для интеграций
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(true);
 
-    setAssistantsLoading(true);
+  // Состояния для агентов
+  const [agentTeams, setAgentTeams] = useState<AgentTeam[]>([]);
+
+  // Состояние для модального окна настройки этапа
+  const [stageSettingsModal, setStageSettingsModal] = useState<{
+    isOpen: boolean;
+    stage: Stage | null;
+    stageIndex: number;
+  }>({
+    isOpen: false,
+    stage: null,
+    stageIndex: -1
+  });
+
+  // Состояние для Drag and Drop
+  const [activeConnection, setActiveConnection] = useState<Integration | null>(
+    null
+  );
+
+  const {
+    currentFunnel,
+    funnels,
+    loading: funnelsLoading
+  } = useFunnels(backendOrgId);
+
+  // Загрузка интеграций
+  const fetchIntegrations = useCallback(async () => {
+    if (!backendOrgId) return;
 
     try {
-      // Получаем данные воронки, которая содержит этапы
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+      setIntegrationsLoading(true);
+      const token = getClerkTokenFromClientCookie();
+
+      if (!token) return;
+
+      // Получаем все интеграции для всех воронок
+      const allIntegrations: Integration[] = [];
+
+      if (funnels && funnels.length > 0) {
+        for (const funnel of funnels) {
+          try {
+            const response = await fetch(
+              `/api/organization/${backendOrgId}/funnel/${funnel.id}/messenger_connections`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                }
+              }
+            );
+
+            if (response.ok) {
+              const data = await response.json();
+              const connections = Array.isArray(data) ? data : [];
+
+              connections.forEach((conn: any) => {
+                allIntegrations.push({
+                  id: `${funnel.id}-${conn.id || conn.name || Math.random()}`,
+                  name:
+                    conn.connection_name ||
+                    conn.name ||
+                    'Неизвестное подключение',
+                  type: conn.messenger_type?.toLowerCase() || 'other',
+                  status: conn.is_active ? 'connected' : 'disconnected',
+                  funnel_id: funnel.id,
+                  connection_name: conn.connection_name,
+                  last_activity: conn.last_activity
+                });
+              });
+            }
+          } catch (error) {
+            console.error(
+              `Error fetching integrations for funnel ${funnel.id}:`,
+              error
+            );
           }
         }
-      );
+      }
+
+      setIntegrations(allIntegrations);
+    } catch (error) {
+      console.error('Error fetching integrations:', error);
+    } finally {
+      setIntegrationsLoading(false);
+    }
+  }, [backendOrgId, funnels]);
+
+  // Загрузка команд агентов
+  const loadAgentTeams = useCallback(() => {
+    const mockAgentTeams: AgentTeam[] = [
+      {
+        id: '1',
+        name: 'Алексей',
+        type: 'Мультиагент',
+        cv: 56,
+        users: 120,
+        warnings: 5,
+        errors: 2,
+        success: 95,
+        enabled: true,
+        meetingType: 'Настройки'
+      },
+      {
+        id: '2',
+        name: 'Мария',
+        type: 'Одиночный',
+        cv: 42,
+        users: 85,
+        warnings: 3,
+        errors: 1,
+        success: 87,
+        enabled: false,
+        meetingType: 'Консультация'
+      }
+    ];
+    setAgentTeams(mockAgentTeams);
+  }, []);
+
+  // Загрузка этапов воронки
+  const fetchFunnelStages = useCallback(async () => {
+    if (!currentFunnel || !backendOrgId || funnelsLoading) {
+      return;
+    }
+
+    try {
+      setAssistantsLoading(true);
+      const token = getClerkTokenFromClientCookie();
+
+      if (!token) {
+        console.error('No token available');
+        return;
+      }
+
+      const url = `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
 
       if (response.ok) {
-        const funnelData = await response.json();
-        console.log('Funnel data:', funnelData);
-
-        // Подсчитываем количество этапов с ассистентами
-        if (funnelData.stages && Array.isArray(funnelData.stages)) {
-          const stagesWithAssistants = funnelData.stages.filter(
-            (stage: any) =>
-              stage.assistant_code_name &&
-              stage.assistant_code_name.trim() !== ''
-          );
-          setAssistantsCount(stagesWithAssistants.length);
-
-          // Сохраняем этапы для отображения в блоке этапов
-          setFunnelStages(funnelData.stages);
-        } else {
-          setAssistantsCount(0);
-          setFunnelStages([]);
-        }
+        const data = await response.json();
+        setFunnelStages(data.stages || []);
       } else {
-        console.error('Failed to fetch funnel data:', response.status);
-        setAssistantsCount(0);
-        setFunnelStages([]);
+        console.error('Failed to fetch funnel data, status:', response.status);
       }
     } catch (error) {
       console.error('Error fetching funnel data:', error);
-      setAssistantsCount(0);
-      setFunnelStages([]);
     } finally {
       setAssistantsLoading(false);
     }
-  };
+  }, [currentFunnel, backendOrgId, funnelsLoading]);
 
   // Обработчик выбора этапа
   const handleStageSelect = (stageIndex: number | null, stage?: any) => {
     if (stageIndex !== null && stage) {
-      setSelectedStage({ index: stageIndex, stage });
-    } else {
-      setSelectedStage(null);
+      setStageSettingsModal({
+        isOpen: true,
+        stage: stage,
+        stageIndex: stageIndex
+      });
     }
   };
 
-  // Автоматический выбор этапа по URL параметру
+  // Обработчик закрытия модального окна настройки этапа
+  const handleCloseStageSettings = () => {
+    setStageSettingsModal({
+      isOpen: false,
+      stage: null,
+      stageIndex: -1
+    });
+  };
+
+  // Загрузка данных при изменении воронки
   useEffect(() => {
-    if (stageParam && funnelStages.length > 0 && !assistantsLoading) {
-      // Небольшая задержка для обеспечения полной загрузки данных
-      const timer = setTimeout(() => {
-        try {
-          const decodedStageParam = decodeURIComponent(stageParam);
-          const stageIndex = funnelStages.findIndex(
-            (stage) => stage.name === decodedStageParam
-          );
+    fetchFunnelStages();
+  }, [fetchFunnelStages]);
 
-          if (stageIndex !== -1) {
-            handleStageSelect(stageIndex, funnelStages[stageIndex]);
-          }
-        } catch (error) {
-          console.error('Error decoding stage parameter:', error);
-        }
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [stageParam, funnelStages, assistantsLoading]);
-
-  // Загружаем данные при монтировании и изменении организации/воронки
+  // Загрузка интеграций и агентов
   useEffect(() => {
-    if (organization && currentFunnel) {
-      fetchAssistantsCount();
+    if (backendOrgId) {
+      fetchIntegrations();
+      loadAgentTeams();
     }
-  }, [backendOrgId, currentFunnel?.id]);
+  }, [backendOrgId, fetchIntegrations, loadAgentTeams]);
+
+  // Настройка сенсоров для Drag and Drop
+  const sensors = useSensors(useSensor(MouseSensor), useSensor(TouchSensor));
+
+  // Обработчики Drag and Drop
+  function onDragStart(event: DragStartEvent) {
+    const { active } = event;
+    const connection = integrations.find((int) => int.id === active.id);
+    if (connection) {
+      setActiveConnection(connection);
+    }
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    setActiveConnection(null);
+    // Здесь можно добавить логику для обработки перемещения
+    console.log('Drag ended:', event);
+  }
+
+  function onDragOver(event: DragOverEvent) {
+    // Здесь можно добавить логику для обработки наведения
+    console.log('Drag over:', event);
+  }
+
+  // Мемоизированные данные колонок
+  const connectionIds = useMemo(
+    () => integrations.map((int) => int.id),
+    [integrations]
+  );
+
+  if (!organization) {
+    return <div>Загрузка...</div>;
+  }
 
   return (
-    <Suspense fallback={<PageSkeleton />}>
-      <div className='flex h-screen'>
-        {/* Боковой блок настроек воронки - всегда показан */}
-        <FunnelSettingsSidebar funnelName={currentFunnel?.name} />
-
-        {/* Основной контент */}
-        <div className='max-w-full min-w-0 flex-1 overflow-hidden'>
-          <PageContainer
-            scrollable={true}
-            className='w-full max-w-full min-w-0 p-4'
+    <PageContainer>
+      <div className='space-y-6'>
+        {/* Kanban Board */}
+        <DndContext
+          sensors={sensors}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragOver={onDragOver}
+        >
+          <ScrollArea
+            className='w-full'
+            style={{ maxWidth: 'calc(100vw - 302px)' }}
           >
-            {/* Блок этапов сделок */}
-            {currentFunnel && backendOrgId ? (
-              <div className='mb-6 w-full max-w-full min-w-0 overflow-hidden'>
-                <StagesBlock
-                  organizationId={backendOrgId}
-                  funnelId={currentFunnel.id}
-                  stages={funnelStages}
-                  isLoading={assistantsLoading}
-                  onStageUpdate={fetchAssistantsCount}
-                  onStageSelect={handleStageSelect}
-                />
-              </div>
-            ) : (
-              <div className='mb-6'>
-                <div className='text-muted-foreground py-8 text-center'>
-                  Выберите воронку для просмотра этапов
-                </div>
-              </div>
-            )}
+            <div className='flex gap-6 pb-4'>
+              {/* Колонка 1: Доступные источники */}
+              <KanbanColumn title='Доступные источники'>
+                <SortableContext items={connectionIds}>
+                  {integrationsLoading ? (
+                    <div className='text-sm text-gray-500'>
+                      Загрузка подключений...
+                    </div>
+                  ) : integrations.length === 0 ? (
+                    <div className='text-sm text-gray-500'>Нет подключений</div>
+                  ) : (
+                    integrations.map((integration) => (
+                      <ConnectionCard
+                        key={integration.id}
+                        connection={integration}
+                      />
+                    ))
+                  )}
+                </SortableContext>
+              </KanbanColumn>
 
-            {/* Условное отображение: либо настройки этапа, либо блок выбора команды агентов */}
-            {selectedStage ? (
-              <StageSettings
-                stage={selectedStage.stage}
-                stageIndex={selectedStage.index}
-              />
-            ) : (
-              <AgentTeamSelection />
-            )}
-
-            {/* Временно скрыто - основная сетка блоков */}
-            <div className='hidden space-y-6'>
-              <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4'>
-                <Card className='flex h-full flex-col p-6'>
-                  <div className='mb-2 flex items-center justify-between'>
-                    <h3 className='text-lg font-medium'>AI-ассистенты</h3>
-                    <Switch />
-                  </div>
-                  <div className='text-muted-foreground mb-6 text-sm'>
-                    Мультиагент, отвечающий за этапы воронки
-                  </div>
-                  <div className='mt-auto flex gap-3'>
-                    <Link
-                      href='/dashboard/management/agent-testing?agent=ai-assistants'
-                      className='flex-1'
-                    >
-                      <Button variant='outline' className='w-full'>
-                        Тест агента
-                      </Button>
-                    </Link>
-                    <Link
-                      href='/dashboard/management/ai-assistants/'
-                      className='flex-1'
-                    >
-                      <Button className='w-full'>Настройки</Button>
-                    </Link>
-                  </div>
-                </Card>
-
-                <Card className='flex h-full flex-col p-6'>
-                  <div className='mb-2 flex items-center justify-between'>
-                    <h3 className='text-lg font-medium'>Фоллоу Ап (анализ)</h3>
-                    <Switch />
-                  </div>
-                  <div className='text-muted-foreground mb-6 text-sm'>
-                    Системный агент, отвечающий за напоминания клиентам
-                  </div>
-                  <div className='mt-auto flex gap-3'>
-                    <Link
-                      href='/dashboard/management/agent-testing?agent=follow-up'
-                      className='flex-1'
-                    >
-                      <Button variant='outline' className='w-full'>
-                        Тест агента
-                      </Button>
-                    </Link>
-                    <Link
-                      href='/dashboard/management/follow-up/'
-                      className='flex-1'
-                    >
-                      <Button className='w-full'>Настройки</Button>
-                    </Link>
-                  </div>
-                </Card>
-
-                <Card className='flex h-full flex-col p-6'>
-                  <div className='mb-2 flex items-center justify-between'>
-                    <h3 className='text-lg font-medium'>Фоллоу Ап (сообы)</h3>
-                    <Switch />
-                  </div>
-                  <div className='text-muted-foreground mb-6 text-sm'>
-                    Агент, отвечающий за напоминания клиентам
-                  </div>
-                  <div className='mt-auto flex gap-3'>
-                    <Link
-                      href='/dashboard/management/agent-testing?agent=follow-up-messages'
-                      className='flex-1'
-                    >
-                      <Button variant='outline' className='w-full'>
-                        Тест агента
-                      </Button>
-                    </Link>
-                    <Link
-                      href='/dashboard/management/follow-up-messages/'
-                      className='flex-1'
-                    >
-                      <Button className='w-full'>Настройки</Button>
-                    </Link>
-                  </div>
-                </Card>
-
-                <Card className='flex h-full flex-col p-6'>
-                  <div className='mb-2 flex items-center justify-between'>
-                    <h3 className='text-lg font-medium'>Анализ</h3>
-                    <Switch />
-                  </div>
-                  <div className='text-muted-foreground mb-6 text-sm'>
-                    Агент, отвечающий за аналитику данных
-                  </div>
-                  <div className='mt-auto flex gap-3'>
-                    <Link
-                      href='/dashboard/management/agent-testing?agent=analysis'
-                      className='flex-1'
-                    >
-                      <Button variant='outline' className='w-full'>
-                        Тест агента
-                      </Button>
-                    </Link>
-                    <Link
-                      href='/dashboard/management/analysis/'
-                      className='flex-1'
-                    >
-                      <Button className='w-full'>Настройки</Button>
-                    </Link>
-                  </div>
-                </Card>
-
-                {/* <Card className="h-full flex flex-col p-6">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium text-lg">РОП</h3>
-                <Switch />
-              </div>
-              <div className="text-muted-foreground text-sm mb-6">
-                Агент аналитики второго уровня
-              </div>
-              <div className="mt-auto flex gap-3">
-                <Button variant="outline" className="flex-1">Тест агента</Button>
-                <Link href='/dashboard/management/sales-manager/' className="flex-1">
-                  <Button className="w-full">Настройки</Button>
-                </Link>
-              </div>
-            </Card> */}
-
-                <Card className='flex h-full flex-col p-6'>
-                  <div className='mb-2 flex items-center justify-between'>
-                    <h3 className='text-lg font-medium'>РОП</h3>
-                    <div className='flex items-center'>
-                      <Switch />
-                      {/* <span className="ml-2 text-xs bg-gray-100 px-2 py-1 rounded-md">Текстовый</span> */}
+              {/* Колонка 2: Агенты воронки */}
+              <KanbanColumn
+                title='Агенты воронки'
+                headerContent={
+                  <div className='mt-2'>
+                    <div className='text-xs text-gray-500'>
+                      Настройка агентов
                     </div>
                   </div>
-                  <div className='text-muted-foreground mb-6 text-sm'>
-                    Агент аналитики второго уровня
-                  </div>
-                  <div className='mt-auto'>
-                    <Button
-                      className='w-full'
-                      onClick={() => setIsCreateModalOpen(true)}
-                    >
-                      Создать
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-            </div>
+                }
+              >
+                {agentTeams.map((agent) => (
+                  <Card key={agent.id} className='mb-2'>
+                    <CardContent className='p-3'>
+                      <div className='space-y-2'>
+                        <div className='flex items-center justify-between'>
+                          <div className='text-sm font-medium'>
+                            {agent.name}
+                          </div>
+                          <Switch checked={agent.enabled} />
+                        </div>
+                        <Badge
+                          variant='outline'
+                          className={
+                            agent.type === 'Мультиагент'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }
+                        >
+                          {agent.type}
+                        </Badge>
+                        <div className='flex justify-between text-xs text-gray-600'>
+                          <span>CV Агента</span>
+                          <span className='font-medium'>{agent.cv}%</span>
+                        </div>
+                        <Progress value={agent.cv} className='h-2' />
+                        <div className='grid grid-cols-2 gap-2 text-xs'>
+                          <div className='flex items-center gap-1'>
+                            <IconUsers className='h-3 w-3' />
+                            <span>{agent.users}</span>
+                          </div>
+                          <div className='flex items-center gap-1'>
+                            <IconAlertTriangle className='h-3 w-3 text-orange-500' />
+                            <span>{agent.warnings}</span>
+                          </div>
+                        </div>
+                        <div className='text-xs text-gray-500'>
+                          {agent.meetingType}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </KanbanColumn>
 
-            {/* Модальное окно создания агента */}
-            <Dialog
-              open={isCreateModalOpen}
-              onOpenChange={setIsCreateModalOpen}
-            >
-              <DialogContent className='sm:max-w-md'>
-                <DialogHeader>
-                  <DialogTitle className='text-xl font-bold'>
-                    Создать агента
-                  </DialogTitle>
-                  <DialogDescription>
-                    Выбирите какого агента хотите создать
-                  </DialogDescription>
-                </DialogHeader>
-                <div className='grid grid-cols-2 gap-4 py-4'>
-                  <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border p-4 hover:border-black'>
-                    <IconCreditCard className='mb-2 h-12 w-12' />
-                    <span className='text-center'>Простой агент</span>
+              {/* Колонки этапов воронки */}
+              {(() => {
+                if (funnelsLoading) {
+                  return (
+                    <div className='text-sm text-gray-500'>
+                      Загрузка воронок...
+                    </div>
+                  );
+                }
+
+                if (assistantsLoading) {
+                  return (
+                    <div className='text-sm text-gray-500'>
+                      Загрузка этапов...
+                    </div>
+                  );
+                }
+
+                if (!currentFunnel) {
+                  return (
+                    <div className='rounded-lg border bg-yellow-50 p-4 text-sm text-gray-500'>
+                      <div className='mb-2'>Воронка не выбрана</div>
+                      <div className='text-xs'>
+                        Доступных воронок: {funnels?.length || 0}
+                        {funnels?.length > 0 && (
+                          <div className='mt-1'>
+                            Доступные:{' '}
+                            {funnels
+                              .map((f) => f.name || f.display_name)
+                              .join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (funnelStages.length === 0) {
+                  return (
+                    <div className='rounded-lg border bg-blue-50 p-4 text-sm text-gray-500'>
+                      <div className='mb-2'>
+                        Нет этапов в воронке &quot;
+                        {currentFunnel.name || currentFunnel.display_name}&quot;
+                      </div>
+                      <div className='text-xs'>
+                        Настройте этапы воронки в разделе AI-ассистенты
+                      </div>
+                    </div>
+                  );
+                }
+
+                return funnelStages.map((stage, index) => (
+                  <KanbanColumn
+                    key={index}
+                    title={stage.name}
+                    headerContent={
+                      <div className='mt-2 space-y-1'>
+                        <div className='text-xs text-gray-500'>
+                          Этап {index + 1} воронки
+                        </div>
+                        <div className='flex justify-between text-xs'>
+                          <span>Сделки:</span>
+                          <span className='font-medium'>
+                            {stage.deals_count || 0}
+                          </span>
+                        </div>
+                        <div className='flex justify-between text-xs'>
+                          <span>Сумма:</span>
+                          <span className='font-medium'>
+                            {stage.deals_amount
+                              ? `₽${stage.deals_amount.toLocaleString()}`
+                              : '₽0'}
+                          </span>
+                        </div>
+                        <div className='flex justify-between text-xs'>
+                          <span>Агент:</span>
+                          <span className='text-xs font-medium'>
+                            {stage.assistant_code_name || 'Не назначен'}
+                          </span>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <Card
+                      className='cursor-pointer transition-shadow hover:shadow-md'
+                      onClick={() => handleStageSelect(index, stage)}
+                    >
+                      <CardContent className='p-3'>
+                        <div className='mb-2 text-sm text-gray-600'>
+                          Промпт этапа
+                        </div>
+                        <div className='rounded border-2 border-dashed bg-gray-50 p-2 text-xs text-gray-500'>
+                          {stage.prompt
+                            ? stage.prompt.substring(0, 100) +
+                              (stage.prompt.length > 100 ? '...' : '')
+                            : 'Нажмите для редактирования промпта'}
+                        </div>
+                        <div className='mt-2 text-xs text-gray-500'>
+                          Количество follow-up: {stage.followups?.length || 0}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </KanbanColumn>
+                ));
+              })()}
+            </div>
+            <ScrollBar orientation='horizontal' />
+          </ScrollArea>
+
+          {/* Drag Overlay */}
+          <DragOverlay>
+            {activeConnection && (
+              <ConnectionCard connection={activeConnection} isOverlay />
+            )}
+          </DragOverlay>
+        </DndContext>
+
+        {/* Модальное окно настройки этапа */}
+        <Dialog
+          open={stageSettingsModal.isOpen}
+          onOpenChange={handleCloseStageSettings}
+        >
+          <DialogContent className='max-w-2xl'>
+            <DialogHeader>
+              <DialogTitle>
+                Настройка этапа: {stageSettingsModal.stage?.name}
+              </DialogTitle>
+            </DialogHeader>
+
+            {stageSettingsModal.stage && (
+              <div className='space-y-4'>
+                <div className='grid grid-cols-2 gap-4'>
+                  <div>
+                    <label className='mb-1 block text-sm font-medium'>
+                      Название этапа
+                    </label>
+                    <div className='text-sm text-gray-700'>
+                      {stageSettingsModal.stage.name}
+                    </div>
                   </div>
-                  <div className='flex cursor-pointer flex-col items-center justify-center rounded-md border border-black p-4 hover:border-black'>
-                    <IconCreditCard className='mb-2 h-12 w-12' />
-                    <span className='text-center'>Мультиагент</span>
+                  <div>
+                    <label className='mb-1 block text-sm font-medium'>
+                      Назначенный агент
+                    </label>
+                    <div className='text-sm text-gray-700'>
+                      {stageSettingsModal.stage.assistant_code_name ||
+                        'Не назначен'}
+                    </div>
                   </div>
                 </div>
-                <DialogFooter className='sm:justify-between'>
-                  <Button
-                    variant='outline'
-                    onClick={() => setIsCreateModalOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type='button'>Создать</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </PageContainer>
-        </div>
+
+                <div className='grid grid-cols-3 gap-4'>
+                  <div>
+                    <label className='mb-1 block text-sm font-medium'>
+                      Сделки
+                    </label>
+                    <div className='text-lg font-semibold'>
+                      {stageSettingsModal.stage.deals_count || 0}
+                    </div>
+                  </div>
+                  <div>
+                    <label className='mb-1 block text-sm font-medium'>
+                      Сумма
+                    </label>
+                    <div className='text-lg font-semibold'>
+                      {stageSettingsModal.stage.deals_amount
+                        ? `₽${stageSettingsModal.stage.deals_amount.toLocaleString()}`
+                        : '₽0'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className='mb-1 block text-sm font-medium'>
+                      Follow-up
+                    </label>
+                    <div className='text-lg font-semibold'>
+                      {stageSettingsModal.stage.followups?.length || 0}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className='mb-2 block text-sm font-medium'>
+                    Промпт этапа
+                  </label>
+                  <Textarea
+                    value={stageSettingsModal.stage.prompt || ''}
+                    readOnly
+                    className='min-h-[120px] resize-none'
+                    placeholder='Промпт не настроен'
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant='outline' onClick={handleCloseStageSettings}>
+                Отмена
+              </Button>
+              <Button
+                onClick={() => {
+                  if (stageSettingsModal.stage) {
+                    window.location.href = `/dashboard/management/ai-assistants?stage=${encodeURIComponent(stageSettingsModal.stage.name)}`;
+                  }
+                }}
+              >
+                Редактировать промпт
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-    </Suspense>
+    </PageContainer>
   );
 }
 
 export default function ManagementPage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <ManagementPageContent />
-    </Suspense>
-  );
+  return <ManagementPageContent />;
 }

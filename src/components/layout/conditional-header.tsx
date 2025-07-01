@@ -22,7 +22,8 @@ const TABLE_HEADER_PAGES = [
   '/dashboard/management/ai-assistants',
   '/dashboard/management',
   '/dashboard/integrations',
-  '/dashboard/debug'
+  '/dashboard/debug',
+  '/dashboard/support'
 ];
 
 // Список страниц, которые НЕ должны показывать шапку (у них своя кастомная шапка)
@@ -143,6 +144,18 @@ export default function ConditionalHeader() {
         title: 'Дебаг',
         showViewToggle: false,
         timeFilterOptions: []
+      };
+    }
+
+    if (pathname.startsWith('/dashboard/support')) {
+      return {
+        title: 'Поддержка',
+        showViewToggle: false,
+        timeFilterOptions: [
+          { value: 'week', label: 'За неделю' },
+          { value: 'month', label: 'За месяц' },
+          { value: 'year', label: 'За год' }
+        ]
       };
     }
 

@@ -76,7 +76,7 @@ const KBarComponent = ({ children }: { children: React.ReactNode }) => {
                 defaultPlaceholder='Введите команду или начните поиск...'
               />
             </div>
-            <div className='max-h-[400px]'>
+            <div className='max-h-[500px]'>
               <RenderResults />
             </div>
           </KBarAnimator>

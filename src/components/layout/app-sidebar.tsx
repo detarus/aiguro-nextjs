@@ -81,17 +81,18 @@ const navigationSections = [
         isActive: false,
         disabled: false
       },
-      // {
-      //   title: 'Аналитика',
-      //   url: '#',
-      //   icon: IconChartBar,
-      //   isActive: false,
-      //   disabled: true
-      // },
+
       {
         title: 'Клиенты',
         url: '/dashboard/clients',
         icon: IconUsers,
+        isActive: false,
+        disabled: false
+      },
+      {
+        title: 'Аналитика',
+        url: '/dashboard/analytics',
+        icon: IconChartBar,
         isActive: false,
         disabled: false
       },

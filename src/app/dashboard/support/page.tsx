@@ -510,7 +510,7 @@ export default function SupportPage() {
                     setNewTicket((prev) => ({ ...prev, funnelId: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className='w-full'>
                     <SelectValue placeholder='Выберите воронку или оставьте пустым для общего обращения' />
                   </SelectTrigger>
                   <SelectContent>
@@ -534,7 +534,7 @@ export default function SupportPage() {
                     setNewTicket((prev) => ({ ...prev, department: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className='w-full'>
                     <SelectValue placeholder='Выберите департамент' />
                   </SelectTrigger>
                   <SelectContent>
@@ -547,8 +547,10 @@ export default function SupportPage() {
                 </Select>
               </div>
 
-              <div className='grid gap-2'>
-                <Label htmlFor='subject'>Тема обращения</Label>
+              <div className='grid w-full gap-2'>
+                <Label htmlFor='subject' className='w-full'>
+                  Тема обращения
+                </Label>
                 <Input
                   id='subject'
                   placeholder='Кратко опишите проблему'
@@ -559,11 +561,14 @@ export default function SupportPage() {
                       subject: e.target.value
                     }))
                   }
+                  className='w-full'
                 />
               </div>
 
-              <div className='grid gap-2'>
-                <Label htmlFor='description'>Описание проблемы</Label>
+              <div className='grid w-full gap-2'>
+                <Label htmlFor='description' className='w-full'>
+                  Описание проблемы
+                </Label>
                 <Textarea
                   id='description'
                   placeholder='Подробно опишите вашу проблему или вопрос'
@@ -575,19 +580,22 @@ export default function SupportPage() {
                       description: e.target.value
                     }))
                   }
+                  className='w-full'
                 />
               </div>
 
-              <div className='grid gap-2'>
-                <Label htmlFor='files'>Прикрепить файлы</Label>
-                <div className='flex items-center gap-2'>
+              <div className='grid w-full gap-2'>
+                <Label htmlFor='files' className='w-full'>
+                  Прикрепить файлы
+                </Label>
+                <div className='flex w-full items-center gap-2'>
                   <Input
                     id='files'
                     type='file'
                     multiple
                     accept='image/*,video/*,.pdf,.doc,.docx,.txt'
                     onChange={handleFileChange}
-                    className='cursor-pointer'
+                    className='flex-1 cursor-pointer'
                   />
                   <Button variant='outline' size='sm' asChild>
                     <label htmlFor='files' className='cursor-pointer'>

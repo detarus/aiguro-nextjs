@@ -4,8 +4,20 @@ import { useOrganization } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
-import { MessageCircle, List, Eye, Trash2, Send } from 'lucide-react';
+import {
+  MessageCircle,
+  List,
+  Eye,
+  Trash2,
+  Send,
+  TestTube,
+  Plus,
+  FileText
+} from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -94,6 +106,78 @@ export function DialogsDebug() {
   const [messageText, setMessageText] = useState('');
   const [messageRole, setMessageRole] = useState('user');
 
+  // Состояния для тестовых диалогов
+  // Состояние для кнопки "Get Test Dialogs"
+  const [testDialogsData, setTestDialogsData] = useState<any>(null);
+  const [testDialogsLoading, setTestDialogsLoading] = useState(false);
+  const [testDialogsError, setTestDialogsError] = useState<string | null>(null);
+  const [testDialogsSuccessMessage, setTestDialogsSuccessMessage] = useState<
+    string | null
+  >(null);
+
+  // Состояние для кнопки "Create Test Dialog"
+  const [createTestDialogData, setCreateTestDialogData] = useState<any>(null);
+  const [createTestDialogLoading, setCreateTestDialogLoading] = useState(false);
+  const [createTestDialogError, setCreateTestDialogError] = useState<
+    string | null
+  >(null);
+  const [createTestDialogSuccessMessage, setCreateTestDialogSuccessMessage] =
+    useState<string | null>(null);
+
+  // Состояние для модального окна создания тестового диалога
+  const [isCreateTestDialogModalOpen, setIsCreateTestDialogModalOpen] =
+    useState(false);
+  const [testDialogForm, setTestDialogForm] = useState({
+    stage: '',
+    manager: '',
+    ai: true,
+    unsubscribed: false,
+    description: '',
+    tags: '',
+    price: 0,
+    messenger_connection_id: 0
+  });
+
+  // Состояние для кнопки "Get Test Dialog Messages"
+  const [testDialogMessagesData, setTestDialogMessagesData] =
+    useState<any>(null);
+  const [testDialogMessagesLoading, setTestDialogMessagesLoading] =
+    useState(false);
+  const [testDialogMessagesError, setTestDialogMessagesError] = useState<
+    string | null
+  >(null);
+  const [
+    testDialogMessagesSuccessMessage,
+    setTestDialogMessagesSuccessMessage
+  ] = useState<string | null>(null);
+
+  // Состояние для модального окна просмотра сообщений тестового диалога
+  const [isTestDialogMessagesModalOpen, setIsTestDialogMessagesModalOpen] =
+    useState(false);
+  const [selectedTestDialogForMessages, setSelectedTestDialogForMessages] =
+    useState('');
+
+  // Состояние для кнопки "Send Test Message"
+  const [sendTestMessageData, setSendTestMessageData] = useState<any>(null);
+  const [sendTestMessageLoading, setSendTestMessageLoading] = useState(false);
+  const [sendTestMessageError, setSendTestMessageError] = useState<
+    string | null
+  >(null);
+  const [sendTestMessageSuccessMessage, setSendTestMessageSuccessMessage] =
+    useState<string | null>(null);
+
+  // Состояние для модального окна отправки тестового сообщения
+  const [isSendTestMessageModalOpen, setIsSendTestMessageModalOpen] =
+    useState(false);
+  const [selectedTestDialogForMessage, setSelectedTestDialogForMessage] =
+    useState('');
+  const [testMessageText, setTestMessageText] = useState('');
+  const [testMessageRole, setTestMessageRole] = useState('user');
+
+  // Состояния для загрузки этапов воронки
+  const [funnelStages, setFunnelStages] = useState<any[]>([]);
+  const [funnelStagesLoading, setFunnelStagesLoading] = useState(false);
+
   // Получаем backend ID организации из метаданных Clerk
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
@@ -154,6 +238,19 @@ export function DialogsDebug() {
     setPostMessageData(null);
     setPostMessageError(null);
     setPostMessageSuccessMessage(null);
+    // Очищаем состояния тестовых диалогов
+    setTestDialogsData(null);
+    setTestDialogsError(null);
+    setTestDialogsSuccessMessage(null);
+    setCreateTestDialogData(null);
+    setCreateTestDialogError(null);
+    setCreateTestDialogSuccessMessage(null);
+    setTestDialogMessagesData(null);
+    setTestDialogMessagesError(null);
+    setTestDialogMessagesSuccessMessage(null);
+    setSendTestMessageData(null);
+    setSendTestMessageError(null);
+    setSendTestMessageSuccessMessage(null);
   }, [backendOrgId]);
 
   // Очищаем данные при смене воронки
@@ -176,6 +273,19 @@ export function DialogsDebug() {
     setPostMessageData(null);
     setPostMessageError(null);
     setPostMessageSuccessMessage(null);
+    // Очищаем состояния тестовых диалогов
+    setTestDialogsData(null);
+    setTestDialogsError(null);
+    setTestDialogsSuccessMessage(null);
+    setCreateTestDialogData(null);
+    setCreateTestDialogError(null);
+    setCreateTestDialogSuccessMessage(null);
+    setTestDialogMessagesData(null);
+    setTestDialogMessagesError(null);
+    setTestDialogMessagesSuccessMessage(null);
+    setSendTestMessageData(null);
+    setSendTestMessageError(null);
+    setSendTestMessageSuccessMessage(null);
   }, [localStorageFunnel?.id]);
 
   const handleFetchAllDialogs = async () => {
@@ -788,6 +898,548 @@ export function DialogsDebug() {
   const availableDialogs =
     allDialogsData && Array.isArray(allDialogsData) ? allDialogsData : [];
 
+  // Получаем список тестовых диалогов для селектов
+  const availableTestDialogs =
+    testDialogsData && Array.isArray(testDialogsData) ? testDialogsData : [];
+
+  // Функция загрузки этапов воронки
+  const loadFunnelStages = async () => {
+    if (!backendOrgId || !localStorageFunnel?.id) {
+      setFunnelStages([]);
+      return;
+    }
+
+    setFunnelStagesLoading(true);
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        console.error('No token available');
+        setFunnelStages([]);
+        return;
+      }
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setFunnelStages(data.stages || []);
+      } else {
+        console.error('Failed to fetch funnel stages');
+        setFunnelStages([]);
+      }
+    } catch (error) {
+      console.error('Error loading funnel stages:', error);
+      setFunnelStages([]);
+    } finally {
+      setFunnelStagesLoading(false);
+    }
+  };
+
+  // Загружаем этапы воронки при изменении воронки
+  useEffect(() => {
+    loadFunnelStages();
+  }, [backendOrgId, localStorageFunnel?.id]);
+
+  // Функции для работы с тестовыми диалогами
+
+  // Обработчик получения тестовых диалогов
+  const handleFetchTestDialogs = async () => {
+    console.log('Get Test Dialogs button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    console.log('Token from cookie:', !!token);
+
+    if (!token) {
+      setTestDialogsError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setTestDialogsError('No backend organization ID found in metadata');
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setTestDialogsError('No current funnel selected');
+      return;
+    }
+
+    setTestDialogsLoading(true);
+    setTestDialogsError(null);
+    setTestDialogsSuccessMessage(null);
+
+    try {
+      console.log(
+        'Making GET request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/test_dialogs'
+      );
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/test_dialogs`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully fetched test dialogs:', data);
+      setTestDialogsData(data);
+      setTestDialogsSuccessMessage(
+        `Запрос успешно отправлен и тестовые диалоги получены! Найдено: ${Array.isArray(data) ? data.length : 'N/A'} диалогов`
+      );
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setTestDialogsSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error fetching test dialogs:', error);
+      setTestDialogsError(error.message || 'Unknown error occurred');
+    } finally {
+      setTestDialogsLoading(false);
+    }
+  };
+
+  // Обработчик создания тестового диалога
+  const handleCreateTestDialog = async () => {
+    console.log('Create Test Dialog button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setCreateTestDialogError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setCreateTestDialogError('No backend organization ID found in metadata');
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setCreateTestDialogError('No current funnel selected');
+      return;
+    }
+
+    if (!testDialogForm.stage) {
+      setCreateTestDialogError('Please select a stage');
+      return;
+    }
+
+    setCreateTestDialogLoading(true);
+    setCreateTestDialogError(null);
+    setCreateTestDialogSuccessMessage(null);
+
+    try {
+      const requestBody = {
+        stage: testDialogForm.stage,
+        manager: testDialogForm.manager || undefined,
+        ai: testDialogForm.ai,
+        unsubscribed: testDialogForm.unsubscribed,
+        description: testDialogForm.description || undefined,
+        tags: testDialogForm.tags
+          ? testDialogForm.tags.split(',').map((tag) => tag.trim())
+          : [],
+        price: testDialogForm.price,
+        messenger_connection_id:
+          testDialogForm.messenger_connection_id || undefined
+      };
+
+      console.log(
+        'Making POST request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/test_dialog'
+      );
+      console.log('Request body:', requestBody);
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/test_dialog`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully created test dialog:', data);
+      setCreateTestDialogData(data);
+      setCreateTestDialogSuccessMessage(
+        `Тестовый диалог успешно создан! UUID: ${data.uuid}`
+      );
+
+      // Закрываем модальное окно и очищаем форму
+      setIsCreateTestDialogModalOpen(false);
+      setTestDialogForm({
+        stage: '',
+        manager: '',
+        ai: true,
+        unsubscribed: false,
+        description: '',
+        tags: '',
+        price: 0,
+        messenger_connection_id: 0
+      });
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setCreateTestDialogSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error creating test dialog:', error);
+      setCreateTestDialogError(error.message || 'Unknown error occurred');
+    } finally {
+      setCreateTestDialogLoading(false);
+    }
+  };
+
+  // Обработчик получения сообщений тестового диалога
+  const handleGetTestDialogMessages = async () => {
+    console.log('Get Test Dialog Messages button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setTestDialogMessagesError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setTestDialogMessagesError(
+        'No backend organization ID found in metadata'
+      );
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setTestDialogMessagesError('No current funnel selected');
+      return;
+    }
+
+    if (!selectedTestDialogForMessages) {
+      setTestDialogMessagesError(
+        'Please select a test dialog to view messages'
+      );
+      return;
+    }
+
+    setTestDialogMessagesLoading(true);
+    setTestDialogMessagesError(null);
+    setTestDialogMessagesSuccessMessage(null);
+
+    try {
+      console.log(
+        'Making GET request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/dialog/' +
+          selectedTestDialogForMessages +
+          '/messages'
+      );
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/${selectedTestDialogForMessages}/messages`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully fetched test dialog messages:', data);
+      setTestDialogMessagesData(data);
+      setTestDialogMessagesSuccessMessage(
+        `Сообщения тестового диалога "${selectedTestDialogForMessages}" успешно получены!`
+      );
+
+      // Закрываем модальное окно и очищаем выбор
+      setIsTestDialogMessagesModalOpen(false);
+      setSelectedTestDialogForMessages('');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setTestDialogMessagesSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error fetching test dialog messages:', error);
+      setTestDialogMessagesError(error.message || 'Unknown error occurred');
+    } finally {
+      setTestDialogMessagesLoading(false);
+    }
+  };
+
+  // Обработчик отправки тестового сообщения
+  const handleSendTestMessage = async () => {
+    console.log('Send Test Message button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setSendTestMessageError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setSendTestMessageError('No backend organization ID found in metadata');
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setSendTestMessageError('No current funnel selected');
+      return;
+    }
+
+    if (!selectedTestDialogForMessage) {
+      setSendTestMessageError('Please select a test dialog to send message to');
+      return;
+    }
+
+    if (!testMessageText.trim()) {
+      setSendTestMessageError('Message text cannot be empty');
+      return;
+    }
+
+    setSendTestMessageLoading(true);
+    setSendTestMessageError(null);
+    setSendTestMessageSuccessMessage(null);
+
+    try {
+      const requestBody = {
+        text: testMessageText,
+        role: testMessageRole
+      };
+
+      console.log(
+        'Making POST request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/dialog/' +
+          selectedTestDialogForMessage +
+          '/message'
+      );
+      console.log('Request body:', requestBody);
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/${selectedTestDialogForMessage}/message`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully sent test message:', data);
+      setSendTestMessageData(data);
+      setSendTestMessageSuccessMessage(
+        `Тестовое сообщение успешно отправлено в диалог "${selectedTestDialogForMessage}"!`
+      );
+
+      // Закрываем модальное окно и очищаем выбор
+      setIsSendTestMessageModalOpen(false);
+      setSelectedTestDialogForMessage('');
+      setTestMessageText('');
+      setTestMessageRole('user');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setSendTestMessageSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error sending test message:', error);
+      setSendTestMessageError(error.message || 'Unknown error occurred');
+    } finally {
+      setSendTestMessageLoading(false);
+    }
+  };
+
+  // Функции управления модальными окнами для тестовых диалогов
+
+  const handleOpenCreateTestDialogModal = () => {
+    setIsCreateTestDialogModalOpen(true);
+    setCreateTestDialogError(null);
+    setCreateTestDialogSuccessMessage(null);
+  };
+
+  const handleCloseCreateTestDialogModal = () => {
+    setIsCreateTestDialogModalOpen(false);
+    setTestDialogForm({
+      stage: '',
+      manager: '',
+      ai: true,
+      unsubscribed: false,
+      description: '',
+      tags: '',
+      price: 0,
+      messenger_connection_id: 0
+    });
+    setCreateTestDialogError(null);
+  };
+
+  const handleOpenTestDialogMessagesModal = () => {
+    setIsTestDialogMessagesModalOpen(true);
+    setTestDialogMessagesError(null);
+    setTestDialogMessagesSuccessMessage(null);
+  };
+
+  const handleCloseTestDialogMessagesModal = () => {
+    setIsTestDialogMessagesModalOpen(false);
+    setSelectedTestDialogForMessages('');
+    setTestDialogMessagesError(null);
+  };
+
+  const handleOpenSendTestMessageModal = () => {
+    setIsSendTestMessageModalOpen(true);
+    setSendTestMessageError(null);
+    setSendTestMessageSuccessMessage(null);
+  };
+
+  const handleCloseSendTestMessageModal = () => {
+    setIsSendTestMessageModalOpen(false);
+    setSelectedTestDialogForMessage('');
+    setTestMessageText('');
+    setTestMessageRole('user');
+    setSendTestMessageError(null);
+  };
+
   const handleOpenPostMessageModal = () => {
     setIsPostMessageModalOpen(true);
     setPostMessageError(null);
@@ -1031,6 +1683,72 @@ export function DialogsDebug() {
               <MessageCircle className='mr-2 h-4 w-4' />
               {clientDialogsLoading ? 'Loading...' : 'Get Client Dialogs'}
             </Button>
+
+            {/* Раздел тестовых диалогов */}
+            <div className='mt-4 border-t border-orange-200 pt-4'>
+              <h4 className='mb-3 text-sm font-semibold text-orange-800 dark:text-orange-200'>
+                Test Dialogs
+              </h4>
+
+              <Button
+                onClick={handleFetchTestDialogs}
+                disabled={
+                  testDialogsLoading || !backendOrgId || !localStorageFunnel?.id
+                }
+                variant='outline'
+                size='sm'
+                className='mb-2 w-full justify-start text-purple-600 hover:bg-purple-50 hover:text-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20 dark:hover:text-purple-300'
+              >
+                <TestTube className='mr-2 h-4 w-4' />
+                {testDialogsLoading ? 'Loading...' : 'Get Test Dialogs'}
+              </Button>
+
+              <Button
+                onClick={handleOpenCreateTestDialogModal}
+                disabled={
+                  createTestDialogLoading ||
+                  !backendOrgId ||
+                  !localStorageFunnel?.id
+                }
+                variant='outline'
+                size='sm'
+                className='mb-2 w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
+              >
+                <Plus className='mr-2 h-4 w-4' />
+                {createTestDialogLoading ? 'Creating...' : 'Create Test Dialog'}
+              </Button>
+
+              <Button
+                onClick={handleOpenTestDialogMessagesModal}
+                disabled={
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  availableTestDialogs.length === 0
+                }
+                variant='outline'
+                size='sm'
+                className='mb-2 w-full justify-start text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300'
+              >
+                <Eye className='mr-2 h-4 w-4' />
+                Get Test Dialog Messages
+              </Button>
+
+              <Button
+                onClick={handleOpenSendTestMessageModal}
+                disabled={
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  availableTestDialogs.length === 0 ||
+                  sendTestMessageLoading
+                }
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-cyan-600 hover:bg-cyan-50 hover:text-cyan-700 dark:text-cyan-400 dark:hover:bg-cyan-900/20 dark:hover:text-cyan-300'
+              >
+                <Send className='mr-2 h-4 w-4' />
+                Send Test Message
+              </Button>
+            </div>
           </div>
 
           {/* Сообщения об успехе */}
@@ -1071,6 +1789,34 @@ export function DialogsDebug() {
           {postMessageSuccessMessage && (
             <div className='mt-2 rounded bg-indigo-100 p-2 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'>
               <strong>Успех (Post Message):</strong> {postMessageSuccessMessage}
+            </div>
+          )}
+
+          {/* Сообщения об успехе для тестовых диалогов */}
+          {testDialogsSuccessMessage && (
+            <div className='mt-2 rounded bg-purple-100 p-2 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'>
+              <strong>Успех (Test Dialogs):</strong> {testDialogsSuccessMessage}
+            </div>
+          )}
+
+          {createTestDialogSuccessMessage && (
+            <div className='mt-2 rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
+              <strong>Успех (Create Test Dialog):</strong>{' '}
+              {createTestDialogSuccessMessage}
+            </div>
+          )}
+
+          {testDialogMessagesSuccessMessage && (
+            <div className='mt-2 rounded bg-indigo-100 p-2 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'>
+              <strong>Успех (Test Dialog Messages):</strong>{' '}
+              {testDialogMessagesSuccessMessage}
+            </div>
+          )}
+
+          {sendTestMessageSuccessMessage && (
+            <div className='mt-2 rounded bg-cyan-100 p-2 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'>
+              <strong>Успех (Send Test Message):</strong>{' '}
+              {sendTestMessageSuccessMessage}
             </div>
           )}
 
@@ -1125,6 +1871,43 @@ export function DialogsDebug() {
               <strong>Ошибка (Post Message):</strong>
               <pre className='mt-1 text-sm whitespace-pre-wrap'>
                 {postMessageError}
+              </pre>
+            </div>
+          )}
+
+          {/* Ошибки для тестовых диалогов */}
+          {testDialogsError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Test Dialogs):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {testDialogsError}
+              </pre>
+            </div>
+          )}
+
+          {createTestDialogError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Create Test Dialog):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {createTestDialogError}
+              </pre>
+            </div>
+          )}
+
+          {testDialogMessagesError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Test Dialog Messages):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {testDialogMessagesError}
+              </pre>
+            </div>
+          )}
+
+          {sendTestMessageError && (
+            <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+              <strong>Ошибка (Send Test Message):</strong>
+              <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                {sendTestMessageError}
               </pre>
             </div>
           )}
@@ -1192,6 +1975,51 @@ export function DialogsDebug() {
               </summary>
               <pre className='mt-2 max-h-64 overflow-auto rounded bg-indigo-100 p-2 text-xs dark:bg-indigo-900/30 dark:text-indigo-200'>
                 {JSON.stringify(postMessageData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {/* Результаты API запросов для тестовых диалогов */}
+          {testDialogsData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-purple-600 dark:text-purple-400'>
+                View Test Dialogs API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-purple-100 p-2 text-xs dark:bg-purple-900/30 dark:text-purple-200'>
+                {JSON.stringify(testDialogsData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {createTestDialogData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-green-600 dark:text-green-400'>
+                View Create Test Dialog API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-green-100 p-2 text-xs dark:bg-green-900/30 dark:text-green-200'>
+                {JSON.stringify(createTestDialogData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {testDialogMessagesData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-indigo-600 dark:text-indigo-400'>
+                View Test Dialog Messages API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-indigo-100 p-2 text-xs dark:bg-indigo-900/30 dark:text-indigo-200'>
+                {JSON.stringify(testDialogMessagesData, null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {sendTestMessageData && (
+            <details className='mt-2'>
+              <summary className='cursor-pointer text-cyan-600 dark:text-cyan-400'>
+                View Send Test Message API Response
+              </summary>
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-cyan-100 p-2 text-xs dark:bg-cyan-900/30 dark:text-cyan-200'>
+                {JSON.stringify(sendTestMessageData, null, 2)}
               </pre>
             </details>
           )}
@@ -1596,6 +2424,480 @@ export function DialogsDebug() {
                 >
                   <Send className='mr-2 h-4 w-4' />
                   {postMessageLoading ? 'Posting...' : 'Post Message'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальные окна для тестовых диалогов */}
+
+      {/* Модальное окно для создания тестового диалога */}
+      {isCreateTestDialogModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-2xl rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Create Test Dialog
+              </h2>
+              <button
+                onClick={handleCloseCreateTestDialogModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div className='grid grid-cols-2 gap-4'>
+                <div>
+                  <Label
+                    htmlFor='test_dialog_stage'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Stage *
+                  </Label>
+                  <Select
+                    value={testDialogForm.stage}
+                    onValueChange={(value) =>
+                      setTestDialogForm((prev) => ({ ...prev, stage: value }))
+                    }
+                  >
+                    <SelectTrigger className='mt-1'>
+                      <SelectValue placeholder='Choose a stage' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>all</SelectItem>
+                      {funnelStages.map((stage: any, index: number) => (
+                        <SelectItem
+                          key={index}
+                          value={stage.name || `stage_${index}`}
+                        >
+                          {stage.name || `Stage ${index + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor='test_dialog_manager'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Manager
+                  </Label>
+                  <Input
+                    id='test_dialog_manager'
+                    type='text'
+                    value={testDialogForm.manager}
+                    onChange={(e) =>
+                      setTestDialogForm((prev) => ({
+                        ...prev,
+                        manager: e.target.value
+                      }))
+                    }
+                    className='mt-1'
+                    placeholder='Manager name'
+                  />
+                </div>
+              </div>
+
+              <div className='grid grid-cols-2 gap-4'>
+                <div className='flex items-center space-x-2'>
+                  <Checkbox
+                    id='test_dialog_ai'
+                    checked={testDialogForm.ai}
+                    onCheckedChange={(checked) =>
+                      setTestDialogForm((prev) => ({
+                        ...prev,
+                        ai: checked as boolean
+                      }))
+                    }
+                  />
+                  <Label
+                    htmlFor='test_dialog_ai'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    AI
+                  </Label>
+                </div>
+
+                <div className='flex items-center space-x-2'>
+                  <Checkbox
+                    id='test_dialog_unsubscribed'
+                    checked={testDialogForm.unsubscribed}
+                    onCheckedChange={(checked) =>
+                      setTestDialogForm((prev) => ({
+                        ...prev,
+                        unsubscribed: checked as boolean
+                      }))
+                    }
+                  />
+                  <Label
+                    htmlFor='test_dialog_unsubscribed'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Unsubscribed
+                  </Label>
+                </div>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='test_dialog_description'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Description
+                </Label>
+                <Textarea
+                  id='test_dialog_description'
+                  value={testDialogForm.description}
+                  onChange={(e) =>
+                    setTestDialogForm((prev) => ({
+                      ...prev,
+                      description: e.target.value
+                    }))
+                  }
+                  rows={3}
+                  className='mt-1'
+                  placeholder='Test dialog description'
+                />
+              </div>
+
+              <div className='grid grid-cols-2 gap-4'>
+                <div>
+                  <Label
+                    htmlFor='test_dialog_tags'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Tags (comma-separated)
+                  </Label>
+                  <Input
+                    id='test_dialog_tags'
+                    type='text'
+                    value={testDialogForm.tags}
+                    onChange={(e) =>
+                      setTestDialogForm((prev) => ({
+                        ...prev,
+                        tags: e.target.value
+                      }))
+                    }
+                    className='mt-1'
+                    placeholder='tag1, tag2, tag3'
+                  />
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor='test_dialog_price'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Price
+                  </Label>
+                  <Input
+                    id='test_dialog_price'
+                    type='number'
+                    value={testDialogForm.price}
+                    onChange={(e) =>
+                      setTestDialogForm((prev) => ({
+                        ...prev,
+                        price: Number(e.target.value)
+                      }))
+                    }
+                    className='mt-1'
+                    placeholder='0'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='test_dialog_messenger_connection_id'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Messenger Connection ID
+                </Label>
+                <Input
+                  id='test_dialog_messenger_connection_id'
+                  type='number'
+                  value={testDialogForm.messenger_connection_id}
+                  onChange={(e) =>
+                    setTestDialogForm((prev) => ({
+                      ...prev,
+                      messenger_connection_id: Number(e.target.value)
+                    }))
+                  }
+                  className='mt-1'
+                  placeholder='0'
+                />
+              </div>
+
+              {createTestDialogError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {createTestDialogError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseCreateTestDialogModal}
+                  variant='outline'
+                  disabled={createTestDialogLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateTestDialog}
+                  disabled={createTestDialogLoading || !testDialogForm.stage}
+                  className='bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
+                >
+                  <Plus className='mr-2 h-4 w-4' />
+                  {createTestDialogLoading
+                    ? 'Creating...'
+                    : 'Create Test Dialog'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для просмотра сообщений тестового диалога */}
+      {isTestDialogMessagesModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Get Test Dialog Messages
+              </h2>
+              <button
+                onClick={handleCloseTestDialogMessagesModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='test_dialog_select_messages'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Test Dialog to View Messages
+                </Label>
+                <Select
+                  value={selectedTestDialogForMessages}
+                  onValueChange={setSelectedTestDialogForMessages}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose a test dialog to view messages' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTestDialogs.map((dialog: any) => (
+                      <SelectItem key={dialog.uuid} value={dialog.uuid}>
+                        {dialog.uuid} (Stage: {dialog.stage})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {availableTestDialogs.length === 0 && (
+                <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
+                  <strong>Информация:</strong> Сначала загрузите тестовые
+                  диалоги с помощью кнопки "Get Test Dialogs"
+                </div>
+              )}
+
+              {testDialogMessagesError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {testDialogMessagesError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseTestDialogMessagesModal}
+                  variant='outline'
+                  disabled={testDialogMessagesLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGetTestDialogMessages}
+                  disabled={
+                    testDialogMessagesLoading || !selectedTestDialogForMessages
+                  }
+                  className='bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
+                >
+                  <Eye className='mr-2 h-4 w-4' />
+                  {testDialogMessagesLoading ? 'Loading...' : 'Get Messages'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для отправки тестового сообщения */}
+      {isSendTestMessageModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Send Test Message
+              </h2>
+              <button
+                onClick={handleCloseSendTestMessageModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='test_dialog_select_send_message'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Test Dialog to Send Message
+                </Label>
+                <Select
+                  value={selectedTestDialogForMessage}
+                  onValueChange={setSelectedTestDialogForMessage}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose a test dialog to send message to' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTestDialogs.map((dialog: any) => (
+                      <SelectItem key={dialog.uuid} value={dialog.uuid}>
+                        {dialog.uuid} (Stage: {dialog.stage})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='test_message_text'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Message Text
+                </Label>
+                <Textarea
+                  id='test_message_text'
+                  value={testMessageText}
+                  onChange={(e) => setTestMessageText(e.target.value)}
+                  rows={5}
+                  className='mt-1'
+                  placeholder='Enter your test message text here...'
+                />
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='test_message_role'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Message Role
+                </Label>
+                <Select
+                  value={testMessageRole}
+                  onValueChange={setTestMessageRole}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose message role' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='user'>user</SelectItem>
+                    <SelectItem value='manager'>manager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {availableTestDialogs.length === 0 && (
+                <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
+                  <strong>Информация:</strong> Сначала загрузите тестовые
+                  диалоги с помощью кнопки "Get Test Dialogs"
+                </div>
+              )}
+
+              {sendTestMessageError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {sendTestMessageError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseSendTestMessageModal}
+                  variant='outline'
+                  disabled={sendTestMessageLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSendTestMessage}
+                  disabled={
+                    sendTestMessageLoading ||
+                    !selectedTestDialogForMessage ||
+                    !testMessageText.trim()
+                  }
+                  className='bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-700 dark:hover:bg-cyan-600'
+                >
+                  <Send className='mr-2 h-4 w-4' />
+                  {sendTestMessageLoading ? 'Sending...' : 'Send Message'}
                 </Button>
               </div>
             </div>

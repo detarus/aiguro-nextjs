@@ -67,12 +67,12 @@ export function GeneralSettingsComponent({
 
   return (
     <Card className='h-fit'>
-      <CardHeader>
+      {/* <CardHeader>
         <CardTitle>Настройки мультиагента</CardTitle>
         <p className='text-muted-foreground text-sm'>
           Вы можете настроить и адаптировать под свои задачи в этом меню агента
         </p>
-      </CardHeader>
+      </CardHeader> */}
       <CardContent className='space-y-4'>
         <div className='space-y-3'>
           {cookieOptions.map((setting) => (

@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef
+} from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { useSearchParams } from 'next/navigation';
 import { useFunnels } from '@/hooks/useFunnels';
@@ -11,6 +17,16 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +43,14 @@ import {
   IconBrandFacebook,
   IconSettings,
   IconUsers,
-  IconAlertTriangle
+  IconAlertTriangle,
+  IconAlertCircle,
+  IconRotateClockwise,
+  IconPlus,
+  IconSend,
+  IconTrash,
+  IconCheck,
+  IconX
 } from '@tabler/icons-react';
 
 // Импорт Kanban компонентов
@@ -45,6 +68,7 @@ import {
 import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Интерфейсы
 interface Integration {
@@ -79,6 +103,44 @@ interface Stage {
   deals_amount?: number;
 }
 
+// Интерфейсы для настроек AI
+interface AISettings {
+  mode: 'complete' | 'insert' | 'edit';
+  model: string;
+  temperature: number;
+  maxLength: number;
+  topP: number;
+  preset: string;
+  followUp: {
+    enabled: boolean;
+    count: number;
+    delay: number;
+  };
+  transfer: string;
+}
+
+interface GeneralSettings {
+  cookieSettings: {
+    contextMemory: boolean;
+    dataCollection: boolean;
+    stopAgentAfterManager: boolean;
+    agentKnowledgeBase: boolean;
+    voiceRequests: boolean;
+  };
+}
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'assistant';
+  timestamp: number;
+}
+
+interface ChatDialog {
+  id: string;
+  messages: ChatMessage[];
+}
+
 // Конфигурация интеграций
 const integrationIcons = {
   telegram: IconBrandTelegram,
@@ -87,6 +149,1149 @@ const integrationIcons = {
   facebook: IconBrandFacebook,
   default: IconSettings
 };
+
+// Компоненты скелетонов
+function ConnectionSkeleton() {
+  return (
+    <Card className='mb-2'>
+      <CardContent className='p-3'>
+        <div className='flex items-center gap-2'>
+          <Skeleton className='h-4 w-4 rounded' />
+          <div className='flex-1'>
+            <Skeleton className='mb-1 h-4 w-24' />
+            <Skeleton className='h-3 w-16' />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AgentSkeleton() {
+  return (
+    <Card className='border bg-white shadow-sm'>
+      <CardContent>
+        <div className='grid grid-cols-3 gap-0'>
+          {/* Колонка 1: Название и переключатель */}
+          <div className='space-y-2'>
+            <Skeleton className='h-4 w-16' />
+            <Skeleton className='h-6 w-12 rounded-full' />
+          </div>
+
+          {/* Разделитель */}
+          <div className='relative flex items-center justify-center'>
+            <div className='absolute top-0 bottom-0 left-27 w-px bg-gray-200'></div>
+            <div className='flex flex-col items-center gap-2'>
+              <Skeleton className='h-5 w-20 rounded-full' />
+              <Skeleton className='h-7 w-20 rounded' />
+            </div>
+            <div className='absolute top-0 right-27 bottom-0 w-px bg-gray-200'></div>
+          </div>
+
+          {/* Колонка 3: CV агента */}
+          <div className='space-y-2'>
+            <Skeleton className='ml-auto h-3 w-16' />
+            <Skeleton className='ml-auto h-6 w-12' />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StageSkeleton() {
+  return (
+    <Card className='mb-4 border bg-white shadow-sm'>
+      <CardContent className='py-2'>
+        <div className='grid grid-cols-2 gap-0'>
+          {/* Колонка 1: Проблем */}
+          <div>
+            <Skeleton className='mb-2 h-3 w-12' />
+            <div className='flex items-center gap-1'>
+              <Skeleton className='h-4 w-4 rounded-full' />
+              <Skeleton className='h-5 w-4' />
+            </div>
+          </div>
+
+          {/* Разделитель и Колонка 2: CV Этапа */}
+          <div className='relative'>
+            <div className='absolute top-0 bottom-0 left-0 w-px bg-gray-200'></div>
+            <div className='pl-10'>
+              <Skeleton className='mb-2 ml-auto h-3 w-16' />
+              <div className='flex items-center justify-end gap-2'>
+                <Skeleton className='h-5 w-6' />
+                <Skeleton className='h-4 w-8 rounded-full' />
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Компонент общих настроек мультиагента
+function AgentGeneralSettings({
+  generalSettings,
+  onSettingChange,
+  onSave
+}: {
+  generalSettings: GeneralSettings;
+  onSettingChange: (key: string, value: boolean) => void;
+  onSave: () => void;
+}) {
+  const cookieOptions = [
+    {
+      key: 'contextMemory',
+      title: 'Память контекста',
+      description:
+        'Сохраняет информацию о предыдущих действиях пользователя для обеспечения последовательного взаимодействия с сайтом.',
+      enabled: true
+    },
+    {
+      key: 'dataCollection',
+      title: 'Сбор массива данных',
+      description:
+        'Позволяет собирать анонимные данные о поведении пользователя для анализа и улучшения сервиса.',
+      enabled: false
+    },
+    {
+      key: 'stopAgentAfterManager',
+      title: 'Пауза после сообщения от менеджера',
+      description:
+        'Обеспечивает автоматическую остановку работы чат-агента после вмешательства менеджера.',
+      enabled: true
+    },
+    {
+      key: 'agentKnowledgeBase',
+      title: 'База знаний агента',
+      description:
+        'Даёт агенту доступ к внутренней базе знаний для предоставления точных и полезных ответов пользователю.',
+      enabled: true
+    },
+    {
+      key: 'voiceRequests',
+      title: 'Голосовые запросы и ответы',
+      description:
+        'Активирует возможность обработки голосовых команд и озвучивания ответов для удобства пользователей.',
+      enabled: false
+    }
+  ];
+
+  return (
+    <Card className='h-fit'>
+      {/* <CardHeader>
+        <CardTitle>Настройки мультиагента</CardTitle>
+        <p className='text-muted-foreground text-sm'>
+          Вы можете настроить и адаптировать под свои задачи в этом меню агента
+        </p>
+      </CardHeader> */}
+      <CardContent className='space-y-4'>
+        <div className='space-y-3'>
+          {cookieOptions.map((setting) => (
+            <div
+              key={setting.key}
+              className='flex items-center justify-between gap-4'
+            >
+              <div className='flex-1'>
+                <h4 className='text-sm font-medium'>{setting.title}</h4>
+                <p className='text-muted-foreground text-xs'>
+                  {setting.description}
+                </p>
+              </div>
+              <Switch
+                checked={
+                  generalSettings.cookieSettings[
+                    setting.key as keyof typeof generalSettings.cookieSettings
+                  ]
+                }
+                onCheckedChange={(checked) =>
+                  onSettingChange(setting.key, checked)
+                }
+              />
+            </div>
+          ))}
+        </div>
+
+        <Button onClick={onSave} className='w-full'>
+          Сохранить настройки общения
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Компонент настроек AI
+function AISettingsComponent({
+  aiSettings,
+  onAISettingChange,
+  onFollowUpChange,
+  onSave,
+  hasChanges = false
+}: {
+  aiSettings: AISettings;
+  onAISettingChange: (field: keyof AISettings, value: any) => void;
+  onFollowUpChange: (field: string, value: any) => void;
+  onSave: () => void;
+  hasChanges?: boolean;
+}) {
+  const transferOptions = [
+    { value: 'Менеджеру', label: 'Менеджеру' },
+    { value: 'Этап 1', label: 'Этап 1' },
+    { value: 'Этап 2', label: 'Этап 2' },
+    { value: 'Этап 3', label: 'Этап 3' }
+  ];
+
+  return (
+    <Card className='h-fit'>
+      <CardContent className='space-y-6 px-6'>
+        {/* Mode Toggle */}
+        <div className='space-y-2'>
+          <Label className='text-sm font-medium'>Форматы работы</Label>
+          <Tabs
+            value={aiSettings.mode}
+            onValueChange={(value) => onAISettingChange('mode', value)}
+          >
+            <TabsList className='bg-muted w-full'>
+              <TabsTrigger value='complete' className='flex-1 text-xs'>
+                Агент
+              </TabsTrigger>
+              <TabsTrigger value='insert' className='flex-1 text-xs'>
+                Помощник
+              </TabsTrigger>
+              <TabsTrigger value='edit' className='flex-1 text-xs'>
+                Менеджер
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Model Selection */}
+        <div className='space-y-2'>
+          <Label className='text-sm font-medium'>Модель AI</Label>
+          <Select
+            value={aiSettings.model}
+            onValueChange={(value) => onAISettingChange('model', value)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='GPT-4.1 mini'>GPT-4.1 mini</SelectItem>
+              <SelectItem value='GPT-4'>GPT-4</SelectItem>
+              <SelectItem value='GPT-3.5 Turbo'>GPT-3.5 Turbo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Temperature */}
+        <div className='space-y-3'>
+          <div className='flex items-center justify-between'>
+            <Label className='text-sm font-medium'>Температура</Label>
+            <span className='text-muted-foreground text-sm'>
+              {aiSettings.temperature}
+            </span>
+          </div>
+          <Slider
+            value={[aiSettings.temperature]}
+            onValueChange={([value]) => onAISettingChange('temperature', value)}
+            max={1}
+            min={0}
+            step={0.01}
+            className='w-full'
+          />
+        </div>
+
+        {/* Maximum Length */}
+        <div className='space-y-3'>
+          <div className='flex items-center justify-between'>
+            <Label className='text-sm font-medium'>Макс. длина сообщения</Label>
+            <span className='text-muted-foreground text-sm'>
+              {aiSettings.maxLength}
+            </span>
+          </div>
+          <Slider
+            value={[aiSettings.maxLength]}
+            onValueChange={([value]) => onAISettingChange('maxLength', value)}
+            max={4000}
+            min={1}
+            step={1}
+            className='w-full'
+          />
+        </div>
+
+        {/* Follow up */}
+        <div className='space-y-3'>
+          <Label className='text-sm font-medium'>Фоллоу-ап</Label>
+          <div className='flex items-center gap-2'>
+            <Switch
+              checked={aiSettings.followUp.enabled}
+              onCheckedChange={(checked) =>
+                onFollowUpChange('enabled', checked)
+              }
+            />
+            <div className='flex flex-1 gap-2'>
+              <Select
+                value={String(aiSettings.followUp.count)}
+                onValueChange={(value) =>
+                  onFollowUpChange('count', Number(value))
+                }
+              >
+                <SelectTrigger className='w-16'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='1'>1</SelectItem>
+                  <SelectItem value='2'>2</SelectItem>
+                  <SelectItem value='3'>3</SelectItem>
+                  <SelectItem value='4'>4</SelectItem>
+                  <SelectItem value='5'>5</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={`${aiSettings.followUp.delay} мин`}
+                onValueChange={(value) =>
+                  onFollowUpChange('delay', Number(value.replace(' мин', '')))
+                }
+              >
+                <SelectTrigger className='flex-1'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='10 мин'>10 мин</SelectItem>
+                  <SelectItem value='20 мин'>20 мин</SelectItem>
+                  <SelectItem value='30 мин'>30 мин</SelectItem>
+                  <SelectItem value='60 мин'>60 мин</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Transfer */}
+        {/* <div className='space-y-2'>
+          <Label className='text-sm font-medium'>Передача</Label>
+          <Select
+            value={aiSettings.transfer}
+            onValueChange={(value) => onAISettingChange('transfer', value)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {transferOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div> */}
+
+        <Button
+          onClick={onSave}
+          className={`w-full ${hasChanges ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+        >
+          Сохранить
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Компонент настройки промпта и тестирования
+function PromptTestingComponent({
+  instructions,
+  activeSettingsTab,
+  onTabChange,
+  onInstructionsChange,
+  onSubmitInstructions,
+  onReloadPrompt,
+  saving,
+  successMessage,
+  error,
+  stageName,
+  currentFunnel,
+  backendOrgId
+}: {
+  instructions: string;
+  activeSettingsTab: 'setup' | 'test';
+  onTabChange: (tab: 'setup' | 'test') => void;
+  onInstructionsChange: (value: string) => void;
+  onSubmitInstructions: () => void;
+  onReloadPrompt: () => void;
+  saving: boolean;
+  successMessage: string | null;
+  error: string | null;
+  stageName?: string;
+  currentFunnel?: any;
+  backendOrgId?: string;
+}) {
+  // Состояния для тестовых диалогов
+  const [testDialogs, setTestDialogs] = useState<any[]>([]);
+  const [testDialogsLoading, setTestDialogsLoading] = useState(false);
+  const [selectedTestDialogId, setSelectedTestDialogId] = useState<string>('');
+
+  // Состояния для сообщений
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [userMessage, setUserMessage] = useState<string>('');
+  const [testError, setTestError] = useState<string | null>(null);
+  const [creatingDialog, setCreatingDialog] = useState(false);
+  const [deletingDialog, setDeletingDialog] = useState(false);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [aiStatus, setAiStatus] = useState<
+    'reading' | 'thinking' | 'writing' | null
+  >(null);
+
+  // Компонент анимированных точек с подсчетом циклов (ускоренная версия)
+  const AnimatedDots = ({
+    onCycleComplete,
+    maxCycles,
+    resetKey
+  }: {
+    onCycleComplete?: () => void;
+    maxCycles?: number;
+    resetKey?: string;
+  }) => {
+    const [dots, setDots] = useState('.');
+    const cycleCountRef = useRef(0);
+
+    useEffect(() => {
+      // Сбрасываем счетчик при смене ключа (статуса)
+      cycleCountRef.current = 0;
+      setDots('.');
+    }, [resetKey]);
+
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setDots((prev) => {
+          if (prev === '...') {
+            cycleCountRef.current += 1;
+            console.log(
+              `AnimatedDots cycle ${cycleCountRef.current}/${maxCycles || 'unlimited'} for key: ${resetKey}`
+            );
+
+            if (
+              maxCycles &&
+              cycleCountRef.current >= maxCycles &&
+              onCycleComplete
+            ) {
+              console.log(
+                `Completing cycles for ${resetKey}, calling onCycleComplete`
+              );
+              onCycleComplete();
+            }
+
+            return '.';
+          }
+          return prev + '.';
+        });
+      }, 300); // Уменьшили с 500ms до 300ms
+
+      return () => clearInterval(interval);
+    }, [maxCycles, onCycleComplete]);
+
+    return <span>{dots}</span>;
+  };
+
+  // Загружаем тестовые диалоги при монтировании компонента или изменении активной вкладки
+  useEffect(() => {
+    if (activeSettingsTab === 'test' && backendOrgId && currentFunnel?.id) {
+      loadTestDialogs();
+    }
+  }, [activeSettingsTab, backendOrgId, currentFunnel?.id]);
+
+  // Автоскролл к последнему сообщению
+  useEffect(() => {
+    if (activeSettingsTab === 'test') {
+      const chatContainer = document.querySelector('.chat-messages-container');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
+  }, [messages, aiThinking, aiStatus, activeSettingsTab]);
+
+  // Загрузка тестовых диалогов (прямой запрос к бекенду)
+  const loadTestDialogs = async () => {
+    if (!backendOrgId || !currentFunnel?.id) return;
+
+    setTestDialogsLoading(true);
+    setTestError(null);
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setTestError('Токен авторизации недоступен');
+        return;
+      }
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialogs`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setTestDialogs(Array.isArray(data) ? data : []);
+
+      // Если есть диалоги, выбираем первый и загружаем его сообщения
+      if (Array.isArray(data) && data.length > 0) {
+        const firstDialog = data[0];
+        setSelectedTestDialogId(firstDialog.uuid);
+        await loadTestDialogMessages(firstDialog.uuid);
+      }
+    } catch (error: any) {
+      console.error('Error loading test dialogs:', error);
+      setTestError(error.message || 'Ошибка при загрузке тестовых диалогов');
+    } finally {
+      setTestDialogsLoading(false);
+    }
+  };
+
+  // Загрузка сообщений тестового диалога (прямой запрос к бекенду)
+  const loadTestDialogMessages = async (dialogUuid: string) => {
+    if (!backendOrgId || !currentFunnel?.id || !dialogUuid) return;
+
+    setMessagesLoading(true);
+    setTestError(null);
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setTestError('Токен авторизации недоступен');
+        return;
+      }
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${dialogUuid}/messages`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Конвертируем сообщения в формат ChatMessage (реверсим если API возвращает от новых к старым)
+      const convertedMessages: ChatMessage[] = Array.isArray(data)
+        ? data
+            .map((msg: any, index: number) => ({
+              id: msg.id || `msg-${index}`,
+              text: msg.text || msg.message || '',
+              sender: (msg.role === 'user' ? 'user' : 'assistant') as
+                | 'user'
+                | 'assistant',
+              timestamp: msg.timestamp || Date.now()
+            }))
+            .reverse()
+        : [];
+
+      setMessages(convertedMessages);
+    } catch (error: any) {
+      console.error('Error loading test dialog messages:', error);
+      setTestError(error.message || 'Ошибка при загрузке сообщений');
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  // Обработчик смены диалога
+  const handleDialogChange = async (dialogUuid: string) => {
+    setSelectedTestDialogId(dialogUuid);
+    await loadTestDialogMessages(dialogUuid);
+  };
+
+  // Функция для добавления новых AI сообщений с анимацией (ускоренная версия)
+  const addNewAIMessages = async (
+    newMessages: ChatMessage[],
+    startFromIndex: number
+  ) => {
+    const aiMessages = newMessages.slice(startFromIndex);
+
+    for (let i = 0; i < aiMessages.length; i++) {
+      await new Promise((resolve) => setTimeout(resolve, i === 0 ? 200 : 400)); // Уменьшили с 500/1000ms до 200/400ms
+      setMessages((prev) => [...prev, aiMessages[i]]);
+    }
+  };
+
+  // Функция поллинга для быстрого появления новых сообщений
+  const startPollingForNewMessages = async () => {
+    if (!backendOrgId || !currentFunnel?.id || !selectedTestDialogId) return;
+
+    let pollingAttempts = 0;
+    const maxPollingAttempts = 20; // Максимум 20 попыток (10 секунд)
+    const currentMessagesIds = new Set(messages.map((msg) => msg.id)); // Запоминаем ID текущих сообщений
+
+    const pollMessages = async (): Promise<void> => {
+      try {
+        const token = getClerkTokenFromClientCookie();
+        if (!token) return;
+
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}/messages`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const allMessages: ChatMessage[] = Array.isArray(data)
+            ? data
+                .map((msg: any, index: number) => ({
+                  id: msg.id || `msg-${index}`,
+                  text: msg.text || msg.message || '',
+                  sender: (msg.role === 'user' ? 'user' : 'assistant') as
+                    | 'user'
+                    | 'assistant',
+                  timestamp: msg.timestamp || Date.now()
+                }))
+                .reverse()
+            : [];
+
+          // Фильтруем только действительно новые сообщения (которых нет в currentMessagesIds)
+          const newMessages = allMessages.filter(
+            (msg) => !currentMessagesIds.has(msg.id)
+          );
+
+          // Фильтруем только AI сообщения, чтобы избежать дублирования пользовательских сообщений
+          const newAIMessages = newMessages.filter(
+            (msg) => msg.sender === 'assistant'
+          );
+
+          if (newAIMessages.length > 0) {
+            // Убираем AI индикатор
+            setAiThinking(false);
+            setAiStatus(null);
+
+            // Добавляем новые AI сообщения по одному с интервалом 1 секунда
+            for (let i = 0; i < newAIMessages.length; i++) {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              setMessages((prev) => [...prev, newAIMessages[i]]);
+            }
+            return; // Завершаем поллинг после получения новых сообщений
+          }
+        }
+
+        pollingAttempts++;
+
+        // Продолжаем поллинг если еще не достигли лимита
+        if (pollingAttempts < maxPollingAttempts) {
+          setTimeout(pollMessages, 500);
+        } else {
+          // Убираем AI индикатор если поллинг завершился без новых сообщений
+          setAiThinking(false);
+          setAiStatus(null);
+        }
+      } catch (error) {
+        console.error('Error polling messages:', error);
+        setAiThinking(false);
+        setAiStatus(null);
+      }
+    };
+
+    // Начинаем поллинг через небольшую задержку
+    setTimeout(pollMessages, 500);
+  };
+
+  // Функция удаления тестового диалога
+  const deleteCurrentTestDialog = async () => {
+    if (!selectedTestDialogId || !backendOrgId || !currentFunnel?.id) {
+      setTestError('Нет выбранного диалога для удаления');
+      return;
+    }
+
+    // Показываем подтверждение
+    const confirmed = window.confirm(
+      `Вы уверены, что хотите удалить текущий тестовый диалог?\n\nID: ${selectedTestDialogId}\n\nЭто действие нельзя отменить.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingDialog(true);
+    setTestError(null);
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setTestError('Токен авторизации недоступен');
+        return;
+      }
+
+      console.log('Deleting test dialog:', selectedTestDialogId);
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `HTTP ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log('Successfully deleted test dialog:', data);
+
+      // Очищаем текущий диалог
+      setSelectedTestDialogId('');
+      setMessages([]);
+
+      // Перезагружаем список диалогов
+      await loadTestDialogs();
+
+      // Показываем сообщение об успехе (временно)
+      const successMsg = 'Тестовый диалог успешно удален!';
+      setTestError(null);
+
+      // Показываем уведомление в консоли
+      console.log(successMsg);
+    } catch (error: any) {
+      console.error('Error deleting test dialog:', error);
+      setTestError(error.message || 'Ошибка при удалении тестового диалога');
+    } finally {
+      setDeletingDialog(false);
+    }
+  };
+
+  // Создание нового тестового диалога
+  const createNewTestDialog = async () => {
+    if (!backendOrgId || !currentFunnel?.id || !stageName) return;
+
+    setCreatingDialog(true);
+    setTestError(null);
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setTestError('Токен авторизации недоступен');
+        return;
+      }
+
+      const requestBody = {
+        stage: stageName,
+        manager: 'Test Manager',
+        ai: true,
+        unsubscribed: false,
+        description: 'у клиента есть четкая цель',
+        tags: ['test', 'dialog'],
+        price: 999,
+        messenger_connection_id: 0
+      };
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialog`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `HTTP ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log('Successfully created test dialog:', data);
+
+      // Перезагружаем список диалогов
+      await loadTestDialogs();
+
+      // Выбираем новый диалог если он создался
+      if (data.uuid) {
+        setSelectedTestDialogId(data.uuid);
+        await loadTestDialogMessages(data.uuid);
+      }
+
+      // Показываем сообщение об успешном создании
+      setTestError(null); // Очищаем ошибки
+    } catch (error: any) {
+      console.error('Error creating test dialog:', error);
+      setTestError(error.message || 'Ошибка при создании тестового диалога');
+    } finally {
+      setCreatingDialog(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!userMessage.trim() || !selectedTestDialogId || sendingMessage) return;
+    if (!backendOrgId || !currentFunnel?.id) return;
+
+    setSendingMessage(true);
+    setTestError(null);
+
+    // Создаем сообщение пользователя заранее для возможного удаления в случае ошибки
+    const newUserMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      text: userMessage,
+      sender: 'user',
+      timestamp: Date.now()
+    };
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setTestError('Токен авторизации недоступен');
+        return;
+      }
+
+      // Добавляем сообщение пользователя в чат
+      setMessages((prev) => [...prev, newUserMessage]);
+      const userMessageText = userMessage;
+      setUserMessage('');
+
+      // Показываем AI индикатор
+      setAiThinking(true);
+      setAiStatus('writing');
+
+      // Отправляем сообщение через API route
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}/message`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            text: userMessageText,
+            role: 'user'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Message sent successfully:', data);
+
+      // Сразу начинаем поллинг новых сообщений
+      startPollingForNewMessages();
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      setTestError(error.message || 'Ошибка при отправке сообщения');
+
+      // Убираем заглушки и удаляем сообщение пользователя из чата в случае ошибки
+      setAiThinking(false);
+      setAiStatus(null);
+      setMessages((prev) => prev.filter((msg) => msg.id !== newUserMessage.id));
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (
+        !sendingMessage &&
+        !messagesLoading &&
+        selectedTestDialogId &&
+        userMessage.trim()
+      ) {
+        sendMessage();
+      }
+    }
+  };
+
+  return (
+    <Card className='h-fit'>
+      <CardHeader>
+        <CardTitle className='mb-2'>
+          Промпт агента/Тестирование
+          {stageName && (
+            <div className='mt-1 text-sm font-normal text-gray-600'>
+              Этап: {stageName}
+            </div>
+          )}
+        </CardTitle>
+        <Tabs
+          value={activeSettingsTab}
+          onValueChange={(value) => onTabChange(value as 'setup' | 'test')}
+        >
+          <TabsList className='w-full pt-1'>
+            <TabsTrigger value='setup' className='flex-1'>
+              Настройка
+            </TabsTrigger>
+            <TabsTrigger value='test' className='flex-1'>
+              Тестирование
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </CardHeader>
+      <CardContent className='p-0'>
+        {/* Chat interface - only shown when in testing mode */}
+        {activeSettingsTab === 'test' && (
+          <div className='flex h-[320px] flex-col'>
+            {/* Chat Header */}
+            <div className='flex items-center justify-between border-b p-4'>
+              <div className='flex items-center gap-4'>
+                <div className='flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200'>
+                  <IconUsers className='h-5 w-5 text-gray-500' />
+                </div>
+                <div className='flex flex-col'>
+                  <span className='text-sm font-medium'>Тестирование</span>
+                  <span className='text-muted-foreground text-sm'>
+                    {creatingDialog ? (
+                      'Создание диалога...'
+                    ) : testDialogs.length > 0 ? (
+                      <select
+                        className='cursor-pointer border-none bg-transparent text-sm outline-none'
+                        value={selectedTestDialogId}
+                        onChange={(e) => handleDialogChange(e.target.value)}
+                        disabled={messagesLoading}
+                      >
+                        {testDialogs.map((dialog, index) => {
+                          // Маппинг английских названий этапов на русские
+                          const stageNames: { [key: string]: string } = {
+                            presentation: 'презентация',
+                            qualification: 'квалификация',
+                            needs_analysis: 'анализ потребностей',
+                            proposal: 'предложение',
+                            negotiation: 'переговоры',
+                            closing: 'закрытие',
+                            follow_up: 'сопровождение',
+                            initial_contact: 'первичный контакт',
+                            discovery: 'выявление',
+                            demo: 'демонстрация',
+                            objection_handling: 'работа с возражениями'
+                          };
+
+                          const stageName = dialog.stage
+                            ? stageNames[dialog.stage.toLowerCase()] ||
+                              dialog.stage
+                            : 'без этапа';
+
+                          return (
+                            <option key={dialog.uuid} value={dialog.uuid}>
+                              Диалог {index + 1} ({stageName}){' '}
+                              {dialog.description
+                                ? `- ${dialog.description}`
+                                : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    ) : (
+                      'Агент этапа'
+                    )}
+                  </span>
+                </div>
+              </div>
+              <div className='flex gap-2'>
+                {testDialogsLoading && (
+                  <div className='mr-2 text-xs text-gray-500'>
+                    Загрузка диалогов...
+                  </div>
+                )}
+                <Button
+                  size='icon'
+                  variant='destructive'
+                  className='h-8 w-8 rounded-full'
+                  title='Удалить текущий диалог'
+                  onClick={deleteCurrentTestDialog}
+                  disabled={deletingDialog || !selectedTestDialogId}
+                >
+                  {deletingDialog ? (
+                    <IconRotateClockwise className='h-3.5 w-3.5 animate-spin' />
+                  ) : (
+                    <IconTrash className='h-3.5 w-3.5' />
+                  )}
+                </Button>
+                <Button
+                  size='icon'
+                  className='h-8 w-8 rounded-full'
+                  onClick={createNewTestDialog}
+                  title='Создать новый тестовый диалог'
+                  disabled={creatingDialog || testDialogsLoading}
+                >
+                  {creatingDialog ? (
+                    <IconRotateClockwise className='h-3.5 w-3.5 animate-spin' />
+                  ) : (
+                    <IconPlus className='h-3.5 w-3.5' />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Chat Messages */}
+            <div className='chat-messages-container flex min-h-[180px] flex-col gap-2.5 overflow-y-auto p-4'>
+              {messagesLoading ? (
+                <div className='flex h-full items-center justify-center'>
+                  <p className='text-center text-sm text-gray-400'>
+                    Загрузка сообщений...
+                  </p>
+                </div>
+              ) : messages.length > 0 || aiThinking ? (
+                <>
+                  {messages.map((message) => (
+                    <div key={message.id} className='flex flex-col gap-2.5'>
+                      <div
+                        className={`${
+                          message.sender === 'assistant'
+                            ? 'self-end bg-zinc-900 text-white'
+                            : 'self-start bg-gray-100'
+                        } max-w-[70%] rounded-lg p-3`}
+                      >
+                        <p className='text-sm'>{message.text}</p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* AI Thinking Animation (упрощенная версия) */}
+                  {aiThinking && (
+                    <div className='flex flex-col gap-2.5'>
+                      <div className='max-w-[70%] self-end p-3'>
+                        <p className='text-sm text-black'>
+                          AI-ассистент пишет ответ
+                          <AnimatedDots resetKey='writing' />
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className='flex h-full items-center justify-center'>
+                  <p className='text-center text-sm text-gray-400'>
+                    {testDialogs.length === 0
+                      ? 'Нет тестовых диалогов. Создайте тестовый диалог для начала работы.'
+                      : 'Здесь будут отображаться сообщения диалога.'}
+                    <br />
+                    {testDialogs.length > 0 &&
+                      'Напишите сообщение, чтобы начать тестирование ассистента.'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input */}
+            <div className='mt-auto border-t p-4'>
+              {/* Test Error Display */}
+              {testError && (
+                <div className='mb-3 rounded-md border border-red-200 bg-red-50 p-2'>
+                  <div className='text-sm text-red-700'>{testError}</div>
+                </div>
+              )}
+
+              <div className='flex gap-2'>
+                <input
+                  type='text'
+                  placeholder='Введите сообщение от лица клиента...'
+                  className='flex-1 rounded-md border border-gray-200 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:bg-gray-100'
+                  value={userMessage}
+                  onChange={(e) => setUserMessage(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  disabled={
+                    sendingMessage || messagesLoading || !selectedTestDialogId
+                  }
+                />
+                <Button
+                  size='icon'
+                  variant='default'
+                  className='h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400'
+                  onClick={sendMessage}
+                  disabled={
+                    sendingMessage ||
+                    messagesLoading ||
+                    !selectedTestDialogId ||
+                    !userMessage.trim()
+                  }
+                >
+                  {sendingMessage ? (
+                    <IconRotateClockwise className='h-5 w-5 animate-spin text-white' />
+                  ) : (
+                    <IconSend className='h-5 w-5 text-white' />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Agent Prompt Editor - only shown when in setup mode */}
+        {activeSettingsTab === 'setup' && (
+          <div className='p-4'>
+            <Textarea
+              value={instructions}
+              onChange={(e) => onInstructionsChange(e.target.value)}
+              placeholder='Содержимое промпта агента.'
+              className='h-[234px] w-full resize-none'
+            />
+
+            {/* Success and Error Messages */}
+            {successMessage && !successMessage.includes('AI настройки') && (
+              <div className='mt-4 rounded-md border border-green-200 bg-green-50 p-3'>
+                <div className='flex'>
+                  <div className='text-sm text-green-700'>{successMessage}</div>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className='mt-4 rounded-md border border-red-200 bg-red-50 p-3'>
+                <div className='flex'>
+                  <div className='text-sm text-red-700'>{error}</div>
+                </div>
+              </div>
+            )}
+
+            <div className='mt-4 flex gap-2'>
+              <Button
+                onClick={onSubmitInstructions}
+                disabled={saving}
+                className='flex-1'
+              >
+                {saving ? 'Сохранение...' : 'Обновить промпт'}
+              </Button>
+              <Button variant='outline' size='icon' onClick={onReloadPrompt}>
+                <IconRotateClockwise className='h-4 w-4' />
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // Компонент перемещаемой карточки подключения
 function ConnectionCard({
@@ -160,7 +1365,7 @@ function KanbanColumn({
   return (
     <div
       className={`rounded-lg border bg-gray-50 ${className}`}
-      style={{ minHeight: '500px', width: '300px' }}
+      style={{ minHeight: '600px', width: '300px' }}
     >
       <div className='rounded-t-lg border-b bg-white p-4'>
         <h3 className='text-sm font-semibold tracking-wide text-gray-700 uppercase'>
@@ -169,7 +1374,7 @@ function KanbanColumn({
         {headerContent}
       </div>
       <div className='p-3'>
-        <ScrollArea className='h-[400px]'>{children}</ScrollArea>
+        <ScrollArea className='h-[500px]'>{children}</ScrollArea>
       </div>
     </div>
   );
@@ -195,6 +1400,15 @@ function ManagementPageContent() {
   // Состояния для агентов
   const [agentTeams, setAgentTeams] = useState<AgentTeam[]>([]);
 
+  // Состояние для режима настройки агента
+  const [selectedAgentForSettings, setSelectedAgentForSettings] =
+    useState<AgentTeam | null>(null);
+
+  // Состояние для выбранного этапа в режиме настроек
+  const [selectedStageIndex, setSelectedStageIndex] = useState<number | null>(
+    null
+  );
+
   // Состояние для модального окна настройки этапа
   const [stageSettingsModal, setStageSettingsModal] = useState<{
     isOpen: boolean;
@@ -205,6 +1419,47 @@ function ManagementPageContent() {
     stage: null,
     stageIndex: -1
   });
+
+  // Состояния для редактирования названий этапов
+  const [editingStageIndex, setEditingStageIndex] = useState<number | null>(
+    null
+  );
+  const [editingStageValue, setEditingStageValue] = useState<string>('');
+
+  // Состояния для настроек AI
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
+    cookieSettings: {
+      contextMemory: true,
+      dataCollection: false,
+      stopAgentAfterManager: true,
+      agentKnowledgeBase: true,
+      voiceRequests: false
+    }
+  });
+
+  const [aiSettings, setAiSettings] = useState<AISettings>({
+    mode: 'edit',
+    model: 'GPT-4.1 mini',
+    temperature: 0.56,
+    maxLength: 256,
+    topP: 0.9,
+    preset: 'Пресет 1',
+    followUp: {
+      enabled: true,
+      count: 2,
+      delay: 20
+    },
+    transfer: 'Менеджеру'
+  });
+
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'setup' | 'test'>(
+    'setup'
+  );
+  const [instructions, setInstructions] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
 
   // Состояние для Drag and Drop
   const [activeConnection, setActiveConnection] = useState<Integration | null>(
@@ -251,10 +1506,7 @@ function ManagementPageContent() {
               connections.forEach((conn: any) => {
                 allIntegrations.push({
                   id: `${funnel.id}-${conn.id || conn.name || Math.random()}`,
-                  name:
-                    conn.connection_name ||
-                    conn.name ||
-                    'Неизвестное подключение',
+                  name: conn.connection_name || conn.name || 'Анонимный',
                   type: conn.messenger_type?.toLowerCase() || 'other',
                   status: conn.is_active ? 'connected' : 'disconnected',
                   funnel_id: funnel.id,
@@ -285,7 +1537,7 @@ function ManagementPageContent() {
     const mockAgentTeams: AgentTeam[] = [
       {
         id: '1',
-        name: 'Алексей',
+        name: 'Боевой',
         type: 'Мультиагент',
         cv: 56,
         users: 120,
@@ -349,6 +1601,249 @@ function ManagementPageContent() {
     }
   }, [currentFunnel, backendOrgId, funnelsLoading]);
 
+  // Обработчики для настроек
+  const handleGeneralSettingChange = (key: string, value: boolean) => {
+    setGeneralSettings((prev) => ({
+      ...prev,
+      cookieSettings: {
+        ...prev.cookieSettings,
+        [key]: value
+      }
+    }));
+    setHasChanges(true);
+  };
+
+  const handleSaveGeneralSettings = () => {
+    // Здесь можно добавить API вызов для сохранения настроек
+    setSuccessMessage('Настройки успешно сохранены');
+    setHasChanges(false);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleAISettingChange = (field: keyof AISettings, value: any) => {
+    setAiSettings((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+    setHasChanges(true);
+  };
+
+  const handleFollowUpChange = (field: string, value: any) => {
+    setAiSettings((prev) => ({
+      ...prev,
+      followUp: {
+        ...prev.followUp,
+        [field]: value
+      }
+    }));
+    setHasChanges(true);
+  };
+
+  const handleSaveAISettings = () => {
+    // Здесь можно добавить API вызов для сохранения AI настроек
+    setSuccessMessage('AI настройки успешно сохранены');
+    setHasChanges(false);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleTabChange = (tab: 'setup' | 'test') => {
+    setActiveSettingsTab(tab);
+  };
+
+  const handleInstructionsChange = (value: string) => {
+    setInstructions(value);
+    setHasChanges(true);
+  };
+
+  const handleSubmitInstructions = async () => {
+    if (
+      !currentFunnel ||
+      !backendOrgId ||
+      selectedStageIndex === null ||
+      !funnelStages[selectedStageIndex]
+    ) {
+      setError('Отсутствуют необходимые данные для сохранения');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setError('Отсутствует токен авторизации');
+        return;
+      }
+
+      const stage = funnelStages[selectedStageIndex];
+
+      if (stage.assistant_code_name) {
+        console.log(
+          'Saving prompt for assistant code_name:',
+          stage.assistant_code_name
+        );
+
+        // Используем API из assistant debug для обновления ассистента
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              code_name: stage.assistant_code_name,
+              text: instructions
+            })
+          }
+        );
+
+        console.log('Save response status:', response.status);
+
+        if (response.ok) {
+          const responseData = await response.json();
+          console.log('Save response data:', responseData);
+          setSuccessMessage('Промпт успешно обновлен');
+          setHasChanges(false);
+
+          // Убираем сообщение об успехе через 3 секунды
+          setTimeout(() => {
+            setSuccessMessage(null);
+          }, 3000);
+        } else {
+          // Получаем детали ошибки
+          let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+          try {
+            const errorData = await response.json();
+            if (errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (parseError) {
+            console.log('Failed to parse error response');
+          }
+          throw new Error(errorMessage);
+        }
+      } else {
+        // Если нет assistant_code_name, показываем предупреждение
+        setError(
+          'У этого этапа не назначен ассистент. Промпт не может быть сохранен.'
+        );
+      }
+    } catch (err: any) {
+      console.error('Error saving prompt:', err);
+      setError(err.message || 'Ошибка при обновлении промпта');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReloadPrompt = () => {
+    setInstructions('');
+    setHasChanges(false);
+  };
+
+  // Функция загрузки промпта для этапа (используя метод из assistant debug)
+  const loadPromptForStage = async (stageIndex: number) => {
+    if (!currentFunnel || !backendOrgId || !funnelStages[stageIndex]) {
+      setInstructions('');
+      return;
+    }
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        console.error('No token available');
+        setInstructions('');
+        return;
+      }
+
+      const stage = funnelStages[stageIndex];
+
+      // Если у этапа есть assistant_code_name, загружаем данные ассистента
+      if (stage.assistant_code_name) {
+        console.log(
+          'Loading assistant data for code_name:',
+          stage.assistant_code_name
+        );
+
+        // Сначала получаем всех ассистентов воронки
+        const assistantsResponse = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistants`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (assistantsResponse.ok) {
+          const assistantsData = await assistantsResponse.json();
+          console.log('All assistants:', assistantsData);
+
+          // Ищем ассистента по code_name из assistant_code_name этапа
+          const targetAssistant = assistantsData.find(
+            (assistant: any) =>
+              assistant.code_name === stage.assistant_code_name
+          );
+
+          if (targetAssistant) {
+            console.log('Found assistant:', targetAssistant);
+            setInstructions(
+              targetAssistant.prompt ||
+                targetAssistant.text ||
+                stage.prompt ||
+                ''
+            );
+          } else {
+            console.log(
+              'Assistant not found for code_name:',
+              stage.assistant_code_name
+            );
+            // Если ассистент не найден, используем промпт из stage
+            setInstructions(stage.prompt || '');
+          }
+        } else {
+          console.error(
+            'Failed to fetch assistants:',
+            assistantsResponse.status
+          );
+          // Если API не работает, используем промпт из stage
+          setInstructions(stage.prompt || '');
+        }
+      } else {
+        console.log('No assistant_code_name for stage:', stage.name);
+        // Если нет assistant_code_name, используем промпт из stage
+        setInstructions(stage.prompt || '');
+      }
+    } catch (error) {
+      console.error('Error loading prompt for stage:', error);
+      // В случае ошибки используем промпт из stage как fallback
+      const stage = funnelStages[stageIndex];
+      setInstructions(stage.prompt || '');
+    }
+  };
+
+  // Обработчик клика на заголовок этапа
+  const handleStageHeaderClick = (stageIndex: number) => {
+    // Выбираем первого доступного агента и открываем настройки
+    if (agentTeams.length > 0) {
+      setSelectedAgentForSettings(agentTeams[0]);
+      setSelectedStageIndex(stageIndex);
+      // Загружаем промпт для выбранного этапа
+      loadPromptForStage(stageIndex);
+    }
+  };
+
+  // Модифицированный обработчик возврата назад
+  const handleBackFromSettings = () => {
+    setSelectedAgentForSettings(null);
+    setSelectedStageIndex(null);
+  };
+
   // Обработчик выбора этапа
   const handleStageSelect = (stageIndex: number | null, stage?: any) => {
     if (stageIndex !== null && stage) {
@@ -369,10 +1864,72 @@ function ManagementPageContent() {
     });
   };
 
+  // Обработчики редактирования названий этапов
+  const handleStartEditing = (stageIndex: number, currentName: string) => {
+    setEditingStageIndex(stageIndex);
+    setEditingStageValue(currentName);
+  };
+
+  const handleSaveStageEdit = async () => {
+    if (editingStageIndex === null || !editingStageValue.trim()) return;
+
+    try {
+      // Здесь будет API вызов для сохранения нового названия этапа
+      // TODO: Реализовать API вызов
+      console.log(
+        'Saving stage name:',
+        editingStageValue,
+        'for stage index:',
+        editingStageIndex
+      );
+
+      // Обновляем локальное состояние
+      setFunnelStages((prev) =>
+        prev.map((stage, index) =>
+          index === editingStageIndex
+            ? { ...stage, name: editingStageValue.trim() }
+            : stage
+        )
+      );
+
+      // Сбрасываем состояние редактирования
+      setEditingStageIndex(null);
+      setEditingStageValue('');
+    } catch (error) {
+      console.error('Error saving stage name:', error);
+    }
+  };
+
+  const handleCancelStageEdit = () => {
+    setEditingStageIndex(null);
+    setEditingStageValue('');
+  };
+
+  const handleStageInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (e.key === 'Enter') {
+      handleSaveStageEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelStageEdit();
+    }
+  };
+
   // Загрузка данных при изменении воронки
   useEffect(() => {
     fetchFunnelStages();
   }, [fetchFunnelStages]);
+
+  // Загрузка промпта при изменении выбранного этапа
+  useEffect(() => {
+    if (
+      selectedStageIndex !== null &&
+      selectedAgentForSettings &&
+      funnelStages.length > 0
+    ) {
+      loadPromptForStage(selectedStageIndex);
+    }
+  }, [selectedStageIndex, funnelStages, selectedAgentForSettings]);
 
   // Загрузка интеграций и агентов
   useEffect(() => {
@@ -430,186 +1987,597 @@ function ManagementPageContent() {
             style={{ maxWidth: 'calc(100vw - 302px)' }}
           >
             <div className='flex gap-6 pb-4'>
-              {/* Колонка 1: Доступные источники */}
-              <KanbanColumn title='Доступные источники'>
-                <SortableContext items={connectionIds}>
-                  {integrationsLoading ? (
-                    <div className='text-sm text-gray-500'>
-                      Загрузка подключений...
-                    </div>
-                  ) : integrations.length === 0 ? (
-                    <div className='text-sm text-gray-500'>Нет подключений</div>
-                  ) : (
-                    integrations.map((integration) => (
-                      <ConnectionCard
-                        key={integration.id}
-                        connection={integration}
-                      />
-                    ))
-                  )}
-                </SortableContext>
-              </KanbanColumn>
-
-              {/* Колонка 2: Агенты воронки */}
+              {/* Колонка 1: Доступные источники или Настройки агента */}
               <KanbanColumn
-                title='Агенты воронки'
+                title={selectedAgentForSettings ? '' : 'Доступные источники'}
                 headerContent={
-                  <div className='mt-2'>
-                    <div className='text-xs text-gray-500'>
-                      Настройка агентов
+                  selectedAgentForSettings ? (
+                    <div className='flex items-center gap-3'>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={handleBackFromSettings}
+                      >
+                        Назад
+                      </Button>
+                      <h3 className='text-sm font-semibold tracking-wide text-gray-700 uppercase'>
+                        Настройки агента
+                      </h3>
                     </div>
-                  </div>
+                  ) : undefined
                 }
               >
-                {agentTeams.map((agent) => (
-                  <Card key={agent.id} className='mb-2'>
-                    <CardContent className='p-3'>
-                      <div className='space-y-2'>
-                        <div className='flex items-center justify-between'>
-                          <div className='text-sm font-medium'>
-                            {agent.name}
-                          </div>
-                          <Switch checked={agent.enabled} />
-                        </div>
-                        <Badge
-                          variant='outline'
-                          className={
-                            agent.type === 'Мультиагент'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }
-                        >
-                          {agent.type}
-                        </Badge>
-                        <div className='flex justify-between text-xs text-gray-600'>
-                          <span>CV Агента</span>
-                          <span className='font-medium'>{agent.cv}%</span>
-                        </div>
-                        <Progress value={agent.cv} className='h-2' />
-                        <div className='grid grid-cols-2 gap-2 text-xs'>
-                          <div className='flex items-center gap-1'>
-                            <IconUsers className='h-3 w-3' />
-                            <span>{agent.users}</span>
-                          </div>
-                          <div className='flex items-center gap-1'>
-                            <IconAlertTriangle className='h-3 w-3 text-orange-500' />
-                            <span>{agent.warnings}</span>
-                          </div>
-                        </div>
-                        <div className='text-xs text-gray-500'>
-                          {agent.meetingType}
-                        </div>
+                {selectedAgentForSettings ? (
+                  <AgentGeneralSettings
+                    generalSettings={generalSettings}
+                    onSettingChange={handleGeneralSettingChange}
+                    onSave={handleSaveGeneralSettings}
+                  />
+                ) : (
+                  <SortableContext items={connectionIds}>
+                    {integrationsLoading ? (
+                      // Показываем 5 скелетонов по умолчанию
+                      Array.from({ length: 5 }).map((_, index) => (
+                        <ConnectionSkeleton
+                          key={`connection-skeleton-${index}`}
+                        />
+                      ))
+                    ) : integrations.length === 0 ? (
+                      <div className='text-sm text-gray-500'>
+                        Нет подключений
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    ) : (
+                      integrations.map((integration) => (
+                        <ConnectionCard
+                          key={integration.id}
+                          connection={integration}
+                        />
+                      ))
+                    )}
+                  </SortableContext>
+                )}
               </KanbanColumn>
 
-              {/* Колонки этапов воронки */}
-              {(() => {
-                if (funnelsLoading) {
-                  return (
-                    <div className='text-sm text-gray-500'>
-                      Загрузка воронок...
-                    </div>
-                  );
-                }
+              {/* Объединенный блок: Агенты воронки + Этапы */}
+              <div
+                className='rounded-lg border bg-gray-50'
+                style={{ minHeight: '600px', minWidth: '1200px' }}
+              >
+                <div className='rounded-t-lg border-b bg-white p-0'>
+                  <div className='flex gap-0'>
+                    {/* Заголовок Агенты воронки - скрывается в режиме настройки */}
+                    {!selectedAgentForSettings && (
+                      <>
+                        <div className='align-center flex w-85 flex-shrink-0 p-4'>
+                          <h3 className='text-sm font-semibold tracking-wide text-gray-700 uppercase'>
+                            Агенты воронки
+                          </h3>
+                        </div>
 
-                if (assistantsLoading) {
-                  return (
-                    <div className='text-sm text-gray-500'>
-                      Загрузка этапов...
-                    </div>
-                  );
-                }
+                        {/* Вертикальный разделитель */}
+                        <div className='mx-0 w-px self-stretch bg-gray-200'></div>
+                      </>
+                    )}
 
-                if (!currentFunnel) {
-                  return (
-                    <div className='rounded-lg border bg-yellow-50 p-4 text-sm text-gray-500'>
-                      <div className='mb-2'>Воронка не выбрана</div>
-                      <div className='text-xs'>
-                        Доступных воронок: {funnels?.length || 0}
-                        {funnels?.length > 0 && (
-                          <div className='mt-1'>
-                            Доступные:{' '}
-                            {funnels
-                              .map((f) => f.name || f.display_name)
-                              .join(', ')}
+                    {/* Заголовки этапов */}
+                    <div
+                      className={`min-w-0 flex-1 ${selectedAgentForSettings ? 'pl-4' : 'pl-0'}`}
+                    >
+                      <div className='flex overflow-x-auto'>
+                        {(() => {
+                          if (funnelsLoading || assistantsLoading) {
+                            // Показываем скелетоны заголовков для 3 этапов
+                            return Array.from({ length: 3 }).map((_, index) => (
+                              <div
+                                key={`header-skeleton-${index}`}
+                                className='flex items-center'
+                              >
+                                <div
+                                  className='flex-shrink-0 px-4 py-4'
+                                  style={{ width: '256px' }}
+                                >
+                                  <Skeleton className='h-4 w-24' />
+                                </div>
+                                {index < 2 && (
+                                  <div className='mx-0 w-px self-stretch bg-gray-200'></div>
+                                )}
+                              </div>
+                            ));
+                          }
+
+                          if (!currentFunnel || funnelStages.length === 0) {
+                            return (
+                              <div className='group flex-shrink-0 rounded px-4 py-2 transition-colors hover:bg-gray-100'>
+                                <div className='flex items-center justify-between'>
+                                  <h3 className='text-sm font-semibold tracking-wide text-gray-700 uppercase'>
+                                    Этапы воронки
+                                  </h3>
+                                  <Button
+                                    variant='ghost'
+                                    size='sm'
+                                    className='h-5 w-5 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                                  >
+                                    <IconSettings className='h-3 w-3 text-gray-500' />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return funnelStages.map((stage, index) => {
+                            const isActiveStage = selectedStageIndex === index;
+                            const isEditing = editingStageIndex === index;
+                            return (
+                              <div key={index} className='flex items-center'>
+                                <div
+                                  className={`group flex-shrink-0 rounded px-4 py-4 transition-colors ${
+                                    isEditing
+                                      ? 'cursor-default'
+                                      : 'cursor-pointer'
+                                  } ${
+                                    isActiveStage
+                                      ? 'border border-blue-200 bg-blue-100'
+                                      : 'hover:bg-gray-100'
+                                  }`}
+                                  style={{ width: '256px' }}
+                                  onClick={() =>
+                                    !isEditing && handleStageHeaderClick(index)
+                                  }
+                                >
+                                  <div className='flex items-center justify-between'>
+                                    {isEditing ? (
+                                      <input
+                                        type='text'
+                                        value={editingStageValue}
+                                        onChange={(e) =>
+                                          setEditingStageValue(e.target.value)
+                                        }
+                                        onKeyDown={handleStageInputKeyDown}
+                                        className={`border-none bg-transparent text-sm font-semibold tracking-wide uppercase outline-none ${
+                                          isActiveStage
+                                            ? 'text-blue-700'
+                                            : 'text-gray-700'
+                                        }`}
+                                        style={{ width: '160px' }}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <h3
+                                        className={`text-sm font-semibold tracking-wide uppercase ${
+                                          isActiveStage
+                                            ? 'text-blue-700'
+                                            : 'text-gray-700'
+                                        }`}
+                                      >
+                                        {stage.name}
+                                      </h3>
+                                    )}
+
+                                    {/* Кнопки редактирования */}
+                                    <div className='flex items-center gap-1'>
+                                      {isEditing ? (
+                                        <>
+                                          {/* Кнопка сохранить */}
+                                          <Button
+                                            variant='ghost'
+                                            size='sm'
+                                            className='h-5 w-5 p-0 transition-colors hover:bg-green-100'
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSaveStageEdit();
+                                            }}
+                                          >
+                                            <IconCheck className='h-3 w-3 text-green-600' />
+                                          </Button>
+                                          {/* Кнопка отменить */}
+                                          <Button
+                                            variant='ghost'
+                                            size='sm'
+                                            className='h-5 w-5 p-0 transition-colors hover:bg-red-100'
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleCancelStageEdit();
+                                            }}
+                                          >
+                                            <IconX className='h-3 w-3 text-red-600' />
+                                          </Button>
+                                        </>
+                                      ) : (
+                                        /* Кнопка редактировать */
+                                        <Button
+                                          variant='ghost'
+                                          size='sm'
+                                          className='h-5 w-5 p-0 opacity-0 transition-opacity group-hover:opacity-100'
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStartEditing(
+                                              index,
+                                              stage.name
+                                            );
+                                          }}
+                                        >
+                                          <IconSettings className='h-3 w-3 text-gray-500' />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                {/* Разделитель между заголовками этапов */}
+                                {index < funnelStages.length - 1 && (
+                                  <div className='mx-0 w-px self-stretch bg-gray-200'></div>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className='p-4'>
+                  <ScrollArea className='h-[480px]'>
+                    <div className='flex gap-4'>
+                      {/* Левая секция: Агенты воронки - скрывается в режиме настройки */}
+                      {!selectedAgentForSettings && (
+                        <div className='w-80 flex-shrink-0'>
+                          <div className='space-y-3'>
+                            {/* Добавляем состояние загрузки для агентов */}
+                            {!backendOrgId
+                              ? // Показываем 2 скелетона агентов по умолчанию
+                                Array.from({ length: 2 }).map((_, index) => (
+                                  <AgentSkeleton
+                                    key={`agent-skeleton-${index}`}
+                                  />
+                                ))
+                              : agentTeams.map((agent) => (
+                                  <Card
+                                    key={agent.id}
+                                    className={`border shadow-sm ${
+                                      agent.enabled
+                                        ? 'bg-white'
+                                        : 'bg-gray-100 opacity-60'
+                                    }`}
+                                  >
+                                    <CardContent>
+                                      <div className='grid grid-cols-3 gap-0'>
+                                        {/* Колонка 1: Название и переключатель */}
+                                        <div className='space-y-2'>
+                                          <div
+                                            className={`text-sm font-semibold ${
+                                              agent.enabled
+                                                ? 'text-gray-900'
+                                                : 'text-gray-500'
+                                            }`}
+                                          >
+                                            {agent.name}
+                                          </div>
+                                          <Switch
+                                            checked={agent.enabled}
+                                            className='data-[state=checked]:bg-blue-600'
+                                          />
+                                        </div>
+
+                                        {/* Разделитель */}
+                                        <div className='relative flex items-center justify-center'>
+                                          <div className='absolute top-0 right-27 bottom-0 w-px bg-gray-200'></div>
+                                          <div className='flex flex-col items-center gap-2'>
+                                            <Badge
+                                              variant='secondary'
+                                              className={`text-xs ${
+                                                agent.enabled
+                                                  ? ''
+                                                  : 'bg-gray-200 text-gray-500 opacity-50'
+                                              }`}
+                                            >
+                                              {agent.type === 'Мультиагент'
+                                                ? 'Мультигент'
+                                                : 'Одиночный'}
+                                            </Badge>
+                                            <Button
+                                              variant='outline'
+                                              size='sm'
+                                              className={`h-7 px-3 text-xs ${
+                                                agent.enabled
+                                                  ? ''
+                                                  : 'border-gray-300 bg-gray-100 text-gray-400 opacity-50'
+                                              }`}
+                                              onClick={() => {
+                                                setSelectedAgentForSettings(
+                                                  agent
+                                                );
+                                                // Если этап не выбран, выбираем первый этап
+                                                if (
+                                                  selectedStageIndex === null &&
+                                                  funnelStages.length > 0
+                                                ) {
+                                                  setSelectedStageIndex(0);
+                                                  loadPromptForStage(0);
+                                                }
+                                              }}
+                                            >
+                                              Настройки
+                                            </Button>
+                                          </div>
+                                          <div className='absolute top-0 bottom-0 left-27 w-px bg-gray-200'></div>
+                                        </div>
+
+                                        {/* Колонка 3: CV агента и процент */}
+                                        <div className='space-y-2'>
+                                          <div
+                                            className={`text-right text-xs ${
+                                              agent.enabled
+                                                ? 'text-gray-600'
+                                                : 'text-gray-400'
+                                            }`}
+                                          >
+                                            CV Агента
+                                          </div>
+                                          <div className='text-right'>
+                                            <div
+                                              className={`text-xl font-bold ${
+                                                agent.enabled
+                                                  ? 'text-gray-900'
+                                                  : 'text-gray-500'
+                                              }`}
+                                            >
+                                              {agent.cv}%
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Правая секция: Этапы воронки */}
+                      <div
+                        className={`min-w-0 flex-1 ${selectedAgentForSettings ? 'pl-0' : 'pl-0'}`}
+                      >
+                        {selectedAgentForSettings ? (
+                          // Показываем две колонки настроек для выбранного агента с ограниченной шириной
+                          <div
+                            className='grid grid-cols-3 gap-4'
+                            style={{ maxWidth: 'calc(100vw - 650px)' }}
+                          >
+                            <div className='col-span-2'>
+                              <PromptTestingComponent
+                                instructions={instructions}
+                                activeSettingsTab={activeSettingsTab}
+                                onTabChange={handleTabChange}
+                                onInstructionsChange={handleInstructionsChange}
+                                onSubmitInstructions={handleSubmitInstructions}
+                                onReloadPrompt={handleReloadPrompt}
+                                saving={saving}
+                                successMessage={successMessage}
+                                error={error}
+                                stageName={
+                                  selectedStageIndex !== null &&
+                                  funnelStages[selectedStageIndex]
+                                    ? funnelStages[selectedStageIndex].name
+                                    : 'Этап не выбран'
+                                }
+                                currentFunnel={currentFunnel}
+                                backendOrgId={backendOrgId}
+                              />
+                            </div>
+                            <div className='col-span-1'>
+                              <AISettingsComponent
+                                aiSettings={aiSettings}
+                                onAISettingChange={handleAISettingChange}
+                                onFollowUpChange={handleFollowUpChange}
+                                onSave={handleSaveAISettings}
+                                hasChanges={hasChanges}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className='flex gap-4 overflow-x-auto'>
+                            {(() => {
+                              if (funnelsLoading || assistantsLoading) {
+                                // Показываем 3 этапа с 2 скелетонами агентов в каждом
+                                return Array.from({ length: 3 }).map(
+                                  (_, stageIndex) => (
+                                    <div
+                                      key={`stage-skeleton-${stageIndex}`}
+                                      className='flex-shrink-0'
+                                      style={{ width: '240px' }}
+                                    >
+                                      <div className='space-y-2'>
+                                        {Array.from({ length: 2 }).map(
+                                          (_, agentIndex) => (
+                                            <StageSkeleton
+                                              key={`stage-${stageIndex}-agent-${agentIndex}`}
+                                            />
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                );
+                              }
+
+                              if (!currentFunnel) {
+                                return (
+                                  <div className='rounded-lg border bg-yellow-50 p-4 text-sm text-gray-500'>
+                                    <div className='mb-2'>
+                                      Воронка не выбрана
+                                    </div>
+                                    <div className='text-xs'>
+                                      Доступных воронок: {funnels?.length || 0}
+                                      {funnels?.length > 0 && (
+                                        <div className='mt-1'>
+                                          Доступные:{' '}
+                                          {funnels
+                                            .map(
+                                              (f) => f.name || f.display_name
+                                            )
+                                            .join(', ')}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (funnelStages.length === 0) {
+                                return (
+                                  <div className='rounded-lg border bg-blue-50 p-4 text-sm text-gray-500'>
+                                    <div className='mb-2'>
+                                      Нет этапов в воронке &quot;
+                                      {currentFunnel.name ||
+                                        currentFunnel.display_name}
+                                      &quot;
+                                    </div>
+                                    <div className='text-xs'>
+                                      Настройте этапы воронки в разделе
+                                      AI-ассистенты
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return funnelStages.map((stage, index) => (
+                                <div
+                                  key={index}
+                                  className='flex-shrink-0'
+                                  style={{ width: '240px' }}
+                                >
+                                  <div className='space-y-2'>
+                                    {!backendOrgId
+                                      ? // Показываем скелетоны этапов если нет ID организации
+                                        Array.from({ length: 2 }).map(
+                                          (_, agentIndex) => (
+                                            <StageSkeleton
+                                              key={`stage-${index}-agent-skeleton-${agentIndex}`}
+                                            />
+                                          )
+                                        )
+                                      : agentTeams.map((agent, agentIndex) => {
+                                          // Моковые данные для демонстрации (стабильные на основе индексов)
+                                          const problems =
+                                            ((index + agentIndex) % 8) + 1;
+                                          const stageCV =
+                                            85 + ((index + agentIndex) % 15);
+                                          const cvPercent =
+                                            8 + ((index + agentIndex) % 25);
+
+                                          return (
+                                            <Card
+                                              key={`${stage.name}-${agent.id}`}
+                                              className={`mb-4 border shadow-sm ${
+                                                agent.enabled
+                                                  ? 'cursor-pointer bg-white'
+                                                  : 'cursor-not-allowed bg-gray-100 opacity-60'
+                                              }`}
+                                              onClick={() =>
+                                                agent.enabled &&
+                                                handleStageSelect(index, stage)
+                                              }
+                                            >
+                                              <CardContent className='py-0.5'>
+                                                <div className='grid grid-cols-2 gap-0'>
+                                                  {/* Колонка 1: Проблем */}
+                                                  <div>
+                                                    <div
+                                                      className={`mb-2 text-xs ${
+                                                        agent.enabled
+                                                          ? 'text-gray-600'
+                                                          : 'text-gray-400'
+                                                      }`}
+                                                    >
+                                                      Проблем
+                                                    </div>
+                                                    <div className='flex items-center gap-1'>
+                                                      <div
+                                                        className={`flex h-4 w-4 items-center justify-center rounded-full ${
+                                                          agent.enabled
+                                                            ? 'bg-red-100'
+                                                            : 'bg-gray-200'
+                                                        }`}
+                                                      >
+                                                        <IconAlertCircle
+                                                          className={`h-3 w-3 ${
+                                                            agent.enabled
+                                                              ? 'text-red-600'
+                                                              : 'text-gray-400'
+                                                          }`}
+                                                        />
+                                                      </div>
+                                                      <span
+                                                        className={`text-lg font-bold ${
+                                                          agent.enabled
+                                                            ? 'text-gray-900'
+                                                            : 'text-gray-500'
+                                                        }`}
+                                                      >
+                                                        {problems}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Разделитель */}
+                                                  <div className='relative'>
+                                                    <div
+                                                      className={`absolute top-0 bottom-0 left-0 w-px ${
+                                                        agent.enabled
+                                                          ? 'bg-gray-200'
+                                                          : 'bg-gray-300 opacity-50'
+                                                      }`}
+                                                    ></div>
+
+                                                    {/* Колонка 2: CV Этапа */}
+                                                    <div className='pl-10'>
+                                                      <div
+                                                        className={`mb-2 text-right text-xs ${
+                                                          agent.enabled
+                                                            ? 'text-gray-600'
+                                                            : 'text-gray-400'
+                                                        }`}
+                                                      >
+                                                        CV Этапа
+                                                      </div>
+                                                      <div className='flex items-center justify-end gap-2'>
+                                                        <span
+                                                          className={`text-lg font-bold ${
+                                                            agent.enabled
+                                                              ? 'text-gray-900'
+                                                              : 'text-gray-500'
+                                                          }`}
+                                                        >
+                                                          {stageCV}
+                                                        </span>
+                                                        <Badge
+                                                          className={`border-0 text-xs ${
+                                                            agent.enabled
+                                                              ? 'bg-blue-100 text-blue-700'
+                                                              : 'bg-gray-200 text-gray-500 opacity-50'
+                                                          }`}
+                                                        >
+                                                          {cvPercent}%
+                                                        </Badge>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })}
+                                  </div>
+                                </div>
+                              ));
+                            })()}
                           </div>
                         )}
                       </div>
                     </div>
-                  );
-                }
-
-                if (funnelStages.length === 0) {
-                  return (
-                    <div className='rounded-lg border bg-blue-50 p-4 text-sm text-gray-500'>
-                      <div className='mb-2'>
-                        Нет этапов в воронке &quot;
-                        {currentFunnel.name || currentFunnel.display_name}&quot;
-                      </div>
-                      <div className='text-xs'>
-                        Настройте этапы воронки в разделе AI-ассистенты
-                      </div>
-                    </div>
-                  );
-                }
-
-                return funnelStages.map((stage, index) => (
-                  <KanbanColumn
-                    key={index}
-                    title={stage.name}
-                    headerContent={
-                      <div className='mt-2 space-y-1'>
-                        <div className='text-xs text-gray-500'>
-                          Этап {index + 1} воронки
-                        </div>
-                        <div className='flex justify-between text-xs'>
-                          <span>Сделки:</span>
-                          <span className='font-medium'>
-                            {stage.deals_count || 0}
-                          </span>
-                        </div>
-                        <div className='flex justify-between text-xs'>
-                          <span>Сумма:</span>
-                          <span className='font-medium'>
-                            {stage.deals_amount
-                              ? `₽${stage.deals_amount.toLocaleString()}`
-                              : '₽0'}
-                          </span>
-                        </div>
-                        <div className='flex justify-between text-xs'>
-                          <span>Агент:</span>
-                          <span className='text-xs font-medium'>
-                            {stage.assistant_code_name || 'Не назначен'}
-                          </span>
-                        </div>
-                      </div>
-                    }
-                  >
-                    <Card
-                      className='cursor-pointer transition-shadow hover:shadow-md'
-                      onClick={() => handleStageSelect(index, stage)}
-                    >
-                      <CardContent className='p-3'>
-                        <div className='mb-2 text-sm text-gray-600'>
-                          Промпт этапа
-                        </div>
-                        <div className='rounded border-2 border-dashed bg-gray-50 p-2 text-xs text-gray-500'>
-                          {stage.prompt
-                            ? stage.prompt.substring(0, 100) +
-                              (stage.prompt.length > 100 ? '...' : '')
-                            : 'Нажмите для редактирования промпта'}
-                        </div>
-                        <div className='mt-2 text-xs text-gray-500'>
-                          Количество follow-up: {stage.followups?.length || 0}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </KanbanColumn>
-                ));
-              })()}
+                  </ScrollArea>
+                </div>
+              </div>
             </div>
             <ScrollBar orientation='horizontal' />
           </ScrollArea>

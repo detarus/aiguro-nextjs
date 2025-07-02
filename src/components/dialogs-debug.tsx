@@ -2735,7 +2735,7 @@ export function DialogsDebug() {
               {availableTestDialogs.length === 0 && (
                 <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
                   <strong>Информация:</strong> Сначала загрузите тестовые
-                  диалоги с помощью кнопки "Get Test Dialogs"
+                  диалоги с помощью кнопки &quot;Get Test Dialogs&quot;
                 </div>
               )}
 
@@ -2866,7 +2866,7 @@ export function DialogsDebug() {
               {availableTestDialogs.length === 0 && (
                 <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
                   <strong>Информация:</strong> Сначала загрузите тестовые
-                  диалоги с помощью кнопки "Get Test Dialogs"
+                  диалоги с помощью кнопки &quot;Get Test Dialogs&quot;
                 </div>
               )}
 

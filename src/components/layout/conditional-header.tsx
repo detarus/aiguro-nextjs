@@ -12,6 +12,7 @@ interface PageConfig {
   showViewToggle: boolean;
   timeFilterOptions: Array<{ value: string; label: string }>;
   disableFunnelSettings?: boolean;
+  settingsUrl?: string;
 }
 
 // Список страниц, которые должны использовать TableHeader
@@ -23,7 +24,8 @@ const TABLE_HEADER_PAGES = [
   '/dashboard/management',
   '/dashboard/integrations',
   '/dashboard/debug',
-  '/dashboard/support'
+  '/dashboard/support',
+  '/dashboard/analytics'
 ];
 
 // Список страниц, которые НЕ должны показывать шапку (у них своя кастомная шапка)
@@ -159,6 +161,20 @@ export default function ConditionalHeader() {
       };
     }
 
+    if (pathname.startsWith('/dashboard/analytics')) {
+      return {
+        title: 'Аналитика',
+        showViewToggle: false,
+        settingsUrl: '/dashboard/profile',
+        timeFilterOptions: [
+          { value: '1d', label: 'Последний день' },
+          { value: '7d', label: 'Последние 7 дней' },
+          { value: '30d', label: 'Последние 30 дней' },
+          { value: '90d', label: 'Последние 90 дней' }
+        ]
+      };
+    }
+
     return {
       title: 'Страница',
       showViewToggle: false,
@@ -257,6 +273,7 @@ export default function ConditionalHeader() {
       disableFunnelSettings={
         config?.disableFunnelSettings || pageConfig.disableFunnelSettings
       }
+      settingsUrl={pageConfig.settingsUrl}
     />
   );
 }

@@ -79,6 +79,7 @@ interface TableHeaderProps {
   onViewModeChange?: (mode: 'list' | 'kanban') => void;
   showViewToggle?: boolean; // Показывать ли переключатель вида
   disableFunnelSettings?: boolean; // Отключить кнопку настроек воронки
+  settingsUrl?: string; // URL для кнопки настройки
 }
 
 export function TableHeader({
@@ -99,7 +100,8 @@ export function TableHeader({
   viewMode = 'list',
   onViewModeChange,
   showViewToggle = false,
-  disableFunnelSettings = false
+  disableFunnelSettings = false,
+  settingsUrl = '/dashboard/management'
 }: TableHeaderProps) {
   const [activeTimeFilter, setActiveTimeFilter] = React.useState(timeFilter);
 
@@ -133,7 +135,7 @@ export function TableHeader({
         {disableFunnelSettings ? (
           funnelSettingsButton
         ) : (
-          <Link href='/dashboard/management'>{funnelSettingsButton}</Link>
+          <Link href={settingsUrl}>{funnelSettingsButton}</Link>
         )}
       </div>
 

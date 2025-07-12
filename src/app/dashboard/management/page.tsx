@@ -133,7 +133,7 @@ interface ChatMessage {
   id: string;
   text: string;
   sender: 'user' | 'assistant';
-  timestamp: number;
+  time: string;
 }
 
 interface ChatDialog {
@@ -549,8 +549,7 @@ function PromptTestingComponent({
   const isPollingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Загрузка списка тестовых диалогов
-  const loadTestDialogs = async () => {
+  const loadTestDialogs = useCallback(async () => {
     if (!backendOrgId || !currentFunnel?.id) return;
 
     setLoadingDialogs(true);
@@ -592,12 +591,47 @@ function PromptTestingComponent({
     } finally {
       setLoadingDialogs(false);
     }
-  };
+  }, [backendOrgId, currentFunnel?.id, selectedTestDialogId]);
+
+  const fetchDialogData = useCallback(
+    async (dialogUuid: string) => {
+      if (!backendOrgId || !currentFunnel?.id || !dialogUuid) return;
+
+      try {
+        const token = getClerkTokenFromClientCookie();
+        if (!token) return;
+
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${dialogUuid}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setTestDialogs((prevDialogs) =>
+            prevDialogs.map((d) =>
+              d.uuid === dialogUuid ? { ...d, stage: data.stage } : d
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Error fetching dialog data:', error);
+      }
+    },
+    [backendOrgId, currentFunnel?.id]
+  );
 
   // Отображение новых сообщений по одному
   const displayNewMessagesSequentially = (messagesToAdd: ChatMessage[]) => {
     if (messagesToAdd.length === 0) {
       setSendingMessage(false); // Все сообщения отображены, разблокируем кнопку
+      loadTestDialogs(); // Перезагружаем все диалоги, чтобы получить актуальный статус
       return;
     }
 
@@ -611,59 +645,67 @@ function PromptTestingComponent({
   };
 
   // Загрузка сообщений диалога
-  const loadDialogMessages = async (dialogUuid: string) => {
-    if (!backendOrgId || !currentFunnel?.id || !dialogUuid) return;
+  const loadDialogMessages = useCallback(
+    async (dialogUuid: string) => {
+      if (!backendOrgId || !currentFunnel?.id || !dialogUuid) return;
 
-    setLoadingMessages(true);
-    setTestError(null);
+      setLoadingMessages(true);
+      setTestError(null);
 
-    try {
-      const token = getClerkTokenFromClientCookie();
-      if (!token) {
-        setTestError('Токен авторизации недоступен');
-        return;
-      }
-
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${dialogUuid}/messages`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
+      try {
+        const token = getClerkTokenFromClientCookie();
+        if (!token) {
+          setTestError('Токен авторизации недоступен');
+          return;
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${dialogUuid}/messages`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Преобразуем сообщения в нужный формат
+        const formattedMessages: ChatMessage[] = Array.isArray(data)
+          ? data.map((msg: any) => ({
+              id: msg.id || `${msg.time}-${msg.text.slice(0, 50)}`,
+              text: msg.text || msg.message || '',
+              sender: (msg.role === 'user' ? 'user' : 'assistant') as
+                | 'user'
+                | 'assistant',
+              time: msg.time
+                ? new Date(msg.time).toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : ''
+            }))
+          : [];
+
+        // API возвращает сообщения от новых к старым, поэтому реверсируем для получения хронологического порядка
+        formattedMessages.reverse();
+
+        setMessages(formattedMessages);
+      } catch (error: any) {
+        console.error('Error loading dialog messages:', error);
+        setTestError(error.message || 'Ошибка при загрузке сообщений');
+      } finally {
+        setLoadingMessages(false);
       }
-
-      const data = await response.json();
-
-      // Преобразуем сообщения в нужный формат
-      const formattedMessages: ChatMessage[] = Array.isArray(data)
-        ? data.map((msg: any, index: number) => ({
-            id: msg.id || `msg-${index}-${Date.now()}`,
-            text: msg.text || msg.message || '',
-            sender: (msg.role === 'user' ? 'user' : 'assistant') as
-              | 'user'
-              | 'assistant',
-            timestamp: msg.timestamp || Date.now()
-          }))
-        : [];
-
-      // API возвращает сообщения от новых к старым, поэтому реверсируем для получения хронологического порядка
-      formattedMessages.reverse();
-
-      setMessages(formattedMessages);
-    } catch (error: any) {
-      console.error('Error loading dialog messages:', error);
-      setTestError(error.message || 'Ошибка при загрузке сообщений');
-    } finally {
-      setLoadingMessages(false);
-    }
-  };
+    },
+    [backendOrgId, currentFunnel?.id]
+  );
 
   // Остановка поллинга
   const stopPolling = (reEnableSend = true) => {
@@ -718,13 +760,18 @@ function PromptTestingComponent({
         const data = await response.json();
 
         const allMessagesFromApi: ChatMessage[] = Array.isArray(data)
-          ? data.map((msg: any, index: number) => ({
-              id: msg.id || `msg-${index}-${Date.now()}`,
+          ? data.map((msg: any) => ({
+              id: msg.id || `${msg.time}-${msg.text.slice(0, 50)}`,
               text: msg.text || msg.message || '',
               sender: (msg.role === 'user' ? 'user' : 'assistant') as
                 | 'user'
                 | 'assistant',
-              timestamp: msg.timestamp || Date.now()
+              time: msg.time
+                ? new Date(msg.time).toLocaleTimeString('ru-RU', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : ''
             }))
           : [];
 
@@ -774,7 +821,10 @@ function PromptTestingComponent({
       id: `temp-user-${Date.now()}`,
       text: messageText,
       sender: 'user',
-      timestamp: Date.now()
+      time: new Date().toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     };
 
     setMessages((prev) => [...prev, newUserMessage]);
@@ -950,8 +1000,14 @@ function PromptTestingComponent({
   useEffect(() => {
     if (selectedTestDialogId && activeSettingsTab === 'test') {
       loadDialogMessages(selectedTestDialogId);
+      fetchDialogData(selectedTestDialogId);
     }
-  }, [selectedTestDialogId, activeSettingsTab]);
+  }, [
+    selectedTestDialogId,
+    activeSettingsTab,
+    loadDialogMessages,
+    fetchDialogData
+  ]);
 
   // Очистка поллинга при размонтировании
   useEffect(() => {
@@ -1060,7 +1116,8 @@ function PromptTestingComponent({
                       >
                         {testDialogs.map((dialog, index) => (
                           <option key={dialog.uuid} value={dialog.uuid}>
-                            Диалог {index + 1} ({dialog.stage || 'без этапа'})
+                            Диалог {index + 1} (
+                            {getTranslatedStage(dialog.stage)})
                           </option>
                         ))}
                       </select>
@@ -1152,7 +1209,7 @@ function PromptTestingComponent({
                       >
                         <p className='whitespace-pre-wrap'>{message.text}</p>
                         <p className='mt-1 text-xs opacity-70'>
-                          {new Date(message.timestamp).toLocaleTimeString()}
+                          {message.time}
                         </p>
                       </div>
                     </div>
@@ -1305,6 +1362,26 @@ function KanbanColumn({
     </div>
   );
 }
+
+const STAGE_TRANSLATIONS: { [key: string]: string } = {
+  greetings: 'Приветствие',
+  presentation: 'Презентация',
+  qualification: 'Квалификация',
+  needs_analysis: 'Анализ потребностей',
+  proposal: 'Предложение',
+  negotiation: 'Переговоры',
+  closing: 'Закрытие',
+  follow_up: 'Сопровождение',
+  initial_contact: 'Первичный контакт',
+  discovery: 'Выявление',
+  demo: 'Демонстрация',
+  objection_handling: 'Работа с возражениями'
+};
+
+const getTranslatedStage = (stage?: string) => {
+  if (!stage) return 'без этапа';
+  return STAGE_TRANSLATIONS[stage.toLowerCase()] || stage;
+};
 
 function ManagementPageContent() {
   const searchParams = useSearchParams();

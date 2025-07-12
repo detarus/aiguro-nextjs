@@ -64,9 +64,9 @@ export async function POST(request: NextRequest) {
     }
 
     const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/dialog/${dialogUuid}/message`;
-    console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/message] Posting to: ${apiUrl}`
-    );
+
+    console.log(`[PROXY] Sending POST to external backend: ${apiUrl}`);
+    const startTime = performance.now();
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -77,8 +77,10 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body)
     });
 
+    const endTime = performance.now();
+    const duration = Math.round(endTime - startTime);
     console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/message] Response status: ${response.status}`
+      `[PROXY] External backend POST request took ${duration}ms. Status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -86,30 +88,12 @@ export async function POST(request: NextRequest) {
 
       try {
         const errorData = await response.json();
-        console.error(
-          '[POST /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/message] API error response:',
-          errorData
-        );
-
-        if (errorData.error) {
-          errorMessage = errorData.error;
-        } else {
-          errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
-        }
-      } catch (parseError) {
-        try {
-          const errorText = await response.text();
-          if (errorText) {
-            errorMessage = `${errorMessage}\nServer response: ${errorText}`;
-          }
-        } catch (textError) {
-          errorMessage = `${errorMessage}\nUnable to read server response`;
-        }
+        console.error(`[PROXY] API error response from ${apiUrl}:`, errorData);
+        errorMessage = errorData.error || JSON.stringify(errorData);
+      } catch (e) {
+        errorMessage = `${errorMessage}\nUnable to parse error response body.`;
       }
 
-      console.error(
-        `[POST /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/message] Error: ${errorMessage}`
-      );
       return NextResponse.json(
         { error: errorMessage },
         { status: response.status }
@@ -117,16 +101,9 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log(
-      '[POST /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/message] Successfully posted message:',
-      data
-    );
     return NextResponse.json(data);
   } catch (error) {
-    console.error(
-      '[POST /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/message] Unexpected error:',
-      error
-    );
+    console.error('[PROXY] Unexpected error in message route:', error);
     return NextResponse.json(
       { error: 'Failed to post message' },
       { status: 500 }

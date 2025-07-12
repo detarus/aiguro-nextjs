@@ -50,9 +50,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/dialog/${dialogUuid}/messages`;
-    console.log(
-      `[GET /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/messages] Fetching from: ${apiUrl}`
-    );
 
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -62,34 +59,15 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(
-      `[GET /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/messages] Response status: ${response.status}`
-    );
-
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status} ${response.statusText}`;
 
       try {
         const errorData = await response.json();
-        console.error(
-          '[GET /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/messages] API error response:',
-          errorData
-        );
-
-        if (errorData.error) {
-          errorMessage = errorData.error;
-        } else {
-          errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
-        }
-      } catch (parseError) {
-        try {
-          const errorText = await response.text();
-          if (errorText) {
-            errorMessage = `${errorMessage}\nServer response: ${errorText}`;
-          }
-        } catch (textError) {
-          errorMessage = `${errorMessage}\nUnable to read server response`;
-        }
+        console.error('[PROXY] API error response on GET messages:', errorData);
+        errorMessage = errorData.error || JSON.stringify(errorData);
+      } catch (e) {
+        errorMessage = `${errorMessage}\nUnable to parse error response body.`;
       }
 
       return NextResponse.json(
@@ -99,16 +77,9 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log(
-      '[GET /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/messages] Successfully fetched dialog messages:',
-      data
-    );
     return NextResponse.json(data);
   } catch (error) {
-    console.error(
-      '[GET /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]/messages] Unexpected error:',
-      error
-    );
+    console.error('[PROXY] Unexpected error in get-messages route:', error);
     return NextResponse.json(
       { error: 'Failed to fetch dialog messages' },
       { status: 500 }

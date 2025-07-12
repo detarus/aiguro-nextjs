@@ -527,97 +527,33 @@ function PromptTestingComponent({
   currentFunnel?: any;
   backendOrgId?: string;
 }) {
-  // Состояния для тестовых диалогов
-  const [testDialogs, setTestDialogs] = useState<any[]>([]);
-  const [testDialogsLoading, setTestDialogsLoading] = useState(false);
-  const [selectedTestDialogId, setSelectedTestDialogId] = useState<string>('');
-
-  // Состояния для сообщений
+  // Состояния чата
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [sendingMessage, setSendingMessage] = useState(false);
   const [userMessage, setUserMessage] = useState<string>('');
-  const [testError, setTestError] = useState<string | null>(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [aiThinking, setAiThinking] = useState(false);
+
+  // Состояния диалогов
+  const [testDialogs, setTestDialogs] = useState<any[]>([]);
+  const [selectedTestDialogId, setSelectedTestDialogId] = useState<string>('');
+  const [loadingDialogs, setLoadingDialogs] = useState(false);
   const [creatingDialog, setCreatingDialog] = useState(false);
   const [deletingDialog, setDeletingDialog] = useState(false);
-  const [aiThinking, setAiThinking] = useState(false);
-  const [aiStatus, setAiStatus] = useState<
-    'reading' | 'thinking' | 'writing' | null
-  >(null);
 
-  // Компонент анимированных точек с подсчетом циклов (ускоренная версия)
-  const AnimatedDots = ({
-    onCycleComplete,
-    maxCycles,
-    resetKey
-  }: {
-    onCycleComplete?: () => void;
-    maxCycles?: number;
-    resetKey?: string;
-  }) => {
-    const [dots, setDots] = useState('.');
-    const cycleCountRef = useRef(0);
+  // Состояние ошибок
+  const [testError, setTestError] = useState<string | null>(null);
 
-    useEffect(() => {
-      // Сбрасываем счетчик при смене ключа (статуса)
-      cycleCountRef.current = 0;
-      setDots('.');
-    }, [resetKey]);
+  // Ref для отслеживания активного поллинга
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const isPollingRef = useRef(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-      const interval = setInterval(() => {
-        setDots((prev) => {
-          if (prev === '...') {
-            cycleCountRef.current += 1;
-            console.log(
-              `AnimatedDots cycle ${cycleCountRef.current}/${maxCycles || 'unlimited'} for key: ${resetKey}`
-            );
-
-            if (
-              maxCycles &&
-              cycleCountRef.current >= maxCycles &&
-              onCycleComplete
-            ) {
-              console.log(
-                `Completing cycles for ${resetKey}, calling onCycleComplete`
-              );
-              onCycleComplete();
-            }
-
-            return '.';
-          }
-          return prev + '.';
-        });
-      }, 300); // Уменьшили с 500ms до 300ms
-
-      return () => clearInterval(interval);
-    }, [maxCycles, onCycleComplete]);
-
-    return <span>{dots}</span>;
-  };
-
-  // Загружаем тестовые диалоги при монтировании компонента или изменении активной вкладки
-  useEffect(() => {
-    if (activeSettingsTab === 'test' && backendOrgId && currentFunnel?.id) {
-      loadTestDialogs();
-    }
-  }, [activeSettingsTab, backendOrgId, currentFunnel?.id]);
-
-  // Автоскролл к последнему сообщению
-  useEffect(() => {
-    if (activeSettingsTab === 'test') {
-      const chatContainer = document.querySelector('.chat-messages-container');
-      if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      }
-    }
-  }, [messages, aiThinking, aiStatus, activeSettingsTab]);
-
-  // Загрузка тестовых диалогов (прямой запрос к бекенду)
+  // Загрузка списка тестовых диалогов
   const loadTestDialogs = async () => {
     if (!backendOrgId || !currentFunnel?.id) return;
 
-    setTestDialogsLoading(true);
+    setLoadingDialogs(true);
     setTestError(null);
 
     try {
@@ -643,27 +579,42 @@ function PromptTestingComponent({
       }
 
       const data = await response.json();
-      setTestDialogs(Array.isArray(data) ? data : []);
+      const dialogs = Array.isArray(data) ? data : [];
+      setTestDialogs(dialogs);
 
-      // Если есть диалоги, выбираем первый и загружаем его сообщения
-      if (Array.isArray(data) && data.length > 0) {
-        const firstDialog = data[0];
-        setSelectedTestDialogId(firstDialog.uuid);
-        await loadTestDialogMessages(firstDialog.uuid);
+      // Если есть диалоги и нет выбранного, выбираем первый
+      if (dialogs.length > 0 && !selectedTestDialogId) {
+        setSelectedTestDialogId(dialogs[0].uuid);
       }
     } catch (error: any) {
       console.error('Error loading test dialogs:', error);
-      setTestError(error.message || 'Ошибка при загрузке тестовых диалогов');
+      setTestError(error.message || 'Ошибка при загрузке диалогов');
     } finally {
-      setTestDialogsLoading(false);
+      setLoadingDialogs(false);
     }
   };
 
-  // Загрузка сообщений тестового диалога (прямой запрос к бекенду)
-  const loadTestDialogMessages = async (dialogUuid: string) => {
+  // Отображение новых сообщений по одному
+  const displayNewMessagesSequentially = (messagesToAdd: ChatMessage[]) => {
+    if (messagesToAdd.length === 0) {
+      setSendingMessage(false); // Все сообщения отображены, разблокируем кнопку
+      return;
+    }
+
+    const [nextMessage, ...rest] = messagesToAdd;
+    setMessages((prev) => [...prev, nextMessage]);
+
+    // Запускаем отображение следующего сообщения через 800мс
+    setTimeout(() => {
+      displayNewMessagesSequentially(rest);
+    }, 800);
+  };
+
+  // Загрузка сообщений диалога
+  const loadDialogMessages = async (dialogUuid: string) => {
     if (!backendOrgId || !currentFunnel?.id || !dialogUuid) return;
 
-    setMessagesLoading(true);
+    setLoadingMessages(true);
     setTestError(null);
 
     try {
@@ -690,60 +641,64 @@ function PromptTestingComponent({
 
       const data = await response.json();
 
-      // Конвертируем сообщения в формат ChatMessage (реверсим если API возвращает от новых к старым)
-      const convertedMessages: ChatMessage[] = Array.isArray(data)
-        ? data
-            .map((msg: any, index: number) => ({
-              id: msg.id || `msg-${index}`,
-              text: msg.text || msg.message || '',
-              sender: (msg.role === 'user' ? 'user' : 'assistant') as
-                | 'user'
-                | 'assistant',
-              timestamp: msg.timestamp || Date.now()
-            }))
-            .reverse()
+      // Преобразуем сообщения в нужный формат
+      const formattedMessages: ChatMessage[] = Array.isArray(data)
+        ? data.map((msg: any, index: number) => ({
+            id: msg.id || `msg-${index}-${Date.now()}`,
+            text: msg.text || msg.message || '',
+            sender: (msg.role === 'user' ? 'user' : 'assistant') as
+              | 'user'
+              | 'assistant',
+            timestamp: msg.timestamp || Date.now()
+          }))
         : [];
 
-      setMessages(convertedMessages);
+      // API возвращает сообщения от новых к старым, поэтому реверсируем для получения хронологического порядка
+      formattedMessages.reverse();
+
+      setMessages(formattedMessages);
     } catch (error: any) {
-      console.error('Error loading test dialog messages:', error);
+      console.error('Error loading dialog messages:', error);
       setTestError(error.message || 'Ошибка при загрузке сообщений');
     } finally {
-      setMessagesLoading(false);
+      setLoadingMessages(false);
     }
   };
 
-  // Обработчик смены диалога
-  const handleDialogChange = async (dialogUuid: string) => {
-    setSelectedTestDialogId(dialogUuid);
-    await loadTestDialogMessages(dialogUuid);
-  };
-
-  // Функция для добавления новых AI сообщений с анимацией (ускоренная версия)
-  const addNewAIMessages = async (
-    newMessages: ChatMessage[],
-    startFromIndex: number
-  ) => {
-    const aiMessages = newMessages.slice(startFromIndex);
-
-    for (let i = 0; i < aiMessages.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, i === 0 ? 200 : 400)); // Уменьшили с 500/1000ms до 200/400ms
-      setMessages((prev) => [...prev, aiMessages[i]]);
+  // Остановка поллинга
+  const stopPolling = (reEnableSend = true) => {
+    if (pollingRef.current) {
+      clearTimeout(pollingRef.current);
+      pollingRef.current = null;
+    }
+    isPollingRef.current = false;
+    setAiThinking(false);
+    if (reEnableSend) {
+      setSendingMessage(false); // Разблокируем кнопку отправки
     }
   };
 
-  // Функция поллинга для быстрого появления новых сообщений
-  const startPollingForNewMessages = async () => {
-    if (!backendOrgId || !currentFunnel?.id || !selectedTestDialogId) return;
+  // Запуск поллинга для новых сообщений
+  const startPolling = async () => {
+    if (!selectedTestDialogId || isPollingRef.current) return;
 
-    let pollingAttempts = 0;
-    const maxPollingAttempts = 20; // Максимум 20 попыток (10 секунд)
-    const currentMessagesIds = new Set(messages.map((msg) => msg.id)); // Запоминаем ID текущих сообщений
+    isPollingRef.current = true;
+    setAiThinking(true);
+    setSendingMessage(true);
 
-    const pollMessages = async (): Promise<void> => {
+    let attempts = 0;
+    const maxAttempts = 30; // 15 секунд максимум
+    const currentMessageIds = new Set(messages.map((msg) => msg.id));
+
+    const poll = async () => {
       try {
+        if (!isPollingRef.current) return;
+
         const token = getClerkTokenFromClientCookie();
-        if (!token) return;
+        if (!token) {
+          stopPolling();
+          return;
+        }
 
         const response = await fetch(
           `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}/messages`,
@@ -756,78 +711,173 @@ function PromptTestingComponent({
           }
         );
 
-        if (response.ok) {
-          const data = await response.json();
-          const allMessages: ChatMessage[] = Array.isArray(data)
-            ? data
-                .map((msg: any, index: number) => ({
-                  id: msg.id || `msg-${index}`,
-                  text: msg.text || msg.message || '',
-                  sender: (msg.role === 'user' ? 'user' : 'assistant') as
-                    | 'user'
-                    | 'assistant',
-                  timestamp: msg.timestamp || Date.now()
-                }))
-                .reverse()
-            : [];
-
-          // Фильтруем только действительно новые сообщения (которых нет в currentMessagesIds)
-          const newMessages = allMessages.filter(
-            (msg) => !currentMessagesIds.has(msg.id)
-          );
-
-          // Фильтруем только AI сообщения, чтобы избежать дублирования пользовательских сообщений
-          const newAIMessages = newMessages.filter(
-            (msg) => msg.sender === 'assistant'
-          );
-
-          if (newAIMessages.length > 0) {
-            // Убираем AI индикатор
-            setAiThinking(false);
-            setAiStatus(null);
-
-            // Добавляем новые AI сообщения по одному с интервалом 1 секунда
-            for (let i = 0; i < newAIMessages.length; i++) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              setMessages((prev) => [...prev, newAIMessages[i]]);
-            }
-            return; // Завершаем поллинг после получения новых сообщений
-          }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
 
-        pollingAttempts++;
+        const data = await response.json();
 
-        // Продолжаем поллинг если еще не достигли лимита
-        if (pollingAttempts < maxPollingAttempts) {
-          setTimeout(pollMessages, 500);
-        } else {
-          // Убираем AI индикатор если поллинг завершился без новых сообщений
-          setAiThinking(false);
-          setAiStatus(null);
+        const allMessagesFromApi: ChatMessage[] = Array.isArray(data)
+          ? data.map((msg: any, index: number) => ({
+              id: msg.id || `msg-${index}-${Date.now()}`,
+              text: msg.text || msg.message || '',
+              sender: (msg.role === 'user' ? 'user' : 'assistant') as
+                | 'user'
+                | 'assistant',
+              timestamp: msg.timestamp || Date.now()
+            }))
+          : [];
+
+        // Реверсируем для хронологического порядка
+        allMessagesFromApi.reverse();
+
+        const currentMessageIds = new Set(messages.map((m) => m.id));
+        const newAiMessages = allMessagesFromApi.filter(
+          (m) => !currentMessageIds.has(m.id) && m.sender === 'assistant'
+        );
+
+        if (newAiMessages.length > 0) {
+          stopPolling(false); // Останавливаем поллинг, но кнопка заблокирована
+          setAiThinking(false); // Убираем индикатор печати
+          displayNewMessagesSequentially(newAiMessages); // Показываем сообщения по одному
+          return;
+        }
+
+        // Продолжаем поллинг
+        attempts++;
+        if (attempts >= maxAttempts) {
+          stopPolling(true);
+        } else if (isPollingRef.current) {
+          pollingRef.current = setTimeout(poll, 1000);
         }
       } catch (error) {
-        console.error('Error polling messages:', error);
-        setAiThinking(false);
-        setAiStatus(null);
+        console.error('Polling error:', error);
+        stopPolling(true);
       }
     };
 
-    // Начинаем поллинг через небольшую задержку
-    setTimeout(pollMessages, 500);
+    // Начинаем поллинг
+    pollingRef.current = setTimeout(poll, 1000);
   };
 
-  // Функция удаления тестового диалога
-  const deleteCurrentTestDialog = async () => {
-    if (!selectedTestDialogId || !backendOrgId || !currentFunnel?.id) {
-      setTestError('Нет выбранного диалога для удаления');
-      return;
+  // Отправка сообщения
+  const sendMessage = async () => {
+    if (!userMessage.trim() || sendingMessage || !selectedTestDialogId) return;
+
+    setSendingMessage(true);
+    setTestError(null);
+
+    const messageText = userMessage.trim();
+
+    // Оптимистичное обновление UI
+    const newUserMessage: ChatMessage = {
+      id: `temp-user-${Date.now()}`,
+      text: messageText,
+      sender: 'user',
+      timestamp: Date.now()
+    };
+
+    setMessages((prev) => [...prev, newUserMessage]);
+    setUserMessage('');
+    setAiThinking(true);
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        throw new Error('Токен авторизации недоступен');
+      }
+
+      // Отправляем сообщение
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}/message`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            text: messageText,
+            role: 'user'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      }
+
+      startPolling();
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      setTestError(error.message || 'Ошибка при отправке сообщения');
+      // Откатываем UI
+      setMessages((prev) => prev.filter((msg) => msg.id !== newUserMessage.id));
+      setUserMessage(messageText);
+      setAiThinking(false);
+      setSendingMessage(false);
     }
+  };
 
-    // Показываем подтверждение
-    const confirmed = window.confirm(
-      `Вы уверены, что хотите удалить текущий тестовый диалог?\n\nID: ${selectedTestDialogId}\n\nЭто действие нельзя отменить.`
-    );
+  // Создание нового диалога
+  const createNewDialog = async () => {
+    if (!backendOrgId || !currentFunnel?.id || !stageName) return;
 
+    setCreatingDialog(true);
+    setTestError(null);
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setTestError('Токен авторизации недоступен');
+        return;
+      }
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialog`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            stage: stageName,
+            manager: 'Test Manager',
+            ai: true,
+            unsubscribed: false,
+            description: 'Тестовый диалог',
+            tags: ['test'],
+            price: 0,
+            messenger_connection_id: 0
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.uuid) {
+        setSelectedTestDialogId(data.uuid);
+        await loadTestDialogs();
+        setMessages([]);
+      }
+    } catch (error: any) {
+      console.error('Error creating dialog:', error);
+      setTestError(error.message || 'Ошибка при создании диалога');
+    } finally {
+      setCreatingDialog(false);
+    }
+  };
+
+  // Удаление диалога
+  const deleteDialog = async () => {
+    if (!selectedTestDialogId || !backendOrgId || !currentFunnel?.id) return;
+
+    const confirmed = window.confirm('Удалить текущий диалог?');
     if (!confirmed) return;
 
     setDeletingDialog(true);
@@ -839,8 +889,6 @@ function PromptTestingComponent({
         setTestError('Токен авторизации недоступен');
         return;
       }
-
-      console.log('Deleting test dialog:', selectedTestDialogId);
 
       const response = await fetch(
         `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}`,
@@ -854,184 +902,73 @@ function PromptTestingComponent({
       );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || `HTTP ${response.status} ${response.statusText}`
-        );
+        throw new Error(`HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('Successfully deleted test dialog:', data);
-
-      // Очищаем текущий диалог
       setSelectedTestDialogId('');
       setMessages([]);
-
-      // Перезагружаем список диалогов
       await loadTestDialogs();
-
-      // Показываем сообщение об успехе (временно)
-      const successMsg = 'Тестовый диалог успешно удален!';
-      setTestError(null);
-
-      // Показываем уведомление в консоли
-      console.log(successMsg);
     } catch (error: any) {
-      console.error('Error deleting test dialog:', error);
-      setTestError(error.message || 'Ошибка при удалении тестового диалога');
+      console.error('Error deleting dialog:', error);
+      setTestError(error.message || 'Ошибка при удалении диалога');
     } finally {
       setDeletingDialog(false);
     }
   };
 
-  // Создание нового тестового диалога
-  const createNewTestDialog = async () => {
-    if (!backendOrgId || !currentFunnel?.id || !stageName) return;
+  // Изменение диалога
+  const handleDialogChange = async (dialogUuid: string) => {
+    if (dialogUuid === selectedTestDialogId) return;
 
-    setCreatingDialog(true);
-    setTestError(null);
+    stopPolling();
+    setSelectedTestDialogId(dialogUuid);
+    setMessages([]);
 
-    try {
-      const token = getClerkTokenFromClientCookie();
-      if (!token) {
-        setTestError('Токен авторизации недоступен');
-        return;
-      }
-
-      const requestBody = {
-        stage: stageName,
-        manager: 'Test Manager',
-        ai: true,
-        unsubscribed: false,
-        description: 'у клиента есть четкая цель',
-        tags: ['test', 'dialog'],
-        price: 999,
-        messenger_connection_id: 0
-      };
-
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialog`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify(requestBody)
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || `HTTP ${response.status} ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-      console.log('Successfully created test dialog:', data);
-
-      // Перезагружаем список диалогов
-      await loadTestDialogs();
-
-      // Выбираем новый диалог если он создался
-      if (data.uuid) {
-        setSelectedTestDialogId(data.uuid);
-        await loadTestDialogMessages(data.uuid);
-      }
-
-      // Показываем сообщение об успешном создании
-      setTestError(null); // Очищаем ошибки
-    } catch (error: any) {
-      console.error('Error creating test dialog:', error);
-      setTestError(error.message || 'Ошибка при создании тестового диалога');
-    } finally {
-      setCreatingDialog(false);
+    if (dialogUuid) {
+      await loadDialogMessages(dialogUuid);
     }
   };
 
-  const sendMessage = async () => {
-    if (!userMessage.trim() || !selectedTestDialogId || sendingMessage) return;
-    if (!backendOrgId || !currentFunnel?.id) return;
-
-    setSendingMessage(true);
-    setTestError(null);
-
-    // Создаем сообщение пользователя заранее для возможного удаления в случае ошибки
-    const newUserMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      text: userMessage,
-      sender: 'user',
-      timestamp: Date.now()
-    };
-
-    try {
-      const token = getClerkTokenFromClientCookie();
-      if (!token) {
-        setTestError('Токен авторизации недоступен');
-        return;
-      }
-
-      // Добавляем сообщение пользователя в чат
-      setMessages((prev) => [...prev, newUserMessage]);
-      const userMessageText = userMessage;
-      setUserMessage('');
-
-      // Показываем AI индикатор
-      setAiThinking(true);
-      setAiStatus('writing');
-
-      // Отправляем сообщение через API route
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}/message`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            text: userMessageText,
-            role: 'user'
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Message sent successfully:', data);
-
-      // Сразу начинаем поллинг новых сообщений
-      startPollingForNewMessages();
-    } catch (error: any) {
-      console.error('Error sending message:', error);
-      setTestError(error.message || 'Ошибка при отправке сообщения');
-
-      // Убираем заглушки и удаляем сообщение пользователя из чата в случае ошибки
-      setAiThinking(false);
-      setAiStatus(null);
-      setMessages((prev) => prev.filter((msg) => msg.id !== newUserMessage.id));
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
+  // Обработка нажатия Enter
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (
-        !sendingMessage &&
-        !messagesLoading &&
-        selectedTestDialogId &&
-        userMessage.trim()
-      ) {
+      if (!sendingMessage && !loadingMessages && userMessage.trim()) {
         sendMessage();
       }
     }
   };
+
+  // Загрузка диалогов при инициализации
+  useEffect(() => {
+    if (activeSettingsTab === 'test' && backendOrgId && currentFunnel?.id) {
+      loadTestDialogs();
+    }
+  }, [activeSettingsTab, backendOrgId, currentFunnel?.id]);
+
+  // Загрузка сообщений при выборе диалога
+  useEffect(() => {
+    if (selectedTestDialogId && activeSettingsTab === 'test') {
+      loadDialogMessages(selectedTestDialogId);
+    }
+  }, [selectedTestDialogId, activeSettingsTab]);
+
+  // Очистка поллинга при размонтировании
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
+
+  // Автоскролл к последнему сообщению
+  useEffect(() => {
+    if (activeSettingsTab === 'test' && chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [messages, aiThinking, activeSettingsTab]);
 
   return (
     <Card className='h-fit'>
@@ -1059,90 +996,88 @@ function PromptTestingComponent({
         </Tabs>
       </CardHeader>
       <CardContent className='p-0'>
-        {/* Chat interface - only shown when in testing mode */}
+        {activeSettingsTab === 'setup' && (
+          <div className='p-4'>
+            <div className='space-y-4'>
+              <div>
+                <label className='text-sm font-medium'>
+                  Инструкции для агента
+                </label>
+                <textarea
+                  value={instructions}
+                  onChange={(e) => onInstructionsChange(e.target.value)}
+                  placeholder='Введите инструкции для AI-агента...'
+                  rows={8}
+                  className='mt-2 w-full rounded-md border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none'
+                />
+              </div>
+
+              <div className='flex gap-2'>
+                <Button
+                  onClick={onSubmitInstructions}
+                  disabled={saving}
+                  className='flex-1'
+                >
+                  {saving ? 'Сохранение...' : 'Сохранить промпт'}
+                </Button>
+                <Button
+                  variant='outline'
+                  onClick={onReloadPrompt}
+                  className='px-4'
+                >
+                  Перезагрузить
+                </Button>
+              </div>
+
+              {successMessage && (
+                <div className='text-sm text-green-600'>{successMessage}</div>
+              )}
+
+              {error && <div className='text-sm text-red-600'>{error}</div>}
+            </div>
+          </div>
+        )}
+
         {activeSettingsTab === 'test' && (
-          <div className='flex h-[320px] flex-col'>
-            {/* Chat Header */}
+          <div className='flex h-[400px] flex-col'>
+            {/* Заголовок чата */}
             <div className='flex items-center justify-between border-b p-4'>
               <div className='flex items-center gap-4'>
-                <div className='flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200'>
+                <div className='flex h-10 w-10 items-center justify-center rounded-full bg-gray-200'>
                   <IconUsers className='h-5 w-5 text-gray-500' />
                 </div>
                 <div className='flex flex-col'>
                   <span className='text-sm font-medium'>Тестирование</span>
-                  <span className='text-muted-foreground text-sm'>
-                    {creatingDialog ? (
-                      'Создание диалога...'
-                    ) : testDialogs.length > 0 ? (
+                  <span className='text-xs text-gray-500'>
+                    {loadingDialogs ? (
+                      'Загрузка...'
+                    ) : testDialogs.length > 0 && selectedTestDialogId ? (
                       <select
-                        className='cursor-pointer border-none bg-transparent text-sm outline-none'
                         value={selectedTestDialogId}
                         onChange={(e) => handleDialogChange(e.target.value)}
-                        disabled={messagesLoading}
+                        className='cursor-pointer border-none bg-transparent text-xs outline-none'
+                        disabled={loadingMessages}
                       >
-                        {testDialogs.map((dialog, index) => {
-                          // Маппинг английских названий этапов на русские
-                          const stageNames: { [key: string]: string } = {
-                            presentation: 'презентация',
-                            qualification: 'квалификация',
-                            needs_analysis: 'анализ потребностей',
-                            proposal: 'предложение',
-                            negotiation: 'переговоры',
-                            closing: 'закрытие',
-                            follow_up: 'сопровождение',
-                            initial_contact: 'первичный контакт',
-                            discovery: 'выявление',
-                            demo: 'демонстрация',
-                            objection_handling: 'работа с возражениями'
-                          };
-
-                          const stageName = dialog.stage
-                            ? stageNames[dialog.stage.toLowerCase()] ||
-                              dialog.stage
-                            : 'без этапа';
-
-                          return (
-                            <option key={dialog.uuid} value={dialog.uuid}>
-                              Диалог {index + 1} ({stageName}){' '}
-                              {dialog.description
-                                ? `- ${dialog.description}`
-                                : ''}
-                            </option>
-                          );
-                        })}
+                        {testDialogs.map((dialog, index) => (
+                          <option key={dialog.uuid} value={dialog.uuid}>
+                            Диалог {index + 1} ({dialog.stage || 'без этапа'})
+                          </option>
+                        ))}
                       </select>
                     ) : (
-                      'Агент этапа'
+                      'Нет диалогов'
                     )}
                   </span>
                 </div>
               </div>
+
               <div className='flex gap-2'>
-                {testDialogsLoading && (
-                  <div className='mr-2 text-xs text-gray-500'>
-                    Загрузка диалогов...
-                  </div>
-                )}
                 <Button
                   size='icon'
-                  variant='destructive'
+                  onClick={createNewDialog}
+                  disabled={creatingDialog || loadingDialogs}
                   className='h-8 w-8 rounded-full'
-                  title='Удалить текущий диалог'
-                  onClick={deleteCurrentTestDialog}
-                  disabled={deletingDialog || !selectedTestDialogId}
-                >
-                  {deletingDialog ? (
-                    <IconRotateClockwise className='h-3.5 w-3.5 animate-spin' />
-                  ) : (
-                    <IconTrash className='h-3.5 w-3.5' />
-                  )}
-                </Button>
-                <Button
-                  size='icon'
-                  className='h-8 w-8 rounded-full'
-                  onClick={createNewTestDialog}
-                  title='Создать новый тестовый диалог'
-                  disabled={creatingDialog || testDialogsLoading}
+                  title='Создать новый диалог'
                 >
                   {creatingDialog ? (
                     <IconRotateClockwise className='h-3.5 w-3.5 animate-spin' />
@@ -1150,141 +1085,132 @@ function PromptTestingComponent({
                     <IconPlus className='h-3.5 w-3.5' />
                   )}
                 </Button>
+
+                {selectedTestDialogId && (
+                  <Button
+                    size='icon'
+                    variant='destructive'
+                    onClick={deleteDialog}
+                    disabled={deletingDialog}
+                    className='h-8 w-8 rounded-full'
+                    title='Удалить текущий диалог'
+                  >
+                    {deletingDialog ? (
+                      <IconRotateClockwise className='h-3.5 w-3.5 animate-spin' />
+                    ) : (
+                      <IconTrash className='h-3.5 w-3.5' />
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
-            {/* Chat Messages */}
-            <div className='chat-messages-container flex min-h-[180px] flex-col gap-2.5 overflow-y-auto p-4'>
-              {messagesLoading ? (
+            {/* Ошибки */}
+            {testError && (
+              <div className='border-b bg-red-50 p-2 text-sm text-red-600'>
+                {testError}
+              </div>
+            )}
+
+            {/* Область сообщений */}
+            <div
+              ref={chatContainerRef}
+              className='chat-messages-container flex-1 overflow-y-auto p-4'
+            >
+              {loadingMessages ? (
                 <div className='flex h-full items-center justify-center'>
-                  <p className='text-center text-sm text-gray-400'>
+                  <div className='text-sm text-gray-500'>
                     Загрузка сообщений...
-                  </p>
+                  </div>
                 </div>
-              ) : messages.length > 0 || aiThinking ? (
-                <>
+              ) : messages.length === 0 ? (
+                <div className='flex h-full items-center justify-center'>
+                  <div className='text-center text-gray-500'>
+                    <p>Нет сообщений</p>
+                    <p className='mt-1 text-xs'>
+                      Напишите сообщение для начала диалога
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className='space-y-4'>
                   {messages.map((message) => (
-                    <div key={message.id} className='flex flex-col gap-2.5'>
+                    <div
+                      key={message.id}
+                      className={`flex ${
+                        message.sender === 'user'
+                          ? 'justify-end'
+                          : 'justify-start'
+                      } message-enter-animation`}
+                    >
                       <div
-                        className={`${
-                          message.sender === 'assistant'
-                            ? 'self-end bg-zinc-900 text-white'
-                            : 'self-start bg-gray-100'
-                        } max-w-[70%] rounded-lg p-3`}
+                        className={`max-w-[80%] rounded-lg p-3 ${
+                          message.sender === 'user'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 text-gray-800'
+                        }`}
                       >
-                        <p className='text-sm'>{message.text}</p>
+                        <p className='whitespace-pre-wrap'>{message.text}</p>
+                        <p className='mt-1 text-xs opacity-70'>
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </p>
                       </div>
                     </div>
                   ))}
 
-                  {/* AI Thinking Animation (упрощенная версия) */}
                   {aiThinking && (
-                    <div className='flex flex-col gap-2.5'>
-                      <div className='max-w-[70%] self-end p-3'>
-                        <p className='text-sm text-black'>
-                          AI-ассистент пишет ответ
-                          <AnimatedDots resetKey='writing' />
-                        </p>
+                    <div className='typing-indicator-animation flex justify-start'>
+                      <div className='rounded-lg bg-gray-200 p-3 text-gray-800'>
+                        <div className='flex items-center gap-2'>
+                          <div className='flex space-x-1'>
+                            <div className='h-2 w-2 animate-bounce rounded-full bg-gray-400'></div>
+                            <div
+                              className='h-2 w-2 animate-bounce rounded-full bg-gray-400'
+                              style={{ animationDelay: '0.1s' }}
+                            ></div>
+                            <div
+                              className='h-2 w-2 animate-bounce rounded-full bg-gray-400'
+                              style={{ animationDelay: '0.2s' }}
+                            ></div>
+                          </div>
+                          <span className='text-sm text-gray-600'>
+                            AI печатает...
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
-                </>
-              ) : (
-                <div className='flex h-full items-center justify-center'>
-                  <p className='text-center text-sm text-gray-400'>
-                    {testDialogs.length === 0
-                      ? 'Нет тестовых диалогов. Создайте тестовый диалог для начала работы.'
-                      : 'Здесь будут отображаться сообщения диалога.'}
-                    <br />
-                    {testDialogs.length > 0 &&
-                      'Напишите сообщение, чтобы начать тестирование ассистента.'}
-                  </p>
                 </div>
               )}
             </div>
 
-            {/* Chat Input */}
-            <div className='mt-auto border-t p-4'>
-              {/* Test Error Display */}
-              {testError && (
-                <div className='mb-3 rounded-md border border-red-200 bg-red-50 p-2'>
-                  <div className='text-sm text-red-700'>{testError}</div>
-                </div>
-              )}
-
+            {/* Поле ввода */}
+            <div className='border-t p-4'>
               <div className='flex gap-2'>
                 <input
                   type='text'
-                  placeholder='Введите сообщение от лица клиента...'
-                  className='flex-1 rounded-md border border-gray-200 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:bg-gray-100'
                   value={userMessage}
                   onChange={(e) => setUserMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
+                  onKeyPress={handleKeyPress}
+                  placeholder='Введите сообщение...'
+                  className='flex-1 rounded-md border p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none'
                   disabled={
-                    sendingMessage || messagesLoading || !selectedTestDialogId
+                    sendingMessage || loadingMessages || !selectedTestDialogId
                   }
                 />
                 <Button
-                  size='icon'
-                  variant='default'
-                  className='h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400'
                   onClick={sendMessage}
                   disabled={
                     sendingMessage ||
-                    messagesLoading ||
-                    !selectedTestDialogId ||
-                    !userMessage.trim()
+                    loadingMessages ||
+                    !userMessage.trim() ||
+                    !selectedTestDialogId
                   }
+                  size='sm'
                 >
-                  {sendingMessage ? (
-                    <IconRotateClockwise className='h-5 w-5 animate-spin text-white' />
-                  ) : (
-                    <IconSend className='h-5 w-5 text-white' />
-                  )}
+                  {sendingMessage ? 'Отправка...' : 'Отправить'}
                 </Button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Agent Prompt Editor - only shown when in setup mode */}
-        {activeSettingsTab === 'setup' && (
-          <div className='p-4'>
-            <Textarea
-              value={instructions}
-              onChange={(e) => onInstructionsChange(e.target.value)}
-              placeholder='Содержимое промпта агента.'
-              className='h-[234px] w-full resize-none'
-            />
-
-            {/* Success and Error Messages */}
-            {successMessage && !successMessage.includes('AI настройки') && (
-              <div className='mt-4 rounded-md border border-green-200 bg-green-50 p-3'>
-                <div className='flex'>
-                  <div className='text-sm text-green-700'>{successMessage}</div>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className='mt-4 rounded-md border border-red-200 bg-red-50 p-3'>
-                <div className='flex'>
-                  <div className='text-sm text-red-700'>{error}</div>
-                </div>
-              </div>
-            )}
-
-            <div className='mt-4 flex gap-2'>
-              <Button
-                onClick={onSubmitInstructions}
-                disabled={saving}
-                className='flex-1'
-              >
-                {saving ? 'Сохранение...' : 'Обновить промпт'}
-              </Button>
-              <Button variant='outline' size='icon' onClick={onReloadPrompt}>
-                <IconRotateClockwise className='h-4 w-4' />
-              </Button>
             </div>
           </div>
         )}

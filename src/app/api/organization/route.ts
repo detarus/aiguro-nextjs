@@ -1,98 +1,83 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 import { AiguroOrganizationApi } from './handler';
 
 export async function GET(request: NextRequest) {
-  console.log(
-    '[/api/organization GET] Attempting to get Clerk token from __session cookie...'
-  );
   const token = getClerkTokenFromCookie(request);
-
   if (!token) {
-    console.error(
-      '[/api/organization GET] No token received from __session cookie. Cannot fetch organizations.'
-    );
     return NextResponse.json(
-      { error: 'Authentication token is missing, cannot fetch organizations.' },
+      { error: 'Authentication token is missing.' },
       { status: 401 }
     );
   }
 
-  console.log(
-    '[/api/organization GET] Token received from __session cookie, attempting to fetch organizations.'
-  );
   const orgs = await AiguroOrganizationApi.getOrganizations(token);
 
   if (!orgs) {
-    console.error(
-      '[/api/organization GET] Failed to get organizations from AiguroOrganizationApi. Check logs from AiguroOrganizationApi itself.'
-    );
+    console.error('Failed to fetch organizations from backend API');
     return NextResponse.json(
       { error: 'Failed to fetch organizations from provider.' },
       { status: 502 }
     );
   }
 
-  console.log('[/api/organization GET] Successfully fetched organizations.');
   return NextResponse.json(orgs);
 }
 
 export async function POST(request: NextRequest) {
-  console.log(
-    '[/api/organization POST] Attempting to create new organization...'
-  );
-
   const token = getClerkTokenFromCookie(request);
   if (!token) {
-    console.error(
-      '[/api/organization POST] No token received from __session cookie. Cannot create organization.'
-    );
+    console.error('Organization creation failed: No authentication token');
     return NextResponse.json(
-      { error: 'Authentication token is missing, cannot create organization.' },
+      { error: 'Authentication token is missing' },
       { status: 401 }
     );
   }
-  console.log('[/api/organization POST] Token received from __session cookie.');
+
+  // Get query parameters
+  const { searchParams } = new URL(request.url);
+  const organizationId = searchParams.get('organization_id');
 
   let body;
   try {
     body = await request.json();
   } catch (error) {
-    console.error(
-      '[/api/organization POST] Invalid JSON in request body:',
-      error
-    );
+    console.error('Invalid JSON in request body:', error);
     return NextResponse.json(
       { error: 'Invalid request body. Expected JSON.' },
       { status: 400 }
     );
   }
 
-  const { companyName } = body;
+  const { display_name, gid, is_active } = body;
+
+  // Validate required fields
   if (
-    !companyName ||
-    typeof companyName !== 'string' ||
-    companyName.trim() === ''
+    !display_name ||
+    typeof display_name !== 'string' ||
+    display_name.trim() === ''
   ) {
-    console.error(
-      '[/api/organization POST] companyName is missing or invalid in request body.'
-    );
+    console.error('Missing or invalid display_name in request body');
     return NextResponse.json(
-      { error: 'companyName (string) is required in request body.' },
+      { error: 'display_name (string) is required in request body.' },
       { status: 400 }
     );
   }
-  console.log(`[/api/organization POST] companyName from body: ${companyName}`);
+
+  console.log(`Creating organization: ${display_name}`);
+
+  // Use organization_id=1 when not provided, as per requirements
+  const effectiveOrganizationId = organizationId || '1';
 
   const newOrganization = await AiguroOrganizationApi.createOrganization(
     token,
-    companyName.trim()
+    display_name.trim(),
+    gid,
+    effectiveOrganizationId
   );
 
   if (!newOrganization) {
-    console.error(
-      '[/api/organization POST] Failed to create organization via AiguroOrganizationApi. Check handler logs.'
-    );
+    console.error(`Failed to create organization: ${display_name}`);
     return NextResponse.json(
       { error: 'Failed to create organization with the provider.' },
       { status: 502 }
@@ -100,8 +85,7 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(
-    '[/api/organization POST] Successfully created new organization:',
-    newOrganization
+    `Organization created successfully: ${display_name} -> ID: ${newOrganization.id}`
   );
-  return NextResponse.json(newOrganization, { status: 201 }); // 201 Created status
+  return NextResponse.json(newOrganization, { status: 201 });
 }

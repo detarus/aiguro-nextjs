@@ -1,17 +1,19 @@
 'use client';
 
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { useOrganization } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, List, Trash2 } from 'lucide-react';
+import { RefreshCw, List, Trash2, Plus } from 'lucide-react';
+import { CreateFunnelModal } from '@/components/modal/create-funnel-modal';
 
 export function FunnelDebug() {
   const { organization } = useOrganization();
-  const { funnels } = useFunnels(
-    organization?.publicMetadata?.id_backend as string
-  );
+  const { funnels } = useFunnels();
+
+  // Состояние для модального окна создания воронки
+  const [isCreateFunnelModalOpen, setIsCreateFunnelModalOpen] = useState(false);
 
   // Состояние для отображения localStorage значений
   const [localStorageFunnel, setLocalStorageFunnel] = useState<any>(null);
@@ -124,6 +126,14 @@ export function FunnelDebug() {
     setDeleteFunnelError(null);
     setDeleteFunnelSuccessMessage(null);
   }, [localStorageFunnel?.id]);
+
+  // Обработчик успешного создания воронки
+  const handleFunnelCreated = () => {
+    // Обновляем данные localStorage
+    updateLocalStorageData();
+    // Можно также обновить список воронок из контекста
+    console.log('Funnel created successfully, updating data...');
+  };
 
   const handleFetchAllFunnels = async () => {
     console.log('Get All Funnels button clicked!');
@@ -415,8 +425,8 @@ export function FunnelDebug() {
         </p>
         <p>
           <strong>Current Funnel:</strong>{' '}
-          {localStorageFunnel?.name ||
-            localStorageFunnel?.display_name ||
+          {localStorageFunnel?.display_name ||
+            localStorageFunnel?.name ||
             'None'}
         </p>
         <p>
@@ -432,6 +442,17 @@ export function FunnelDebug() {
 
         {/* Кнопки для API запросов */}
         <div className='mt-4 space-y-2'>
+          <Button
+            onClick={() => setIsCreateFunnelModalOpen(true)}
+            disabled={!backendOrgId}
+            variant='outline'
+            size='sm'
+            className='w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
+          >
+            <Plus className='mr-2 h-4 w-4' />
+            Create Funnel
+          </Button>
+
           <Button
             onClick={handleFetchAllFunnels}
             disabled={allFunnelsLoading || !backendOrgId}
@@ -575,6 +596,13 @@ export function FunnelDebug() {
           </details>
         )}
       </div>
+
+      {/* Модальное окно создания воронки */}
+      <CreateFunnelModal
+        isOpen={isCreateFunnelModalOpen}
+        onClose={() => setIsCreateFunnelModalOpen(false)}
+        onSuccess={handleFunnelCreated}
+      />
     </div>
   );
 }

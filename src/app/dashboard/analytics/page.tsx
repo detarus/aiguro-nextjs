@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { IconTrendingUp, IconDownload, IconEye } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 import {
   Card,
@@ -61,7 +61,7 @@ interface SmartAnalyticsData {
 export default function AnalyticsPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  useFunnels(backendOrgId); // Подключаем хук для работы с воронками
+  useFunnels(); // Подключаем хук для работы с воронками
   const { updateConfig } = usePageHeaderContext();
 
   // Состояния

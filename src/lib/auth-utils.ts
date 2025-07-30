@@ -10,23 +10,14 @@ export function getClerkTokenFromCookie(request: NextRequest): string | null {
     const sessionCookie = request.cookies.get('__session');
 
     if (!sessionCookie?.value) {
-      console.log('[getClerkTokenFromCookie] No __session cookie found');
       return null;
     }
-
-    console.log(
-      '[getClerkTokenFromCookie] __session cookie value:',
-      sessionCookie.value
-    );
 
     // The __session cookie from Clerk typically contains a JWT token
     // We'll use it directly as the authorization token
     return sessionCookie.value;
   } catch (error) {
-    console.error(
-      '[getClerkTokenFromCookie] Error extracting token from cookie:',
-      error
-    );
+    console.error('Error extracting token from cookie:', error);
     return null;
   }
 }
@@ -47,22 +38,13 @@ export function getClerkTokenFromClientCookie(): string | null {
     );
 
     if (!sessionCookie) {
-      console.log('[getClerkTokenFromClientCookie] No __session cookie found');
       return null;
     }
 
     const token = sessionCookie.split('=')[1];
-    console.log(
-      '[getClerkTokenFromClientCookie] __session cookie value:',
-      token
-    );
-
     return token;
   } catch (error) {
-    console.error(
-      '[getClerkTokenFromClientCookie] Error extracting token from cookie:',
-      error
-    );
+    console.error('Error extracting token from client cookie:', error);
     return null;
   }
 }

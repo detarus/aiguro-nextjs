@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import PageContainer from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,6 @@ import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 
 export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list'>('list');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'new'>(
-    'all'
-  );
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,29 +24,6 @@ export default function ClientsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [newFunnelName, setNewFunnelName] = useState('');
-  const [stages, setStages] = useState([
-    {
-      id: Date.now() + Math.random(),
-      name: 'Квалификация',
-      prompt: '',
-      followups: [60]
-    },
-    {
-      id: Date.now() + Math.random() + 1,
-      name: 'Презентация',
-      prompt: '',
-      followups: [60]
-    },
-    {
-      id: Date.now() + Math.random() + 2,
-      name: 'Закрытие',
-      prompt: '',
-      followups: [60]
-    }
-  ]);
-  const [showFollowup, setShowFollowup] = useState<{ [key: number]: boolean }>(
-    {}
-  );
 
   const { state } = useSidebar();
   const { organization } = useOrganization();
@@ -60,7 +33,7 @@ export default function ClientsPage() {
     selectFunnel,
     refreshFunnels,
     setNewFunnelAsSelected
-  } = useFunnels(organization?.publicMetadata?.id_backend as string);
+  } = useFunnels();
   const { updateConfig } = usePageHeaderContext();
 
   // Получаем backend ID организации
@@ -225,7 +198,7 @@ export default function ClientsPage() {
     } else {
       const funnel = funnels?.find((f) => f.id === funnelId);
       if (funnel) {
-        selectFunnel(funnel);
+        selectFunnel(funnel.id);
         console.log('Все воронки:', funnels);
         console.log('Выбрана воронка:', funnel);
       }
@@ -233,66 +206,6 @@ export default function ClientsPage() {
   };
 
   // Функции для модального окна (скопированы из дашборда)
-  const handleAddStage = () => {
-    setStages([
-      ...stages,
-      { id: Date.now() + Math.random(), name: '', prompt: '', followups: [60] }
-    ]);
-  };
-
-  const handleRemoveStage = (id: number) => {
-    setStages(stages.filter((stage) => stage.id !== id));
-  };
-
-  const handleStageChange = (id: number, field: string, value: string) => {
-    setStages(
-      stages.map((stage) =>
-        stage.id === id ? { ...stage, [field]: value } : stage
-      )
-    );
-  };
-
-  const handleAddFollowup = (id: number) => {
-    setStages(
-      stages.map((stage) =>
-        stage.id === id && stage.followups.length < 5
-          ? { ...stage, followups: [...stage.followups, 60] }
-          : stage
-      )
-    );
-  };
-
-  const handleRemoveFollowup = (id: number, followupIdx: number) => {
-    setStages(
-      stages.map((stage) =>
-        stage.id === id
-          ? {
-              ...stage,
-              followups: stage.followups.filter((_, j) => j !== followupIdx)
-            }
-          : stage
-      )
-    );
-  };
-
-  const handleFollowupChange = (
-    id: number,
-    followupIdx: number,
-    value: number
-  ) => {
-    setStages(
-      stages.map((stage) =>
-        stage.id === id
-          ? {
-              ...stage,
-              followups: stage.followups.map((f, j) =>
-                j === followupIdx ? value : f
-              )
-            }
-          : stage
-      )
-    );
-  };
 
   const handleAddFunnel = async (newFunnel?: any) => {
     console.log('handleAddFunnel called with:', newFunnel);
@@ -305,26 +218,6 @@ export default function ClientsPage() {
 
     setAddModalOpen(false);
     setNewFunnelName('');
-    setStages([
-      {
-        id: Date.now() + Math.random(),
-        name: 'Квалификация',
-        prompt: '',
-        followups: [60]
-      },
-      {
-        id: Date.now() + Math.random() + 1,
-        name: 'Презентация',
-        prompt: '',
-        followups: [60]
-      },
-      {
-        id: Date.now() + Math.random() + 2,
-        name: 'Закрытие',
-        prompt: '',
-        followups: [60]
-      }
-    ]);
   };
 
   // Загружаем клиентов при монтировании компонента и изменении организации/воронки
@@ -476,9 +369,7 @@ export default function ClientsPage() {
             <div className='flex items-center gap-4'>
               <div className='text-sm'>
                 <span className='font-medium'>Воронка:</span>{' '}
-                {currentFunnel?.display_name ||
-                  currentFunnel?.name ||
-                  'Неизвестно'}
+                {currentFunnel?.name || 'Неизвестно'}
               </div>
               {lastUpdated && (
                 <div className='text-muted-foreground text-sm'>
@@ -513,16 +404,6 @@ export default function ClientsPage() {
           onAdd={handleAddFunnel}
           newFunnelName={newFunnelName}
           setNewFunnelName={setNewFunnelName}
-          stages={stages}
-          setStages={setStages}
-          showFollowup={showFollowup}
-          setShowFollowup={setShowFollowup}
-          handleStageChange={handleStageChange}
-          handleAddStage={handleAddStage}
-          handleRemoveStage={handleRemoveStage}
-          handleAddFollowup={handleAddFollowup}
-          handleRemoveFollowup={handleRemoveFollowup}
-          handleFollowupChange={handleFollowupChange}
         />
       </div>
     </div>

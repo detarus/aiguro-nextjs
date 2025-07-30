@@ -2,6 +2,8 @@ import Providers from '@/components/layout/providers';
 import { Toaster } from '@/components/ui/sonner';
 import { fontVariables } from '@/lib/font';
 import ThemeProvider from '@/components/layout/ThemeToggle/theme-provider';
+import { GlobalSyncLoader } from '@/components/global-sync-loader';
+import { OrganizationSyncProvider } from '@/contexts/OrganizationSyncContext';
 import { cn } from '@/lib/utils';
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
@@ -66,8 +68,11 @@ export default async function RootLayout({
             enableColorScheme
           >
             <Providers activeThemeValue={activeThemeValue as string}>
-              <Toaster />
-              {children}
+              <OrganizationSyncProvider>
+                <Toaster />
+                <GlobalSyncLoader />
+                {children}
+              </OrganizationSyncProvider>
             </Providers>
           </ThemeProvider>
         </NuqsAdapter>

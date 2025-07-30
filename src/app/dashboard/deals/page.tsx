@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
@@ -75,9 +75,7 @@ export default function DealsPage() {
 
   const { state } = useSidebar();
   const { organization } = useOrganization();
-  const { currentFunnel, funnels } = useFunnels(
-    organization?.publicMetadata?.id_backend as string
-  );
+  const { currentFunnel, funnels } = useFunnels();
   const { updateConfig, clearConfig } = usePageHeaderContext();
 
   // Получаем backend ID организации
@@ -169,15 +167,9 @@ export default function DealsPage() {
     const data = await response.json();
     console.log('Fetched deals data:', data);
 
-    // Отладочная информация о стадиях воронки
-    if (currentFunnel?.stages) {
-      console.log(
-        'Funnel stages:',
-        currentFunnel.stages.map((stage) => ({
-          name: stage.name,
-          assistant_code_name: stage.assistant_code_name
-        }))
-      );
+    // Отладочная информация о воронке
+    if (currentFunnel) {
+      console.log('Current funnel:', currentFunnel);
     }
 
     // Преобразуем данные из API в формат, ожидаемый компонентом на основе предоставленной структуры
@@ -197,41 +189,7 @@ export default function DealsPage() {
           `Dialog ${deal.id} - Используем существующий stage: ${stage}`
         );
       }
-      // Иначе определяем на основе close_ratio и стадий воронки
-      else if (currentFunnel?.stages && currentFunnel.stages.length > 0) {
-        const closeRatio = Number(deal.close_ratio || 0);
-        const stagesCount = currentFunnel.stages.length;
-
-        // Определяем индекс этапа на основе close_ratio
-        const stageIndex = Math.min(
-          Math.floor((closeRatio / 100) * stagesCount),
-          stagesCount - 1
-        );
-
-        console.log(
-          `Dialog ${deal.id} - Вычисляем stage по close_ratio: ${closeRatio}%, индекс: ${stageIndex}`
-        );
-
-        // Используем assistant_code_name вместо name, если он доступен
-        if (
-          currentFunnel.stages[stageIndex]?.assistant_code_name &&
-          currentFunnel.stages[stageIndex].assistant_code_name.trim() !== ''
-        ) {
-          stage = currentFunnel.stages[stageIndex]
-            .assistant_code_name as string;
-          console.log(
-            `Dialog ${deal.id} - Установлен assistant_code_name: ${stage}`
-          );
-        } else {
-          // Если assistant_code_name не задан, используем name в нижнем регистре с заменой пробелов на подчеркивания
-          const stageName = currentFunnel.stages[stageIndex]?.name || 'Новый';
-          stage = stageName.toLowerCase().replace(/\s+/g, '_');
-          console.log(
-            `Dialog ${deal.id} - Сгенерирован assistant_code_name из name: ${stageName} -> ${stage}`
-          );
-        }
-      }
-      // Если нет данных о стадиях, используем стандартную логику
+      // Иначе используем стандартную логику
       else {
         const closeRatio = Number(deal.close_ratio || 0);
         console.log(

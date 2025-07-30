@@ -30,7 +30,7 @@ import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 
 // Типы для клиентов
 export interface Client {
@@ -87,55 +87,39 @@ export function ClientTable({
   const { organization } = useOrganization();
 
   // Используем хук для получения данных воронки
-  const { currentFunnel } = useFunnels(backendOrgId);
+  const { currentFunnel } = useFunnels();
 
   // Создаем карту стадий для сопоставления кодовых имен с русскими названиями и цветами
   const stageMap = useMemo(() => {
     const map: Record<string, { name: string; color: string }> = {};
 
-    if (currentFunnel?.stages && currentFunnel.stages.length > 0) {
-      currentFunnel.stages.forEach((stage, index) => {
-        const codeName =
-          stage.assistant_code_name?.toLowerCase() || stage.name.toLowerCase();
+    // Определяем цвета для стадий
+    const colors = [
+      'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+      'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
+      'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300',
+      'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
+      'bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-300',
+      'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-300',
+      'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
+      'bg-rose-100 text-rose-800 dark:bg-rose-900/20 dark:text-rose-300',
+      'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300',
+      'bg-violet-100 text-violet-800 dark:bg-violet-900/20 dark:text-violet-300'
+    ];
 
-        // Определяем цвет на основе индекса (аналогично как в kanban-board.tsx)
-        const colors = [
-          'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-          'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
-          'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300',
-          'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
-          'bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-300',
-          'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-300',
-          'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300',
-          'bg-rose-100 text-rose-800 dark:bg-rose-900/20 dark:text-rose-300',
-          'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300',
-          'bg-violet-100 text-violet-800 dark:bg-violet-900/20 dark:text-violet-300'
-        ];
-
-        map[codeName] = {
-          name: stage.name,
-          color: colors[index % colors.length]
-        };
-
-        // Добавляем также английские варианты для известных стадий
-        if (stage.name.toLowerCase() === 'квалификация') {
-          map['qualification'] = {
-            name: stage.name,
-            color: colors[index % colors.length]
-          };
-        } else if (stage.name.toLowerCase() === 'презентация') {
-          map['presentation'] = {
-            name: stage.name,
-            color: colors[index % colors.length]
-          };
-        } else if (stage.name.toLowerCase() === 'закрытие') {
-          map['closing'] = {
-            name: stage.name,
-            color: colors[index % colors.length]
-          };
-        }
-      });
-    }
+    // Добавляем базовые стадии
+    map['qualification'] = {
+      name: 'Квалификация',
+      color: colors[0]
+    };
+    map['presentation'] = {
+      name: 'Презентация',
+      color: colors[1]
+    };
+    map['closing'] = {
+      name: 'Закрытие',
+      color: colors[2]
+    };
 
     console.log('Карта стадий создана:', map);
     return map;

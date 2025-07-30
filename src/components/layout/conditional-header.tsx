@@ -3,7 +3,7 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 import Header, { TableHeader } from './header';
 
@@ -33,15 +33,22 @@ const NO_HEADER_PAGES = ['/dashboard/overview'];
 
 export default function ConditionalHeader() {
   const pathname = usePathname();
-  const { organization } = useOrganization();
+  const { organization, isLoaded } = useOrganization();
+  const [mounted, setMounted] = React.useState(false);
+
   const {
     currentFunnel,
     funnels,
     selectFunnel,
     refreshFunnels,
     setNewFunnelAsSelected
-  } = useFunnels(organization?.publicMetadata?.id_backend as string);
+  } = useFunnels();
   const { config, openAddFunnelModal } = usePageHeaderContext();
+
+  // Prevent hydration mismatch
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Состояние для фильтра времени
   const [timeFilter, setTimeFilter] = React.useState('week');
@@ -202,15 +209,13 @@ export default function ConditionalHeader() {
       // Обработка выбора "Все воронки" (если нужно)
       console.log('All funnels selected');
     } else {
-      const selectedFunnel = funnels?.find((f) => f.id === funnelId);
-      if (selectedFunnel) {
-        selectFunnel(selectedFunnel);
+      // Выбираем воронку по ID
+      selectFunnel(funnelId);
 
-        // Перезагружаем страницу после смены воронки
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
-      }
+      // Перезагружаем страницу после смены воронки
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
 
       // Также вызываем кастомный обработчик если он есть
       if (config?.onFunnelChange) {
@@ -239,6 +244,11 @@ export default function ConditionalHeader() {
       console.log('Time filter:', period);
     }
   };
+
+  // Don't render until mounted and organization is loaded
+  if (!mounted || !isLoaded) {
+    return null;
+  }
 
   return (
     <TableHeader

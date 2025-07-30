@@ -36,7 +36,7 @@ import {
   IconX,
   IconSettings
 } from '@tabler/icons-react';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import AddFunnelModal from './AddFunnelModal';
 import { OverviewProvider } from '@/contexts/OverviewContext';
 
@@ -70,12 +70,12 @@ export default function OverViewLayout({
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
   const {
-    funnels,
     currentFunnel,
+    funnels,
     selectFunnel,
     refreshFunnels,
     setNewFunnelAsSelected
-  } = useFunnels(backendOrgId);
+  } = useFunnels();
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [newFunnelName, setNewFunnelName] = useState('');
 
@@ -194,13 +194,16 @@ export default function OverViewLayout({
 
   // Подсчет статистики по этапам
   const stageStats = useMemo(() => {
-    if (!currentFunnel?.stages || currentFunnel.stages.length === 0) {
-      return [];
-    }
+    // Используем мок-данные для stages
+    const mockStages = [
+      { name: 'qualification', assistant_code_name: 'qualification' },
+      { name: 'presentation', assistant_code_name: 'presentation' },
+      { name: 'closing', assistant_code_name: 'closing' }
+    ];
 
     // Создаем карту стадий для сопоставления кодовых имен с русскими названиями
     const stageMap: Record<string, { name: string; color: string }> = {};
-    currentFunnel.stages.forEach((stage, index) => {
+    mockStages.forEach((stage) => {
       const codeName =
         stage.assistant_code_name?.toLowerCase() || stage.name.toLowerCase();
       stageMap[codeName] = {
@@ -233,12 +236,12 @@ export default function OverViewLayout({
     });
 
     // Создаем статистику для каждого этапа воронки
-    return currentFunnel.stages.map((stage) => ({
+    return mockStages.map((stage) => ({
       name: stage.name,
       count: stageCounts[stage.name] || 0,
       assistant_code_name: stage.assistant_code_name
     }));
-  }, [currentFunnel, dialogs]);
+  }, [dialogs]);
 
   // Общее количество диалогов
   const totalDialogs = useMemo(() => {
@@ -247,16 +250,15 @@ export default function OverViewLayout({
 
   // Данные для карточек конверсии
   const conversionData = useMemo(() => {
-    if (!currentFunnel?.stages || currentFunnel.stages.length === 0) {
-      return [
-        { absolute: 0, percentage: 0, stage: '1/3', name: 'Квалификация' },
-        { absolute: 0, percentage: 0, stage: '2/3', name: 'Презентация' },
-        { absolute: 0, percentage: 0, stage: '3/3', name: 'Закрытие' }
-      ];
-    }
+    // Используем мок-данные для stages
+    const mockStages = [
+      { name: 'qualification', assistant_code_name: 'qualification' },
+      { name: 'presentation', assistant_code_name: 'presentation' },
+      { name: 'closing', assistant_code_name: 'closing' }
+    ];
 
-    // Создаем карточки по этапам из текущей воронки с реальными данными
-    return currentFunnel.stages.map(
+    // Создаем карточки по этапам с реальными данными
+    return mockStages.map(
       (
         stage: { name: string; assistant_code_name?: string },
         index: number
@@ -271,13 +273,13 @@ export default function OverViewLayout({
         return {
           absolute,
           percentage,
-          stage: `${index + 1}/${currentFunnel.stages?.length}`,
+          stage: `${index + 1}/${mockStages.length}`,
           name: stage.name,
           assistant_code_name: stage.assistant_code_name
         };
       }
     );
-  }, [currentFunnel, stageStats, totalDialogs]);
+  }, [stageStats, totalDialogs]);
 
   // Фильтры для мобильного и десктопного отображения
   const timeFilters = [
@@ -292,7 +294,7 @@ export default function OverViewLayout({
   const handleFunnelChange = (funnelId: string) => {
     const funnel = funnels.find((f) => f.id === funnelId);
     if (funnel) {
-      selectFunnel(funnel);
+      selectFunnel(funnelId);
       console.log('Все воронки:', funnels);
       console.log('Выбрана воронка:', funnel);
     }
@@ -602,16 +604,6 @@ export default function OverViewLayout({
           onAdd={handleAddFunnel}
           newFunnelName={newFunnelName}
           setNewFunnelName={setNewFunnelName}
-          stages={stages}
-          setStages={setStages}
-          showFollowup={showFollowup}
-          setShowFollowup={setShowFollowup}
-          handleStageChange={handleStageChange}
-          handleAddStage={handleAddStage}
-          handleRemoveStage={handleRemoveStage}
-          handleAddFollowup={handleAddFollowup}
-          handleRemoveFollowup={handleRemoveFollowup}
-          handleFollowupChange={handleFollowupChange}
         />
       </PageContainer>
     </OverviewProvider>

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/tooltip';
 import { IconSearch, IconRefresh } from '@tabler/icons-react';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { OrganizationSyncWrapper } from '@/components/OrganizationSyncWrapper';
 
 // Интерфейс для воронки из API
 interface ApiFunnel {
@@ -40,7 +41,7 @@ interface ApiFunnel {
   }>;
 }
 
-export default function FunnelsPage() {
+function FunnelsPageContent() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
@@ -489,5 +490,13 @@ export default function FunnelsPage() {
         </div>
       </PageContainer>
     </div>
+  );
+}
+
+export default function FunnelsPage() {
+  return (
+    <OrganizationSyncWrapper>
+      <FunnelsPageContent />
+    </OrganizationSyncWrapper>
   );
 }

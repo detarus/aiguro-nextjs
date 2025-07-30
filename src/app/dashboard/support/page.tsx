@@ -49,7 +49,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 
 // Типы данных
 interface Ticket {
@@ -177,9 +177,7 @@ export default function SupportPage() {
   });
 
   // Получаем воронки
-  const { currentFunnel, funnels, selectFunnel } = useFunnels(
-    organization?.publicMetadata?.id_backend as string
-  );
+  const { currentFunnel, funnels, selectFunnel } = useFunnels();
 
   const { updateConfig } = usePageHeaderContext();
 
@@ -194,7 +192,7 @@ export default function SupportPage() {
     const funnelsList =
       funnels?.map((funnel) => ({
         id: funnel.id,
-        name: funnel.display_name || funnel.name || 'Без названия'
+        name: funnel.name || 'Без названия'
       })) || [];
 
     updateConfig({
@@ -209,7 +207,7 @@ export default function SupportPage() {
           if (funnelId !== 'all-funnels') {
             const selectedFunnel = funnels?.find((f) => f.id === funnelId);
             if (selectedFunnel) {
-              selectFunnel(selectedFunnel);
+              selectFunnel(funnelId);
             }
           }
         }
@@ -517,7 +515,7 @@ export default function SupportPage() {
                     <SelectItem value='general'>Общее обращение</SelectItem>
                     {funnels?.map((funnel) => (
                       <SelectItem key={funnel.id} value={funnel.id}>
-                        {funnel.display_name || funnel.name || 'Без названия'}
+                        {funnel.name || 'Без названия'}
                       </SelectItem>
                     ))}
                   </SelectContent>

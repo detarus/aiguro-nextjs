@@ -52,7 +52,9 @@ export class AiguroOrganizationApi {
 
   static async createOrganization(
     token: string,
-    companyName: string
+    companyName: string,
+    gid?: string,
+    organizationId?: string
   ): Promise<any | null> {
     if (!token) {
       console.error(
@@ -70,7 +72,16 @@ export class AiguroOrganizationApi {
       console.log(
         `[AiguroOrganizationApi] Attempting to POST new organization: ${companyName}. Token (first 10 chars): ${token.substring(0, 10)}...`
       );
-      const response = await fetch(CREATE_ORG_API_URL, {
+
+      // Генерируем gid если не передан
+      const organizationGid = gid || `org_${Date.now()}`;
+
+      // Строим URL с query параметрами
+      // Always include organization_id parameter, defaulting to '1' if not provided
+      const effectiveOrganizationId = organizationId || '1';
+      const apiUrl = `${CREATE_ORG_API_URL}?organization_id=${encodeURIComponent(effectiveOrganizationId)}`;
+
+      const response = await fetch(apiUrl, {
         // Using singular for POST as per cURL
         method: 'POST',
         headers: {
@@ -80,6 +91,7 @@ export class AiguroOrganizationApi {
         },
         body: JSON.stringify({
           display_name: companyName,
+          gid: organizationGid,
           is_active: true // Defaulting to true as per cURL example
         })
       });

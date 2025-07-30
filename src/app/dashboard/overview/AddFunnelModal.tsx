@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AnimatePresence, motion } from 'framer-motion';
 import { useOrganization } from '@clerk/nextjs';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { IconPlus, IconTrash, IconEdit, IconCheck } from '@tabler/icons-react';
+
+interface Stage {
+  id: number;
+  name: string;
+  assistant_code_name: string;
+}
 
 interface AddFunnelModalProps {
   isOpen: boolean;
@@ -11,95 +17,71 @@ interface AddFunnelModalProps {
   onAdd: (newFunnel?: any) => void;
   newFunnelName: string;
   setNewFunnelName: (v: string) => void;
-  stages: any[];
-  setStages: (v: any) => void;
-  showFollowup: Record<number, boolean>;
-  setShowFollowup: (v: any) => void;
-  handleStageChange: (id: number, field: string, value: string) => void;
-  handleAddStage: () => void;
-  handleRemoveStage: (id: number) => void;
-  handleAddFollowup: (id: number) => void;
-  handleRemoveFollowup: (id: number, idx: number) => void;
-  handleFollowupChange: (id: number, idx: number, value: number) => void;
 }
+
+const DEFAULT_FUNNEL_PARAMS = {
+  mergeToArray: 0,
+  breakSize: 0,
+  breakWait: 0,
+  contextMemorySize: 0,
+  useCompanyKnowledgeBase: true,
+  useFunnelKnowledgeBase: true,
+  autoPause: 0,
+  autoPauseFull: false,
+  autoAnswer: 'К сожалению, мы сейчас не можем вам ответить, напишите позже',
+  antiSpam: 0,
+  acceptFile: false,
+  acceptAudio: false,
+  workSchedule: false,
+  workStart: 0,
+  workEnd: 0
+};
 
 const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
   isOpen,
   onClose,
   onAdd,
   newFunnelName,
-  setNewFunnelName,
-  stages,
-  setStages,
-  showFollowup,
-  setShowFollowup,
-  handleStageChange,
-  handleAddStage,
-  handleRemoveStage,
-  handleAddFollowup,
-  handleRemoveFollowup,
-  handleFollowupChange
+  setNewFunnelName
 }) => {
   const [error, setError] = useState<string | null>(null);
-  const [stageErrors, setStageErrors] = useState<
-    Record<number, { name?: boolean; followups?: boolean }>
-  >({});
   const [funnelNameError, setFunnelNameError] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { organization } = useOrganization();
   const [loading, setLoading] = useState(false);
+  const [newFunnel, setNewFunnel] = useState<any>(null);
+  const [stages, setStages] = useState<Stage[]>([
+    { id: 1, name: 'Квалификация', assistant_code_name: 'qualification' },
+    { id: 2, name: 'Презентация', assistant_code_name: 'presentation' },
+    { id: 3, name: 'Закрытие', assistant_code_name: 'closing' }
+  ]);
 
-  // Получаем backend ID организации из метаданных Clerk
+  const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
   React.useEffect(() => {
     if (isOpen) {
-      const openMap: Record<number, boolean> = {};
-      stages.forEach((stage: any) => {
-        openMap[stage.id] = true;
-      });
-      setShowFollowup(openMap);
       setError(null);
-      setStageErrors({});
       setFunnelNameError(false);
       setSuccess(false);
       setLoading(false);
+      // Сброс этапов к значениям по умолчанию при открытии модального окна
+      setStages([
+        { id: 1, name: 'Квалификация', assistant_code_name: 'qualification' },
+        { id: 2, name: 'Презентация', assistant_code_name: 'presentation' },
+        { id: 3, name: 'Закрытие', assistant_code_name: 'closing' }
+      ]);
     }
-  }, [isOpen, stages, setShowFollowup]);
+  }, [isOpen]);
 
   const validate = () => {
     let valid = true;
-    const newStageErrors: Record<
-      number,
-      { name?: boolean; followups?: boolean }
-    > = {};
     setError(null);
     setFunnelNameError(false);
     setSuccess(false);
-
     if (!newFunnelName.trim()) {
       setFunnelNameError(true);
       valid = false;
     }
-
-    stages.forEach((stage) => {
-      let stageErr: { name?: boolean; followups?: boolean } = {};
-      if (!stage.name || !stage.name.trim()) {
-        stageErr.name = true;
-        valid = false;
-      }
-      // Проверка на совпадающие интервалы
-      const followups = stage.followups.map((f: number) => Number(f));
-      const hasDuplicates = followups.length !== new Set(followups).size;
-      if (hasDuplicates) {
-        stageErr.followups = true;
-        valid = false;
-      }
-      if (stageErr.name || stageErr.followups) {
-        newStageErrors[stage.id] = stageErr;
-      }
-    });
-    setStageErrors(newStageErrors);
     if (!valid) {
       setError('Проверьте корректность заполнения полей');
     }
@@ -108,64 +90,24 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
 
   const handleAddClick = async () => {
     if (!validate()) return;
-
-    // Получаем токен из Clerk cookie
     const token = getClerkTokenFromClientCookie();
-    console.log('Clerk token available:', !!token);
-    console.log('Backend organization ID:', backendOrgId);
-
     if (!backendOrgId) {
       setError(
         'Не выбрана организация или отсутствует backend ID в метаданных'
       );
       return;
     }
-
     if (!token) {
       setError('Отсутствует токен аутентификации');
       return;
     }
-
     setLoading(true);
-    // Формируем тело запроса согласно требуемой структуре API
+
     const funnelPayload = {
       display_name: newFunnelName.trim(),
-      stages: stages.map((stage) => {
-        // Мапим названия этапов к их кодам
-        let assistant_code_name;
-        const stageName = stage.name.trim();
-
-        switch (stageName) {
-          case 'Квалификация':
-            assistant_code_name = 'qualification';
-            break;
-          case 'Презентация':
-            assistant_code_name = 'presentation';
-            break;
-          case 'Закрытие':
-            assistant_code_name = 'closing';
-            break;
-          default:
-            // Для других этапов используем стандартную генерацию
-            assistant_code_name = stageName.toLowerCase().replace(/\s+/g, '_');
-        }
-
-        return {
-          name: stageName,
-          assistant_code_name,
-          followups: stage.followups.map((delay: number) => ({
-            delay_minutes: Number(delay),
-            assistant_code_name: 'follow_up'
-          }))
-        };
-      })
+      stages: [], // Всегда отправляем пустой массив
+      ...DEFAULT_FUNNEL_PARAMS
     };
-
-    console.log(
-      'Creating funnel with payload:',
-      JSON.stringify(funnelPayload, null, 2)
-    );
-    console.log('Using organization ID:', backendOrgId);
 
     try {
       const res = await fetch(`/api/organization/${backendOrgId}/funnel`, {
@@ -176,21 +118,10 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
         },
         body: JSON.stringify(funnelPayload)
       });
-
-      console.log('API response status:', res.status);
-      console.log(
-        'API response headers:',
-        Object.fromEntries(res.headers.entries())
-      );
-
       if (!res.ok) {
         let errorMessage = `HTTP ${res.status} ${res.statusText}`;
-
         try {
           const errorData = await res.json();
-          console.error('API error response:', errorData);
-
-          // Извлекаем детальное сообщение об ошибке
           if (errorData.error) {
             errorMessage = errorData.error;
           } else if (errorData.message) {
@@ -201,7 +132,6 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
             errorMessage = `${errorMessage}\nОтвет сервера: ${JSON.stringify(errorData)}`;
           }
         } catch (parseError) {
-          // Если не удается распарсить JSON, пытаемся получить текст
           try {
             const errorText = await res.text();
             if (errorText) {
@@ -211,246 +141,164 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
             errorMessage = `${errorMessage}\nНе удалось прочитать ответ сервера`;
           }
         }
-
         throw new Error(errorMessage);
       }
-
       const newFunnel = await res.json();
-      console.log('Successfully created funnel:', newFunnel);
-
       if (newFunnel && newFunnel.id) {
         localStorage.setItem('currentFunnel', String(newFunnel.id));
       }
+      setNewFunnel(newFunnel);
       setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        onAdd(newFunnel);
-      }, 1000);
+      // Убираем onAdd отсюда - он будет вызван в handleDone
     } catch (e: any) {
-      console.error('Error creating funnel:', e);
-      // Показываем конкретную ошибку вместо общего сообщения
       setError(e.message || 'Неизвестная ошибка при создании воронки');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDone = () => {
+    setSuccess(false);
+    // Вызываем onAdd здесь, чтобы передать новую воронку
+    if (newFunnel) {
+      onAdd(newFunnel);
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
+
+  // Экран успеха
+  if (success) {
+    return (
+      <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
+        <div className='bg-background w-full max-w-md rounded-xl p-8 text-center shadow-2xl'>
+          <div className='mb-6 flex justify-center'>
+            <div className='flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900'>
+              <IconCheck className='h-8 w-8 text-green-600 dark:text-green-300' />
+            </div>
+          </div>
+          <h3 className='text-foreground mb-2 text-2xl font-bold'>
+            Воронка успешно создана!
+          </h3>
+          <p className='text-muted-foreground mb-8'>
+            Воронка &quot;{newFunnelName}&quot; была успешно добавлена в
+            систему.
+          </p>
+          <Button
+            onClick={handleDone}
+            className='btn btn-primary bg-primary hover:bg-primary/90 px-8 py-3 text-base text-white'
+          >
+            Готово
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
-      <div className='bg-background w-full max-w-2xl rounded-xl p-8 shadow-2xl'>
+      <div className='bg-background max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl p-8 shadow-2xl'>
         <h3 className='text-foreground mb-2 text-2xl font-bold'>
           Добавить воронку
         </h3>
         <div className='text-muted-foreground mb-6'>
-          Укажите название воронки и добавьте этапы. Для каждого этапа заполните
-          название и интервалы follow-up (до 3, в минутах).
+          Укажите название воронки и настройте этапы.
         </div>
 
-        {/* Информация о текущей организации - СКРЫТО */}
-        {/* 
-        <div className='mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-700 dark:bg-blue-900/20'>
-          <h4 className='mb-2 font-medium text-blue-800 dark:text-blue-200'>
-            Информация об организации:
-          </h4>
-          <div className='space-y-1 text-blue-700 dark:text-blue-300'>
-            <p><strong>Название:</strong> {organization?.name || 'Не указано'}</p>
-            <p><strong>Clerk ID:</strong> {organization?.id || 'Не указан'}</p>
-            <p><strong>Backend ID:</strong> {backendOrgId || 'Отсутствует в метаданных'}</p>
-            <p><strong>Токен доступен:</strong> {getClerkTokenFromClientCookie() ? 'Да' : 'Нет'}</p>
+        {/* Название воронки */}
+        <div className='mb-6'>
+          <label className='mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300'>
+            Название воронки
+          </label>
+          <Input
+            value={newFunnelName}
+            onChange={(e) => setNewFunnelName(e.target.value)}
+            placeholder='Название воронки'
+            className={`text-foreground bg-background h-12 text-lg ${funnelNameError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Управление этапами */}
+        <div className='mb-6'>
+          <div className='mb-4 flex items-center justify-between'>
+            <label className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+              Этапы воронки (только для просмотра)
+            </label>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled
+              className='flex cursor-not-allowed items-center gap-2 opacity-50'
+            >
+              <IconPlus className='h-4 w-4' />
+              Добавить этап
+            </Button>
           </div>
-        </div>
-        */}
 
-        <Input
-          value={newFunnelName}
-          onChange={(e) => setNewFunnelName(e.target.value)}
-          placeholder='Название воронки'
-          className={`text-foreground bg-background mb-6 h-12 text-lg ${funnelNameError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-        />
-        <div className='flex max-h-[50vh] flex-row flex-nowrap gap-6 overflow-x-auto pb-2'>
-          <AnimatePresence initial={false}>
-            {stages.map((stage: any, idx: number) => {
-              const isAccordionOpen = !!showFollowup[stage.id];
-              const stageErr = stageErrors[stage.id] || {};
-              return (
-                <motion.div
-                  key={stage.id}
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -40 }}
-                  transition={{ duration: 0.25 }}
-                  className={`bg-background relative flex max-w-[340px] min-w-[340px] flex-col gap-4 rounded-xl border border-gray-200 p-6 shadow dark:border-gray-700 ${isAccordionOpen ? 'max-h-[320px] overflow-y-auto' : ''} transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50`}
-                >
-                  <div className='mb-2 flex items-center justify-between'>
-                    <span className='text-foreground flex items-center gap-2 text-lg font-semibold'>
-                      Этап {idx + 1}
-                      <span
-                        className='cursor-help text-xs font-normal text-gray-500 dark:text-gray-400'
-                        title='Этап заблокирован для редактирования'
-                      >
-                        🔒
-                      </span>
+          <div className='space-y-3'>
+            {stages.map((stage, index) => (
+              <div
+                key={stage.id}
+                className='flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800'
+              >
+                <div className='flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-600 dark:bg-blue-900 dark:text-blue-300'>
+                  {index + 1}
+                </div>
+
+                <div className='flex-1'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-sm font-medium text-gray-900 dark:text-gray-100'>
+                      {stage.name}
                     </span>
-                    <div className='flex gap-1'>
-                      {stages.length > 1 && (
-                        <Button
-                          size='icon'
-                          variant='ghost'
-                          onClick={() => handleRemoveStage(stage.id)}
-                          title='Удаление этапов недоступно'
-                          className='cursor-not-allowed text-xl opacity-50 hover:bg-transparent hover:opacity-40 disabled:cursor-not-allowed'
-                          disabled={true}
-                          style={{ cursor: 'not-allowed' }}
-                        >
-                          ×
-                        </Button>
-                      )}
+                    <div className='flex items-center gap-1'>
                       <Button
-                        size='icon'
-                        variant='outline'
-                        onClick={() => {
-                          const newStage = {
-                            id: Date.now() + Math.random(),
-                            name: '',
-                            followups: [60]
-                          };
-                          const idxInArr = stages.findIndex(
-                            (s: any) => s.id === stage.id
-                          );
-                          setStages((prev: any) => [
-                            ...prev.slice(0, idxInArr + 1),
-                            newStage,
-                            ...prev.slice(idxInArr + 1)
-                          ]);
-                        }}
-                        title='Добавление этапов недоступно'
-                        className='cursor-not-allowed opacity-50 hover:bg-transparent hover:opacity-40 disabled:cursor-not-allowed'
-                        disabled={true}
-                        style={{ cursor: 'not-allowed' }}
+                        size='sm'
+                        variant='ghost'
+                        disabled
+                        className='h-8 w-8 cursor-not-allowed p-0 opacity-50'
                       >
-                        +
+                        <IconEdit className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        size='sm'
+                        variant='ghost'
+                        disabled
+                        className='h-8 w-8 cursor-not-allowed p-0 text-red-600 opacity-50 hover:text-red-700'
+                      >
+                        <IconTrash className='h-4 w-4' />
                       </Button>
                     </div>
                   </div>
-                  <div className='flex flex-col gap-2'>
-                    <label className='text-foreground flex cursor-not-allowed items-center gap-2 text-sm font-medium'>
-                      Название этапа
-                    </label>
-                    <Input
-                      value={stage.name}
-                      onChange={(e) =>
-                        handleStageChange(stage.id, 'name', e.target.value)
-                      }
-                      placeholder='Название этапа'
-                      className={`text-foreground bg-background h-10 cursor-not-allowed text-base opacity-60 disabled:cursor-not-allowed ${stageErr.name ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-                      disabled={true}
-                      style={{ cursor: 'not-allowed' }}
-                    />
-                  </div>
-                  {/* Аккордеон для follow-up */}
-                  <div>
-                    <div
-                      className='text-primary mb-2 flex cursor-pointer items-center gap-1 text-xs font-medium select-none'
-                      onClick={() =>
-                        setShowFollowup((s: any) => ({
-                          ...s,
-                          [stage.id]: !s[stage.id]
-                        }))
-                      }
-                    >
-                      <span>
-                        {isAccordionOpen
-                          ? 'Скрыть Follow-up (в мин)'
-                          : 'Настроить Follow-up (в мин)'}
-                      </span>
-                      <span
-                        className={`transition-transform ${isAccordionOpen ? 'rotate-90' : ''}`}
-                      >
-                        ▶
-                      </span>
-                    </div>
-                    {isAccordionOpen && (
-                      <div>
-                        <div className='flex flex-wrap items-center gap-2'>
-                          <div
-                            className={`bg-muted flex flex-row flex-wrap gap-0 rounded border px-1 py-1 ${stageErr.followups ? 'border-red-500' : ''}`}
-                          >
-                            {stage.followups
-                              .slice(0, 3)
-                              .map((f: any, j: number) => (
-                                <div key={j} className='flex items-center'>
-                                  <Input
-                                    type='number'
-                                    min={1}
-                                    max={300}
-                                    value={f}
-                                    onChange={(e) =>
-                                      handleFollowupChange(
-                                        stage.id,
-                                        j,
-                                        Math.max(
-                                          1,
-                                          Math.min(300, Number(e.target.value))
-                                        )
-                                      )
-                                    }
-                                    className={`text-foreground bg-background h-8 w-14 rounded-none border-none text-sm focus:ring-0`}
-                                  />
-                                  {stage.followups.length > 1 && (
-                                    <Button
-                                      size='icon'
-                                      variant='ghost'
-                                      onClick={() =>
-                                        handleRemoveFollowup(stage.id, j)
-                                      }
-                                      title='Удалить интервал'
-                                      className='rounded-none border-l px-0 text-base'
-                                    >
-                                      -
-                                    </Button>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                          {stage.followups.length < 3 && (
-                            <Button
-                              size='icon'
-                              variant='outline'
-                              onClick={() => handleAddFollowup(stage.id)}
-                              title='Добавить интервал'
-                              className='px-1 text-base'
-                            >
-                              +
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
         {error && (
           <div className='mt-4 rounded bg-red-100 p-3 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
             <strong>Ошибка:</strong>
-            <pre className='mt-1 text-sm whitespace-pre-wrap'>{error}</pre>
+            <ErrorDetails error={error} />
           </div>
         )}
-        {success && (
-          <div className='mt-4 rounded bg-green-100 p-3 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
-            <strong>Успех:</strong> Воронка успешно создана!
-          </div>
-        )}
+
         <div className='mt-8 flex gap-2'>
           <Button
             onClick={handleAddClick}
             className='btn btn-primary bg-primary hover:bg-primary/90 px-6 py-2 text-base text-white'
             disabled={loading}
           >
-            Добавить
+            {loading ? (
+              <div className='flex items-center gap-2'>
+                <div className='h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent'></div>
+                Создание...
+              </div>
+            ) : (
+              'Добавить'
+            )}
           </Button>
           <Button
             onClick={onClose}
@@ -465,5 +313,25 @@ const AddFunnelModal: React.FC<AddFunnelModalProps> = ({
     </div>
   );
 };
+
+function ErrorDetails({ error }: { error: any }) {
+  if (!error) return null;
+  let parsed: any = error;
+  if (typeof error === 'string') {
+    try {
+      parsed = JSON.parse(error);
+    } catch {
+      return <div>{error}</div>;
+    }
+  }
+  if (typeof parsed === 'object' && parsed !== null) {
+    return (
+      <pre className='text-xs whitespace-pre-wrap'>
+        {JSON.stringify(parsed, null, 2)}
+      </pre>
+    );
+  }
+  return <div>{String(error)}</div>;
+}
 
 export default AddFunnelModal;

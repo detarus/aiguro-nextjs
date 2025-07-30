@@ -18,24 +18,41 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     // Валидация структуры запроса
-    if (!body.display_name || !Array.isArray(body.stages)) {
+    if (!body.display_name) {
       return NextResponse.json(
-        { error: 'Некорректные данные' },
+        { error: 'display_name обязателен' },
         { status: 400 }
       );
     }
+
+    // Создаем объект воронки со всеми параметрами из API документации
     const funnel = {
       display_name: body.display_name,
-      stages: body.stages.map((stage: any) => ({
-        name: stage.name,
-        assistant_code_name: stage.assistant_code_name,
-        followups: Array.isArray(stage.followups)
-          ? stage.followups.map((f: any) => ({
-              delay_minutes: f.delay_minutes,
-              assistant_code_name: f.assistant_code_name
-            }))
-          : []
-      }))
+      stages: Array.isArray(body.stages) ? body.stages : [],
+      mergeToArray: body.mergeToArray || 0,
+      breakSize: body.breakSize || 0,
+      breakWait: body.breakWait || 0,
+      contextMemorySize: body.contextMemorySize || 0,
+      useCompanyKnowledgeBase:
+        body.useCompanyKnowledgeBase !== undefined
+          ? body.useCompanyKnowledgeBase
+          : true,
+      useFunnelKnowledgeBase:
+        body.useFunnelKnowledgeBase !== undefined
+          ? body.useFunnelKnowledgeBase
+          : true,
+      autoPause: body.autoPause || 0,
+      autoPauseFull:
+        body.autoPauseFull !== undefined ? body.autoPauseFull : false,
+      autoAnswer:
+        body.autoAnswer ||
+        'К сожалению, мы сейчас не можем вам ответить, напишите позже',
+      antiSpam: body.antiSpam || 0,
+      acceptFile: body.acceptFile !== undefined ? body.acceptFile : false,
+      acceptAudio: body.acceptAudio !== undefined ? body.acceptAudio : false,
+      workSchedule: body.workSchedule !== undefined ? body.workSchedule : false,
+      workStart: body.workStart || 0,
+      workEnd: body.workEnd || 0
     };
     console.log(
       '[POST /api/organization/[id]/funnel] Final request body:',

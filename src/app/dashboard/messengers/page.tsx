@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { PageSkeleton } from '@/components/page-skeleton';
 import { PageContainer } from '@/components/ui/page-container';
@@ -89,9 +89,7 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
   const { updateConfig } = usePageHeaderContext();
 
   const { organization } = useOrganization();
-  const { currentFunnel, funnels } = useFunnels(
-    organization?.publicMetadata?.id_backend as string
-  );
+  const { currentFunnel, funnels } = useFunnels();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -1234,9 +1232,7 @@ function DialogsPageMain() {
   >(new Set());
 
   const { organization } = useOrganization();
-  const { currentFunnel, funnels } = useFunnels(
-    organization?.publicMetadata?.id_backend as string
-  );
+  const { currentFunnel, funnels } = useFunnels();
 
   // Функция для закрытия модального окна "диалог не найден"
   const handleCloseDialogNotFoundModal = () => {

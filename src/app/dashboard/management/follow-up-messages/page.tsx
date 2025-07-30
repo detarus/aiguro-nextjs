@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 export default function FollowUpMessagesPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  const { currentFunnel } = useFunnels(backendOrgId);
+  const { currentFunnel } = useFunnels();
   const router = useRouter();
 
   // Состояние для промпта

@@ -3,8 +3,9 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import ConditionalHeader from '@/components/layout/conditional-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { OrganizationGuard } from '@/components/organization-guard';
-import { OrganizationCreationProvider } from '@/contexts/OrganizationCreationContext';
 import { PageHeaderProvider } from '@/contexts/PageHeaderContext';
+import { FunnelsProvider } from '@/contexts/FunnelsContext';
+import { SyncBlocker } from '@/components/sync-blocker';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import FunnelModalWrapper from './FunnelModalWrapper';
@@ -24,24 +25,26 @@ export default async function DashboardLayout({
   const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
   return (
     <OrganizationGuard>
-      <OrganizationCreationProvider>
+      <FunnelsProvider>
         <PageHeaderProvider>
           <KBar>
             <SidebarProvider defaultOpen={defaultOpen}>
-              <AppSidebar />
-              <SidebarInset>
-                <ConditionalHeader />
-                {/* Onboarding modal (client-side only) */}
-                {/* <OnboardingModalWrapper /> */}
-                {/* page main content */}
-                {children}
-                {/* page main content ends */}
-              </SidebarInset>
+              <SyncBlocker>
+                <AppSidebar />
+                <SidebarInset>
+                  <ConditionalHeader />
+                  {/* Onboarding modal (client-side only) */}
+                  {/* <OnboardingModalWrapper /> */}
+                  {/* page main content */}
+                  {children}
+                  {/* page main content ends */}
+                </SidebarInset>
+              </SyncBlocker>
             </SidebarProvider>
           </KBar>
           <FunnelModalWrapper />
         </PageHeaderProvider>
-      </OrganizationCreationProvider>
+      </FunnelsProvider>
     </OrganizationGuard>
   );
 }

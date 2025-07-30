@@ -10,7 +10,7 @@ import {
   IconMessage
 } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Card,
@@ -56,7 +56,7 @@ interface Agent {
 export default function AgentTestingPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  const { currentFunnel } = useFunnels(backendOrgId);
+  const { currentFunnel } = useFunnels();
   const router = useRouter();
   const searchParams = useSearchParams();
   const agentParam = searchParams.get('agent');

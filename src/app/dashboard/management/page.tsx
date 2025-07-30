@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { useSearchParams } from 'next/navigation';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1095,7 +1095,7 @@ function PromptTestingComponent({
         )}
 
         {activeSettingsTab === 'test' && (
-          <div className='flex h-[400px] flex-col'>
+          <div className='flex h-[330px] flex-col'>
             {/* Заголовок чата */}
             <div className='flex items-center justify-between border-b p-4'>
               <div className='flex items-center gap-4'>
@@ -1469,11 +1469,7 @@ function ManagementPageContent() {
     null
   );
 
-  const {
-    currentFunnel,
-    funnels,
-    loading: funnelsLoading
-  } = useFunnels(backendOrgId);
+  const { currentFunnel, funnels, loading: funnelsLoading } = useFunnels();
 
   // Загрузка интеграций
   const fetchIntegrations = useCallback(async () => {
@@ -2416,7 +2412,7 @@ function ManagementPageContent() {
                                           Доступные:{' '}
                                           {funnels
                                             .map(
-                                              (f) => f.name || f.display_name
+                                              (f) => f.display_name || f.name
                                             )
                                             .join(', ')}
                                         </div>
@@ -2431,8 +2427,8 @@ function ManagementPageContent() {
                                   <div className='rounded-lg border bg-blue-50 p-4 text-sm text-gray-500'>
                                     <div className='mb-2'>
                                       Нет этапов в воронке &quot;
-                                      {currentFunnel.name ||
-                                        currentFunnel.display_name}
+                                      {currentFunnel.display_name ||
+                                        currentFunnel.name}
                                       &quot;
                                     </div>
                                     <div className='text-xs'>

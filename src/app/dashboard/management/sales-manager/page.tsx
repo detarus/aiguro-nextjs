@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { useRouter } from 'next/navigation';
 import {
@@ -37,7 +37,7 @@ interface SalesManagerSettings {
 export default function SalesManagerPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  const { currentFunnel } = useFunnels(backendOrgId);
+  const { currentFunnel } = useFunnels();
   const router = useRouter();
 
   // Состояния

@@ -20,8 +20,22 @@ import {
 } from '@tabler/icons-react';
 
 export function UserNav() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
+
+  // Don't render until user data is loaded to prevent hydration mismatch
+  if (!isLoaded) {
+    return (
+      <Button
+        variant='ghost'
+        className='relative h-8 w-8 rounded-full'
+        disabled
+      >
+        <div className='h-6 w-6 animate-spin rounded-full border-b-2 border-gray-900'></div>
+      </Button>
+    );
+  }
+
   if (user) {
     return (
       <DropdownMenu>

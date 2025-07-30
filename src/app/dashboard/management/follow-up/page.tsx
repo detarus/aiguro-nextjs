@@ -12,7 +12,7 @@ import {
   IconRotateClockwise
 } from '@tabler/icons-react';
 import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { useRouter } from 'next/navigation';
 import {
@@ -82,7 +82,7 @@ interface FollowUpSettings {
 export default function FollowUpPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  const { currentFunnel } = useFunnels(backendOrgId);
+  const { currentFunnel } = useFunnels();
   const router = useRouter();
 
   // Состояния

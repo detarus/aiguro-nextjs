@@ -14,12 +14,8 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { CreateOrganizationModal } from '@/components/modal/create-organization-modal';
-import {
-  useUser,
-  useOrganization,
-  OrganizationSwitcher,
-  SignOutButton
-} from '@clerk/nextjs';
+import { useUser, useOrganization, SignOutButton } from '@clerk/nextjs';
+import { OrganizationSwitcher } from '@/components/organization-switcher';
 import {
   IconLayoutDashboard,
   IconLayoutKanban,
@@ -37,10 +33,8 @@ import {
   IconSun,
   IconMoon,
   IconUser,
-  IconCoin,
   IconCreditCard,
   IconLogout,
-  IconChevronDown,
   IconBug
 } from '@tabler/icons-react';
 import { useTheme } from 'next-themes';
@@ -170,8 +164,43 @@ export default function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const { organization } = useOrganization();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [isCreateOrgModalOpen, setIsCreateOrgModalOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  // Prevent hydration mismatch
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't render theme-dependent content until mounted
+  if (!mounted) {
+    return (
+      <Sidebar className='border-none bg-transparent dark:bg-transparent'>
+        <SidebarHeader className='p-4'>
+          <div className='mb-0 flex items-center gap-3'>
+            <div className='flex h-7 w-7 items-center justify-center rounded-lg bg-gray-800 dark:bg-gray-100'>
+              <IconSettings className='h-4 w-4 text-white dark:text-gray-900' />
+            </div>
+            <div className='flex items-center gap-2'>
+              <h1 className='text-base font-semibold text-gray-900 dark:text-white'>
+                AI Guro
+              </h1>
+              <span className='text-gray-400 dark:text-gray-500'>|</span>
+              <p className='text-xs text-gray-500 dark:text-gray-300'>
+                Sales Hub
+              </p>
+            </div>
+          </div>
+        </SidebarHeader>
+        <SidebarContent className='px-3'>
+          <div className='rounded-[25px] border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-[#2D2D2D]'>
+            <div className='mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900'></div>
+          </div>
+        </SidebarContent>
+      </Sidebar>
+    );
+  }
 
   // Обновляем активное состояние для пунктов меню
   const updatedSections = navigationSections.map((section) => ({
@@ -183,7 +212,7 @@ export default function AppSidebar() {
   }));
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
   };
 
   return (
@@ -269,7 +298,7 @@ export default function AppSidebar() {
                   size='sm'
                   onClick={toggleTheme}
                   className={`h-auto rounded-full p-1 transition-colors ${
-                    theme === 'light'
+                    resolvedTheme === 'light'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-400 hover:text-gray-300'
                   }`}
@@ -281,7 +310,7 @@ export default function AppSidebar() {
                   size='sm'
                   onClick={toggleTheme}
                   className={`h-auto rounded-full p-1 transition-colors ${
-                    theme === 'dark'
+                    resolvedTheme === 'dark'
                       ? 'bg-gray-100 text-gray-900 shadow-sm'
                       : 'text-gray-400 hover:text-gray-600'
                   }`}
@@ -296,57 +325,22 @@ export default function AppSidebar() {
           <div className='mt-2 border-t border-gray-200 pt-2 dark:border-gray-600'>
             <div className='flex items-center gap-2'>
               {/* Выбор организации */}
-              <div className='flex-1'>
-                <OrganizationSwitcher
-                  organizationProfileMode='navigation'
-                  organizationProfileUrl='/dashboard/organization'
-                  createOrganizationMode='modal'
-                  hidePersonal={true}
-                  afterCreateOrganizationUrl='/dashboard/organization'
-                  afterSelectOrganizationUrl='/dashboard/overview'
-                  appearance={{
-                    elements: {
-                      organizationSwitcherTrigger:
-                        '!p-0 !bg-transparent !border-0 !shadow-none !w-full',
-                      organizationSwitcherTriggerIcon: '!hidden',
-                      organizationPreview:
-                        '!flex !items-center !gap-2 !p-2 !rounded-lg !bg-gray-50 dark:!bg-gray-800 hover:!bg-gray-100 dark:hover:!bg-gray-700 !transition-colors !w-full',
-                      organizationPreviewAvatarContainer:
-                        '!w-5 !h-5 !bg-gray-200 dark:!bg-gray-600 !rounded-full !flex !items-center !justify-center !overflow-hidden',
-                      organizationPreviewAvatarImage:
-                        '!w-full !h-full !object-cover',
-                      organizationPreviewMainIdentifier:
-                        '!text-[9px] !text-gray-500 dark:!text-gray-300 !truncate !font-normal',
-                      organizationPreviewSecondaryIdentifier: '!hidden',
-                      organizationSwitcherPopoverCard:
-                        '!p-3 !rounded-xl !shadow-xl !border !border-gray-200 dark:!border-gray-700 !bg-white dark:!bg-gray-800 !mt-2',
-                      organizationSwitcherPopoverActionButton:
-                        '!text-sm !p-3 hover:!bg-gray-100 dark:hover:!bg-gray-700 !rounded-lg !transition-colors',
-                      organizationSwitcherPopoverActionButtonText:
-                        '!text-sm !font-medium',
-                      organizationPreviewTextContainer: '!flex-1 !min-w-0',
-                      organizationSwitcherPopoverActions: '!gap-1'
-                    }
-                  }}
-                />
+              <div className='min-w-0 flex-1'>
+                <OrganizationSwitcher />
               </div>
 
               {/* Разделитель */}
               <div className='h-4 w-px bg-gray-300 dark:bg-gray-600'></div>
 
-              {/* Баланс аккаунта */}
+              {/* Кнопка пользователя */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant='ghost'
                     size='sm'
-                    className='flex h-auto items-center gap-1.5 rounded-lg bg-gray-50 p-2 transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700'
+                    className='flex h-auto items-center justify-center rounded-lg bg-gray-50 p-2 transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700'
                   >
-                    <IconCoin className='h-3 w-3 text-gray-600 dark:text-gray-200' />
-                    <span className='text-xs font-medium text-gray-900 dark:text-white'>
-                      100
-                    </span>
-                    <IconChevronDown className='h-2.5 w-2.5 text-gray-500 dark:text-gray-400' />
+                    <IconUser className='h-3 w-3 text-gray-600 dark:text-gray-200' />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent

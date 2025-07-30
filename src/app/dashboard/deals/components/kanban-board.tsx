@@ -15,7 +15,7 @@ import {
 } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Client } from './client-table';
-import { useFunnels } from '@/hooks/useFunnels';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { useOrganization } from '@clerk/nextjs';
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -352,7 +352,7 @@ export function KanbanBoard({
   const { state } = useSidebar();
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  const { currentFunnel } = useFunnels(backendOrgId);
+  const { currentFunnel } = useFunnels();
   const [stages, setStages] = useState<Stage[]>([]);
   const [debug, setDebug] = useState<{
     stageIds: string[];
@@ -362,60 +362,15 @@ export function KanbanBoard({
   }>({ stageIds: [], stageCodeNames: {}, clientStages: {}, clientDetails: [] });
   const router = useRouter();
 
-  // Инициализируем стадии из данных воронки
+  // Инициализируем стадии
   useEffect(() => {
-    if (currentFunnel?.stages && currentFunnel.stages.length > 0) {
-      // Создаем стадии из данных воронки
-      const funnelStages: Stage[] = currentFunnel.stages.map((stage, index) => {
-        // Если у стадии нет assistant_code_name, используем id в нижнем регистре в качестве assistant_code_name
-        const assistant_code_name =
-          stage.assistant_code_name && stage.assistant_code_name.trim() !== ''
-            ? stage.assistant_code_name
-            : stage.name.toLowerCase().replace(/\s+/g, '_');
-
-        console.log(
-          `Стадия ${stage.name}: assistant_code_name = ${assistant_code_name} (оригинал: ${stage.assistant_code_name || 'не задан'})`
-        );
-
-        return {
-          id: stage.name,
-          title: stage.name,
-          color: getStageColor(index),
-          assistant_code_name
-        };
-      });
-      setStages(funnelStages);
-
-      // Для отладки
-      const stageCodeNames: Record<string, string | undefined> = {};
-      funnelStages.forEach((stage) => {
-        stageCodeNames[stage.id] = stage.assistant_code_name;
-
-        // Отладка: проверяем, есть ли совпадения id стадии с assistant_code_name
-        if (
-          stage.assistant_code_name &&
-          stage.id.toLowerCase() === stage.assistant_code_name.toLowerCase()
-        ) {
-          console.log(
-            `ВНИМАНИЕ: Совпадение id и assistant_code_name для стадии ${stage.id}`
-          );
-        }
-      });
-
-      setDebug((prev) => ({
-        ...prev,
-        stageIds: funnelStages.map((s) => s.id),
-        stageCodeNames
-      }));
-    } else {
-      // Используем дефолтные стадии, если нет данных в воронке
-      setStages([
-        { id: 'Новый', title: 'Новый', color: 'bg-blue-500' },
-        { id: 'Квалификация', title: 'Квалификация', color: 'bg-orange-500' },
-        { id: 'Переговоры', title: 'Переговоры', color: 'bg-yellow-500' },
-        { id: 'Закрыто', title: 'Закрыто', color: 'bg-green-500' }
-      ]);
-    }
+    // Используем дефолтные стадии
+    setStages([
+      { id: 'Новый', title: 'Новый', color: 'bg-blue-500' },
+      { id: 'Квалификация', title: 'Квалификация', color: 'bg-orange-500' },
+      { id: 'Переговоры', title: 'Переговоры', color: 'bg-yellow-500' },
+      { id: 'Закрыто', title: 'Закрыто', color: 'bg-green-500' }
+    ]);
   }, [currentFunnel]);
 
   // Собираем статистику по этапам клиентов для отладки

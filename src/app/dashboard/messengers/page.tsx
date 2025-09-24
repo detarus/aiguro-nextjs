@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
+import { AllFunnelsDialogsPlaceholder } from '@/components/all-funnels-placeholder';
 // Добавлен переключатель Агент/Менеджер
 
 // Интерфейсы для типизации данных
@@ -386,6 +387,13 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
   const fetchAllData = async (forceRefresh = false) => {
     if (!backendOrgId || !currentFunnel?.id) {
       console.log('Missing backendOrgId or currentFunnel.id, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
+    // Если выбраны "Все воронки", не загружаем данные
+    if (currentFunnel.id === '0') {
+      console.log('All funnels selected, skipping data fetch');
       setLoading(false);
       return;
     }
@@ -784,6 +792,11 @@ function DialogsView({ onDialogNotFound }: DialogsViewProps) {
         </div>
       </div>
     );
+  }
+
+  // Показываем заглушку для "Все воронки"
+  if (currentFunnel?.id === '0') {
+    return <AllFunnelsDialogsPlaceholder />;
   }
 
   // Показываем сообщение, если нет организации или воронки

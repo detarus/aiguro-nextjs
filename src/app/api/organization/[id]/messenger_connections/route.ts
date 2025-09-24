@@ -1,21 +1,24 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
-  const organizationId = request.nextUrl.pathname
-    .split('/')
-    .filter(Boolean)
-    .pop();
-  if (!organizationId)
+  // Extract the organization ID from the URL path
+  const url = new URL(request.url);
+  const pathSegments = url.pathname.split('/');
+  const orgIdIndex = pathSegments.indexOf('organization') + 1;
+  const orgId = pathSegments[orgIdIndex];
+
+  if (!orgId) {
     return NextResponse.json(
-      { error: 'Organization ID missing.' },
+      { error: 'Organization ID not found in URL' },
       { status: 400 }
     );
+  }
 
   const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[GET /api/aiguro-organizations/[id]] No token received from __session cookie.'
+      '[GET /api/organization/[id]/messenger_connections] No token received from __session cookie.'
     );
     return NextResponse.json(
       { error: 'Authentication failed.' },
@@ -24,13 +27,16 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(
-    '[GET /api/aiguro-organizations/[id]] Token received from __session cookie, fetching organization.'
+    '[GET /api/organization/[id]/messenger_connections] Token received from __session cookie, fetching organization messenger connections.'
+  );
+  console.log(
+    `[GET /api/organization/[id]/messenger_connections] Request details - orgId: ${orgId}`
   );
 
   try {
-    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${organizationId}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/messenger_connections`;
     console.log(
-      `[GET /api/aiguro-organizations/[id]] Fetching from: ${apiUrl}`
+      `[GET /api/organization/[id]/messenger_connections] Fetching from: ${apiUrl}`
     );
 
     const response = await fetch(apiUrl, {
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(
-      `[GET /api/aiguro-organizations/[id]] Response status: ${response.status}`
+      `[GET /api/organization/[id]/messenger_connections] Response status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -51,7 +57,7 @@ export async function GET(request: NextRequest) {
       try {
         const errorData = await response.json();
         console.error(
-          '[GET /api/aiguro-organizations/[id]] API error response:',
+          '[GET /api/organization/[id]/messenger_connections] API error response:',
           errorData
         );
 
@@ -71,9 +77,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      console.error(
-        `[GET /api/aiguro-organizations/[id]] Error: ${errorMessage}`
-      );
       return NextResponse.json(
         { error: errorMessage },
         { status: response.status }
@@ -82,17 +85,17 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[GET /api/aiguro-organizations/[id]] Successfully fetched organization:',
+      '[GET /api/organization/[id]/messenger_connections] Successfully fetched organization messenger connections:',
       data
     );
     return NextResponse.json(data);
   } catch (error) {
     console.error(
-      '[GET /api/aiguro-organizations/[id]] Unexpected error:',
+      '[GET /api/organization/[id]/messenger_connections] Unexpected error:',
       error
     );
     return NextResponse.json(
-      { error: 'Failed to fetch organization data' },
+      { error: 'Failed to fetch organization messenger connections' },
       { status: 500 }
     );
   }

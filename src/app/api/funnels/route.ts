@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     '[/api/funnels GET] Token received from __session cookie, fetching funnels.'
   );
 
-  const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnels`;
+  const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnels`;
   const res = await fetch(apiUrl, {
     headers: {
       accept: 'application/json',

@@ -63,7 +63,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/dialog/${dialogUuid}/message`;
+    // Ensure time is a valid ISO string if provided
+    if (body.time && typeof body.time !== 'string') {
+      body.time = new Date().toISOString();
+    }
+
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialog/${dialogUuid}/message`;
 
     console.log(`[PROXY] Sending POST to external backend: ${apiUrl}`);
     const startTime = performance.now();

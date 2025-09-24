@@ -39,6 +39,7 @@ import {
 import { useFunnels } from '@/contexts/FunnelsContext';
 import AddFunnelModal from './AddFunnelModal';
 import { OverviewProvider } from '@/contexts/OverviewContext';
+import { AllFunnelsPlaceholder } from '@/components/all-funnels-placeholder';
 
 export default function OverViewLayout({
   children,
@@ -443,6 +444,39 @@ export default function OverViewLayout({
     ]);
   };
 
+  // Показываем заглушку для "Все воронки"
+  if (currentFunnel?.id === '0') {
+    return (
+      <OverviewProvider
+        searchQuery={searchQuery}
+        stageStats={stageStats}
+        totalDialogs={totalDialogs}
+        dialogsData={dialogs}
+        loading={loading}
+      >
+        <TableHeader
+          title='Обзор'
+          funnels={
+            funnels?.map((funnel) => ({
+              id: funnel.id,
+              name: funnel.display_name || funnel.name || 'Без названия'
+            })) || []
+          }
+          selectedFunnel={
+            currentFunnel?.id === '0' ? 'all-funnels' : currentFunnel?.id
+          }
+          onFunnelChange={handleFunnelChange}
+          onSearch={setSearchQuery}
+          onTimeFilterChange={setActiveTimeFilter}
+          timeFilter={activeTimeFilter}
+        />
+        <PageContainer>
+          <AllFunnelsPlaceholder />
+        </PageContainer>
+      </OverviewProvider>
+    );
+  }
+
   return (
     <OverviewProvider
       searchQuery={searchQuery}
@@ -459,7 +493,9 @@ export default function OverViewLayout({
             name: funnel.display_name || funnel.name || 'Без названия'
           })) || []
         }
-        selectedFunnel={currentFunnel?.id}
+        selectedFunnel={
+          currentFunnel?.id === '0' ? 'all-funnels' : currentFunnel?.id
+        }
         onFunnelChange={handleFunnelChange}
         onSearch={setSearchQuery}
         onTimeFilterChange={setActiveTimeFilter}

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       body
     );
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/assistant`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/assistant`;
     console.log(
       `[POST /api/organization/[id]/funnel/[funnelId]/assistant] Posting to: ${apiUrl}`
     );
@@ -159,7 +159,7 @@ export async function PUT(request: NextRequest) {
       body
     );
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/assistant`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/assistant`;
     console.log(
       `[PUT /api/organization/[id]/funnel/[funnelId]/assistant] Putting to: ${apiUrl}`
     );

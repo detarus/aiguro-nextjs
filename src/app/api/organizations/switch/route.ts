@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     try {
       console.log('🌐 Making request to backend API...');
       const backendResponse = await fetch(
-        'https://app.dev.aiguro.ru/api/organization?organization_id=1',
+        `${process.env.AIGURO_API_BASE_URL}/api/organization?organization_id=1`,
         {
           method: 'POST',
           headers: {

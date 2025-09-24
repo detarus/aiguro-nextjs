@@ -1,7 +1,8 @@
 'use client';
 
 import { useOrganization } from '@clerk/nextjs';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,7 @@ import { List, Plus, Eye, Edit, Trash2 } from 'lucide-react';
 
 export function ClientsDebug() {
   const { organization } = useOrganization();
+  const { currentFunnel } = useFunnels();
 
   // Состояние для получения всех клиентов
   const [allClientsData, setAllClientsData] = useState<any>(null);
@@ -92,8 +94,49 @@ export function ClientsDebug() {
     status: 'active'
   });
 
+  // Состояние для отображения localStorage значений
+  const [localStorageFunnel, setLocalStorageFunnel] = useState<any>(null);
+
   // Получаем backend ID организации из метаданных Clerk
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
+
+  // Функция для обновления localStorage значений
+  const updateLocalStorageData = () => {
+    if (typeof window !== 'undefined') {
+      // Используем currentFunnel из контекста, если он есть, иначе из localStorage
+      if (currentFunnel) {
+        setLocalStorageFunnel(currentFunnel);
+      } else {
+        const storedFunnel = localStorage.getItem('currentFunnel');
+        if (storedFunnel) {
+          try {
+            setLocalStorageFunnel(JSON.parse(storedFunnel));
+          } catch {
+            setLocalStorageFunnel(null);
+          }
+        } else {
+          setLocalStorageFunnel(null);
+        }
+      }
+    }
+  };
+
+  // Обновляем localStorage значения при монтировании компонента и изменении currentFunnel
+  useEffect(() => {
+    updateLocalStorageData();
+  }, [currentFunnel]);
+
+  // Загружаем данные из localStorage при монтировании компонента
+  useEffect(() => {
+    const savedFunnel = localStorage.getItem('currentFunnel');
+    if (savedFunnel) {
+      try {
+        setLocalStorageFunnel(JSON.parse(savedFunnel));
+      } catch (error) {
+        console.error('Error parsing saved funnel:', error);
+      }
+    }
+  }, []);
 
   // Получаем список клиентов для селектов
   const availableClients =
@@ -543,49 +586,57 @@ export function ClientsDebug() {
               {allClientsLoading ? 'Loading...' : 'Get All Clients'}
             </Button>
 
-            <Button
-              onClick={handleOpenCreateModal}
-              disabled={!backendOrgId}
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
-            >
-              <Plus className='mr-2 h-4 w-4' />
-              Create Client
-            </Button>
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenCreateModal}
+                disabled={!backendOrgId}
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
+              >
+                <Plus className='mr-2 h-4 w-4' />
+                Create Client
+              </Button>
+            )}
 
-            <Button
-              onClick={handleOpenGetModal}
-              disabled={!backendOrgId || availableClients.length === 0}
-              variant='outline'
-              size='sm'
-              className='w-full justify-start'
-            >
-              <Eye className='mr-2 h-4 w-4' />
-              Get Client
-            </Button>
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenGetModal}
+                disabled={!backendOrgId || availableClients.length === 0}
+                variant='outline'
+                size='sm'
+                className='w-full justify-start'
+              >
+                <Eye className='mr-2 h-4 w-4' />
+                Get Client
+              </Button>
+            )}
 
-            <Button
-              onClick={handleOpenUpdateModal}
-              disabled={!backendOrgId || availableClients.length === 0}
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
-            >
-              <Edit className='mr-2 h-4 w-4' />
-              Update Client
-            </Button>
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenUpdateModal}
+                disabled={!backendOrgId || availableClients.length === 0}
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
+              >
+                <Edit className='mr-2 h-4 w-4' />
+                Update Client
+              </Button>
+            )}
 
-            <Button
-              onClick={handleOpenDeleteModal}
-              disabled={!backendOrgId || availableClients.length === 0}
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
-            >
-              <Trash2 className='mr-2 h-4 w-4' />
-              Delete Client
-            </Button>
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenDeleteModal}
+                disabled={!backendOrgId || availableClients.length === 0}
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
+              >
+                <Trash2 className='mr-2 h-4 w-4' />
+                Delete Client
+              </Button>
+            )}
           </div>
 
           {/* Сообщения об успехе */}

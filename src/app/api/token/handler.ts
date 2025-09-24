@@ -1,4 +1,4 @@
-const AIGURO_API_URL = 'https://app.dev.aiguro.ru/api';
+const AIGURO_API_URL = `${process.env.AIGURO_API_BASE_URL}/api`;
 
 /**
  * Fetches the Aiguro API access token.

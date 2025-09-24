@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/dialog/${dialogUuid}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialog/${dialogUuid}`;
     console.log(
       `[DELETE /api/organization/[id]/funnel/[funnelId]/dialog/[dialogUuid]] Deleting from: ${apiUrl}`
     );

@@ -1,7 +1,7 @@
-const ORGANIZATIONS_API_URL = 'https://app.dev.aiguro.ru/api/organizations';
+const ORGANIZATIONS_API_URL = `${process.env.AIGURO_API_BASE_URL}/api/organizations`;
 // Note: The cURL for create uses /api/organization (singular), while GET uses /api/organizations (plural).
 // Adjusting CREATE_ORG_API_URL accordingly.
-const CREATE_ORG_API_URL = 'https://app.dev.aiguro.ru/api/organization';
+const CREATE_ORG_API_URL = `${process.env.AIGURO_API_BASE_URL}/api/organization`;
 
 export class AiguroOrganizationApi {
   static async getOrganizations(token: string): Promise<any[] | null> {

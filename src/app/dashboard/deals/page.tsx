@@ -21,6 +21,7 @@ import { ClientActions } from './components/client-actions';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
+import { AllFunnelsDealsPlaceholder } from '@/components/all-funnels-placeholder';
 
 // Interface for Dialog data
 export interface Dialog {
@@ -268,6 +269,13 @@ export default function DealsPage() {
     async (forceRefresh = false) => {
       if (!backendOrgId || !currentFunnel?.id) {
         console.log('Missing backendOrgId or currentFunnel.id, skipping fetch');
+        setLoading(false);
+        return;
+      }
+
+      // Если выбраны "Все воронки", не загружаем данные
+      if (currentFunnel.id === '0') {
+        console.log('All funnels selected, skipping data fetch');
         setLoading(false);
         return;
       }
@@ -591,6 +599,15 @@ export default function DealsPage() {
             </p>
           </div>
         </div>
+      </PageContainer>
+    );
+  }
+
+  // Показываем заглушку для "Все воронки"
+  if (currentFunnel?.id === '0') {
+    return (
+      <PageContainer>
+        <AllFunnelsDealsPlaceholder />
       </PageContainer>
     );
   }

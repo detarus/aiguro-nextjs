@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnels`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnels`;
     console.log(
       `[GET /api/organization/[id]/funnels] Fetching from: ${apiUrl}`
     );

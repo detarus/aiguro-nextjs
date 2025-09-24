@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/assistants`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/assistants`;
     console.log(
       `[GET /api/organization/[id]/funnel/[funnelId]/assistants] Fetching from: ${apiUrl}`
     );
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       body
     );
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/assistants`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/assistants`;
     console.log(
       `[POST /api/organization/[id]/funnel/[funnelId]/assistants] Posting to: ${apiUrl}`
     );

@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
-  // Extract the organization ID and funnel ID from the URL path
+  // Extract the organization ID, funnel ID, and dialog UUID from the URL path
   const url = new URL(request.url);
   const pathSegments = url.pathname.split('/');
   const orgIdIndex = pathSegments.indexOf('organization') + 1;
   const funnelIdIndex = pathSegments.indexOf('funnel') + 1;
+  const dialogUuidIndex = pathSegments.indexOf('dialog') + 2; // +2 because of 'test' in path
   const orgId = pathSegments[orgIdIndex];
   const funnelId = pathSegments[funnelIdIndex];
+  const dialogUuid = pathSegments[dialogUuidIndex];
 
   if (!orgId) {
     return NextResponse.json(
@@ -24,10 +26,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!dialogUuid) {
+    return NextResponse.json(
+      { error: 'Dialog UUID not found in URL' },
+      { status: 400 }
+    );
+  }
+
   const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] No token received from __session cookie.'
+      '[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] No token received from __session cookie.'
     );
     return NextResponse.json(
       { error: 'Authentication failed.' },
@@ -36,16 +45,27 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(
-    '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Token received from __session cookie, creating test dialog.'
+    '[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] Token received from __session cookie, sending test message.'
   );
   console.log(
-    `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Request details - orgId: ${orgId}, funnelId: ${funnelId}`
+    `[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] Request details - orgId: ${orgId}, funnelId: ${funnelId}, dialogUuid: ${dialogUuid}`
   );
 
   try {
-    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialog/test`;
+    const requestBody = await request.json();
     console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Posting to: ${apiUrl}`
+      '[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] Request body:',
+      requestBody
+    );
+
+    // Ensure time is a valid ISO string if provided
+    if (requestBody.time && typeof requestBody.time !== 'string') {
+      requestBody.time = new Date().toISOString();
+    }
+
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialog/test/${dialogUuid}/message`;
+    console.log(
+      `[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] Posting to: ${apiUrl}`
     );
 
     const response = await fetch(apiUrl, {
@@ -54,11 +74,11 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: '' // Пустое тело запроса согласно новому API
+      body: JSON.stringify(requestBody)
     });
 
     console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Response status: ${response.status}`
+      `[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] Response status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -67,7 +87,7 @@ export async function POST(request: NextRequest) {
       try {
         const errorData = await response.json();
         console.error(
-          '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] API error response:',
+          '[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] API error response:',
           errorData
         );
 
@@ -95,17 +115,17 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Successfully created test dialog:',
+      '[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] Successfully sent test message:',
       data
     );
     return NextResponse.json(data);
   } catch (error) {
     console.error(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Unexpected error:',
+      '[POST /api/organization/[id]/funnel/[funnelId]/dialog/test/[dialogUuid]/message] Unexpected error:',
       error
     );
     return NextResponse.json(
-      { error: 'Failed to create test dialog' },
+      { error: 'Failed to send test message' },
       { status: 500 }
     );
   }

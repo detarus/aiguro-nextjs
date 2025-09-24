@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/messenger_connections`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/messenger_connections`;
     console.log(
       `[GET /api/organization/[id]/funnel/[funnelId]/messenger_connections] Fetching from: ${apiUrl}`
     );

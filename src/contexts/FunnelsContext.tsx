@@ -27,6 +27,7 @@ interface FunnelsContextType {
   selectFunnel: (funnelId: string) => void;
   refreshFunnels: () => Promise<void>;
   setNewFunnelAsSelected: (funnel: ApiFunnel) => void;
+  isAllFunnelsSelected: boolean;
 }
 
 const FunnelsContext = createContext<FunnelsContextType | undefined>(undefined);
@@ -34,7 +35,36 @@ const FunnelsContext = createContext<FunnelsContextType | undefined>(undefined);
 export function FunnelsProvider({ children }: { children: React.ReactNode }) {
   const { organization } = useOrganization();
   const [funnels, setFunnels] = useState<ApiFunnel[]>([]);
-  const [currentFunnel, setCurrentFunnel] = useState<ApiFunnel | null>(null);
+  const [currentFunnel, setCurrentFunnel] = useState<ApiFunnel | null>(() => {
+    // Сначала проверяем localStorage
+    if (typeof window !== 'undefined') {
+      const savedFunnel = localStorage.getItem('currentFunnel');
+      if (savedFunnel) {
+        try {
+          return JSON.parse(savedFunnel);
+        } catch (error) {
+          console.error('Error parsing saved funnel:', error);
+        }
+      }
+    }
+
+    // Если нет сохраненной воронки, устанавливаем "Все воронки" по умолчанию
+    const allFunnelsFunnel = {
+      id: '0',
+      name: 'Все воронки',
+      display_name: 'Все воронки',
+      description: 'Данные по всем воронкам',
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      stages: []
+    };
+    // Сохраняем в localStorage только если нет сохраненной воронки
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentFunnel', JSON.stringify(allFunnelsFunnel));
+    }
+    return allFunnelsFunnel;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,6 +123,24 @@ export function FunnelsProvider({ children }: { children: React.ReactNode }) {
       console.log('selectFunnel called with ID:', funnelId);
       console.log('Available funnels:', funnels);
 
+      if (funnelId === 'all-funnels') {
+        // Устанавливаем специальный объект для "Все воронки"
+        const allFunnelsFunnel = {
+          id: '0',
+          name: 'Все воронки',
+          display_name: 'Все воронки',
+          description: 'Данные по всем воронкам',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          stages: []
+        };
+        console.log('Setting all funnels mode:', allFunnelsFunnel);
+        setCurrentFunnel(allFunnelsFunnel);
+        localStorage.setItem('currentFunnel', JSON.stringify(allFunnelsFunnel));
+        return;
+      }
+
       const funnel = funnels.find((f) => f.id === funnelId);
       console.log('Found funnel:', funnel);
 
@@ -148,9 +196,9 @@ export function FunnelsProvider({ children }: { children: React.ReactNode }) {
     fetchFunnels();
   }, [fetchFunnels]);
 
-  // Восстанавливаем выбранную воронку из localStorage при загрузке
+  // Восстанавливаем выбранную воронку из localStorage при загрузке funnels
   useEffect(() => {
-    if (funnels.length > 0 && !currentFunnel) {
+    if (funnels.length > 0) {
       const savedCurrentFunnel = localStorage.getItem('currentFunnel');
       if (savedCurrentFunnel) {
         try {
@@ -158,7 +206,10 @@ export function FunnelsProvider({ children }: { children: React.ReactNode }) {
           // Проверяем, что воронка все еще существует в списке
           const funnelExists = funnels.find((f) => f.id === parsedFunnel.id);
           if (funnelExists) {
-            setCurrentFunnel(parsedFunnel);
+            // Обновляем currentFunnel только если он отличается от сохраненного
+            if (!currentFunnel || currentFunnel.id !== parsedFunnel.id) {
+              setCurrentFunnel(parsedFunnel);
+            }
           } else {
             // Если сохраненная воронка не найдена, выбираем первую активную
             const activeFunnel = funnels.find((f) => f.is_active);
@@ -203,7 +254,10 @@ export function FunnelsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [funnels, currentFunnel]);
+  }, [funnels]); // Убираем currentFunnel из зависимостей
+
+  // Вычисляемое свойство для проверки выбора "Все воронки"
+  const isAllFunnelsSelected = currentFunnel?.id === '0';
 
   const value: FunnelsContextType = {
     funnels,
@@ -212,7 +266,8 @@ export function FunnelsProvider({ children }: { children: React.ReactNode }) {
     error,
     selectFunnel,
     refreshFunnels,
-    setNewFunnelAsSelected
+    setNewFunnelAsSelected,
+    isAllFunnelsSelected
   };
 
   return (

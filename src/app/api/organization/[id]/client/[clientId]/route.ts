@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/client/${clientId}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/client/${clientId}`;
     console.log(
       `[GET /api/organization/[id]/client/[clientId]] Fetching from: ${apiUrl}`
     );
@@ -191,7 +191,7 @@ export async function PUT(request: NextRequest) {
 
     console.log('Sanitized request body:', sanitizedBody);
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/client/${clientId}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/client/${clientId}`;
     console.log(
       `[PUT /api/organization/[id]/client/[clientId]] Updating client at: ${apiUrl}`
     );
@@ -322,7 +322,7 @@ export async function DELETE(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/client/${clientId}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/client/${clientId}`;
     console.log(
       `[DELETE /api/organization/[id]/client/[clientId]] Deleting client at: ${apiUrl}`
     );

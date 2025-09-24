@@ -6,9 +6,10 @@ import { OrganizationApiDebug } from '@/components/organization-api-debug';
 import { FunnelDebug } from '@/components/funnel-debug';
 import { TokenDebug } from '@/components/token-debug';
 import { MessengerConnectionsDebug } from '@/components/messenger-connections-debug';
-import { AssistantsDebug } from '@/components/assistants-debug';
+import { TestDialogsDebug } from '@/components/test-dialogs-debug';
 import { DialogsDebug } from '@/components/dialogs-debug';
 import { ClientsDebug } from '@/components/clients-debug';
+import { AssistantsDebug } from '@/components/assistants-debug';
 import { PageContainer } from '@/components/ui/page-container';
 
 export default function DebugPage() {
@@ -21,9 +22,10 @@ export default function DebugPage() {
         <FunnelDebug />
         <TokenDebug />
         <MessengerConnectionsDebug />
-        <AssistantsDebug />
+        <TestDialogsDebug />
         <DialogsDebug />
         <ClientsDebug />
+        <AssistantsDebug />
       </div>
     </PageContainer>
   );

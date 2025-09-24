@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Get request body
     const body = await request.json();
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/client`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/client`;
     console.log(
       `[POST /api/organization/[id]/client] Creating client at: ${apiUrl}`
     );

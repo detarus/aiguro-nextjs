@@ -7,10 +7,10 @@ export async function GET(request: NextRequest) {
   const pathSegments = url.pathname.split('/');
   const orgIdIndex = pathSegments.indexOf('organization') + 1;
   const funnelIdIndex = pathSegments.indexOf('funnel') + 1;
-  const codeNameIndex = pathSegments.indexOf('assistant') + 1;
+  const codeIndex = pathSegments.indexOf('assistant') + 1;
   const orgId = pathSegments[orgIdIndex];
   const funnelId = pathSegments[funnelIdIndex];
-  const codeName = pathSegments[codeNameIndex];
+  const codeName = pathSegments[codeIndex];
 
   if (!orgId) {
     return NextResponse.json(
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] No token received from __session cookie.'
+      '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[code]] No token received from __session cookie.'
     );
     return NextResponse.json(
       { error: 'Authentication failed.' },
@@ -45,13 +45,13 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(
-    '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Token received from __session cookie, fetching assistant.'
+    '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Token received from __session cookie, fetching assistant.'
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/assistant/${codeName}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/assistant/${codeName}`;
     console.log(
-      `[GET /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Fetching from: ${apiUrl}`
+      `[GET /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Fetching from: ${apiUrl}`
     );
 
     const response = await fetch(apiUrl, {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(
-      `[GET /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Response status: ${response.status}`
+      `[GET /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Response status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       try {
         const errorData = await response.json();
         console.error(
-          '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] API error response:',
+          '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[code]] API error response:',
           errorData
         );
 
@@ -100,13 +100,13 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Successfully fetched assistant:',
+      '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Successfully fetched assistant:',
       data
     );
     return NextResponse.json(data);
   } catch (error) {
     console.error(
-      '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Unexpected error:',
+      '[GET /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Unexpected error:',
       error
     );
     return NextResponse.json(
@@ -122,10 +122,10 @@ export async function DELETE(request: NextRequest) {
   const pathSegments = url.pathname.split('/');
   const orgIdIndex = pathSegments.indexOf('organization') + 1;
   const funnelIdIndex = pathSegments.indexOf('funnel') + 1;
-  const codeNameIndex = pathSegments.indexOf('assistant') + 1;
+  const codeIndex = pathSegments.indexOf('assistant') + 1;
   const orgId = pathSegments[orgIdIndex];
   const funnelId = pathSegments[funnelIdIndex];
-  const codeName = pathSegments[codeNameIndex];
+  const codeName = pathSegments[codeIndex];
 
   if (!orgId) {
     return NextResponse.json(
@@ -151,7 +151,7 @@ export async function DELETE(request: NextRequest) {
   const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] No token received from __session cookie.'
+      '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[code]] No token received from __session cookie.'
     );
     return NextResponse.json(
       { error: 'Authentication failed.' },
@@ -160,13 +160,13 @@ export async function DELETE(request: NextRequest) {
   }
 
   console.log(
-    '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Token received from __session cookie, deleting assistant.'
+    '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Token received from __session cookie, deleting assistant.'
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/assistant/${codeName}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/assistant/${codeName}`;
     console.log(
-      `[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Deleting from: ${apiUrl}`
+      `[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Deleting from: ${apiUrl}`
     );
 
     const response = await fetch(apiUrl, {
@@ -178,7 +178,7 @@ export async function DELETE(request: NextRequest) {
     });
 
     console.log(
-      `[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Response status: ${response.status}`
+      `[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Response status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -187,7 +187,7 @@ export async function DELETE(request: NextRequest) {
       try {
         const errorData = await response.json();
         console.error(
-          '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] API error response:',
+          '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[code]] API error response:',
           errorData
         );
 
@@ -226,13 +226,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     console.log(
-      '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Successfully deleted assistant:',
+      '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Successfully deleted assistant:',
       data
     );
     return NextResponse.json(data);
   } catch (error) {
     console.error(
-      '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[codeName]] Unexpected error:',
+      '[DELETE /api/organization/[id]/funnel/[funnelId]/assistant/[code]] Unexpected error:',
       error
     );
     return NextResponse.json(

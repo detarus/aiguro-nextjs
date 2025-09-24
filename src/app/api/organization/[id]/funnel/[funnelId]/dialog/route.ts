@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // Get request body
     const body = await request.json();
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/dialog`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialog`;
     console.log(
       `[POST /api/organization/[id]/funnel/[funnelId]/dialog] Creating dialog at: ${apiUrl}`
     );

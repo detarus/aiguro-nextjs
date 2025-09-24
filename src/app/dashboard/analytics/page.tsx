@@ -27,6 +27,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, Area } from 'recharts';
+import { AllFunnelsPlaceholder } from '@/components/all-funnels-placeholder';
 import {
   ChartConfig,
   ChartContainer,
@@ -61,7 +62,7 @@ interface SmartAnalyticsData {
 export default function AnalyticsPage() {
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  useFunnels(); // Подключаем хук для работы с воронками
+  const { currentFunnel } = useFunnels(); // Подключаем хук для работы с воронками
   const { updateConfig } = usePageHeaderContext();
 
   // Состояния
@@ -346,6 +347,17 @@ export default function AnalyticsPage() {
     if (trend === 'down') return '↘️';
     return '→';
   };
+
+  // Показываем заглушку для "Все воронки"
+  console.log('Analytics - currentFunnel:', currentFunnel);
+  if (currentFunnel?.id === '0') {
+    console.log('Analytics - showing placeholder for all funnels');
+    return (
+      <PageContainer>
+        <AllFunnelsPlaceholder />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>

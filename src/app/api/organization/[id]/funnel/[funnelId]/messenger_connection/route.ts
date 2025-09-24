@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       body
     );
 
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/messenger_connection`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/messenger_connection`;
     console.log(
       `[POST /api/organization/[id]/funnel/[funnelId]/messenger_connection] Posting to: ${apiUrl}`
     );

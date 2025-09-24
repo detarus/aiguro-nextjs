@@ -2,6 +2,7 @@
 
 import { useOrganization } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { Button } from '@/components/ui/button';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import {
@@ -28,6 +29,7 @@ import {
 
 export function DialogsDebug() {
   const { organization } = useOrganization();
+  const { currentFunnel } = useFunnels();
 
   // Состояние для отображения localStorage значений
   const [localStorageFunnel, setLocalStorageFunnel] = useState<any>(null);
@@ -124,20 +126,6 @@ export function DialogsDebug() {
   const [createTestDialogSuccessMessage, setCreateTestDialogSuccessMessage] =
     useState<string | null>(null);
 
-  // Состояние для модального окна создания тестового диалога
-  const [isCreateTestDialogModalOpen, setIsCreateTestDialogModalOpen] =
-    useState(false);
-  const [testDialogForm, setTestDialogForm] = useState({
-    stage: '',
-    manager: '',
-    ai: true,
-    unsubscribed: false,
-    description: '',
-    tags: '',
-    price: 0,
-    messenger_connection_id: 0
-  });
-
   // Состояние для кнопки "Get Test Dialog Messages"
   const [testDialogMessagesData, setTestDialogMessagesData] =
     useState<any>(null);
@@ -184,21 +172,25 @@ export function DialogsDebug() {
   // Функция для обновления localStorage значений
   const updateLocalStorageData = () => {
     if (typeof window !== 'undefined') {
-      // Обновляем текущую воронку
-      const storedFunnel = localStorage.getItem('currentFunnel');
-      if (storedFunnel) {
-        try {
-          setLocalStorageFunnel(JSON.parse(storedFunnel));
-        } catch {
+      // Используем currentFunnel из контекста, если он есть, иначе из localStorage
+      if (currentFunnel) {
+        setLocalStorageFunnel(currentFunnel);
+      } else {
+        const storedFunnel = localStorage.getItem('currentFunnel');
+        if (storedFunnel) {
+          try {
+            setLocalStorageFunnel(JSON.parse(storedFunnel));
+          } catch {
+            setLocalStorageFunnel(null);
+          }
+        } else {
           setLocalStorageFunnel(null);
         }
-      } else {
-        setLocalStorageFunnel(null);
       }
     }
   };
 
-  // Обновляем localStorage значения при монтировании компонента
+  // Обновляем localStorage значения при монтировании компонента и изменении currentFunnel
   useEffect(() => {
     updateLocalStorageData();
 
@@ -216,7 +208,7 @@ export function DialogsDebug() {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
-  }, []);
+  }, [currentFunnel]);
 
   // Очищаем данные при смене организации
   useEffect(() => {
@@ -1064,30 +1056,11 @@ export function DialogsDebug() {
       return;
     }
 
-    if (!testDialogForm.stage) {
-      setCreateTestDialogError('Please select a stage');
-      return;
-    }
-
     setCreateTestDialogLoading(true);
     setCreateTestDialogError(null);
     setCreateTestDialogSuccessMessage(null);
 
     try {
-      const requestBody = {
-        stage: testDialogForm.stage,
-        manager: testDialogForm.manager || undefined,
-        ai: testDialogForm.ai,
-        unsubscribed: testDialogForm.unsubscribed,
-        description: testDialogForm.description || undefined,
-        tags: testDialogForm.tags
-          ? testDialogForm.tags.split(',').map((tag) => tag.trim())
-          : [],
-        price: testDialogForm.price,
-        messenger_connection_id:
-          testDialogForm.messenger_connection_id || undefined
-      };
-
       console.log(
         'Making POST request to /api/organization/' +
           backendOrgId +
@@ -1095,7 +1068,6 @@ export function DialogsDebug() {
           localStorageFunnel.id +
           '/test_dialog'
       );
-      console.log('Request body:', requestBody);
 
       const response = await fetch(
         `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/test_dialog`,
@@ -1105,7 +1077,7 @@ export function DialogsDebug() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify(requestBody)
+          body: '' // Пустое тело запроса согласно новому API
         }
       );
 
@@ -1143,19 +1115,6 @@ export function DialogsDebug() {
       setCreateTestDialogSuccessMessage(
         `Тестовый диалог успешно создан! UUID: ${data.uuid}`
       );
-
-      // Закрываем модальное окно и очищаем форму
-      setIsCreateTestDialogModalOpen(false);
-      setTestDialogForm({
-        stage: '',
-        manager: '',
-        ai: true,
-        unsubscribed: false,
-        description: '',
-        tags: '',
-        price: 0,
-        messenger_connection_id: 0
-      });
 
       // Убираем сообщение об успехе через 3 секунды
       setTimeout(() => {
@@ -1320,14 +1279,14 @@ export function DialogsDebug() {
           backendOrgId +
           '/funnel/' +
           localStorageFunnel.id +
-          '/dialog/' +
+          '/dialog/test/' +
           selectedTestDialogForMessage +
           '/message'
       );
       console.log('Request body:', requestBody);
 
       const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/${selectedTestDialogForMessage}/message`,
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/test/${selectedTestDialogForMessage}/message`,
         {
           method: 'POST',
           headers: {
@@ -1389,29 +1348,6 @@ export function DialogsDebug() {
     } finally {
       setSendTestMessageLoading(false);
     }
-  };
-
-  // Функции управления модальными окнами для тестовых диалогов
-
-  const handleOpenCreateTestDialogModal = () => {
-    setIsCreateTestDialogModalOpen(true);
-    setCreateTestDialogError(null);
-    setCreateTestDialogSuccessMessage(null);
-  };
-
-  const handleCloseCreateTestDialogModal = () => {
-    setIsCreateTestDialogModalOpen(false);
-    setTestDialogForm({
-      stage: '',
-      manager: '',
-      ai: true,
-      unsubscribed: false,
-      description: '',
-      tags: '',
-      price: 0,
-      messenger_connection_id: 0
-    });
-    setCreateTestDialogError(null);
   };
 
   const handleOpenTestDialogMessagesModal = () => {
@@ -1614,141 +1550,87 @@ export function DialogsDebug() {
               {allDialogsLoading ? 'Loading...' : 'Get All Dialogs'}
             </Button>
 
-            <Button
-              onClick={handleCreateDialog}
-              disabled={
-                createDialogLoading || !backendOrgId || !localStorageFunnel?.id
-              }
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
-            >
-              <MessageCircle className='mr-2 h-4 w-4' />
-              {createDialogLoading ? 'Creating...' : 'Create Dialog'}
-            </Button>
-
-            <Button
-              onClick={handleOpenMessagesModal}
-              disabled={
-                !backendOrgId ||
-                !localStorageFunnel?.id ||
-                availableDialogs.length === 0
-              }
-              variant='outline'
-              size='sm'
-              className='w-full justify-start'
-            >
-              <Eye className='mr-2 h-4 w-4' />
-              Get Dialog Messages
-            </Button>
-
-            <Button
-              onClick={handleOpenPostMessageModal}
-              disabled={
-                !backendOrgId ||
-                !localStorageFunnel?.id ||
-                availableDialogs.length === 0 ||
-                postMessageLoading
-              }
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300'
-            >
-              <Send className='mr-2 h-4 w-4' />
-              Post New Message
-            </Button>
-
-            <Button
-              onClick={handleOpenDeleteModal}
-              disabled={
-                !backendOrgId ||
-                !localStorageFunnel?.id ||
-                availableDialogs.length === 0
-              }
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
-            >
-              <Trash2 className='mr-2 h-4 w-4' />
-              Delete Dialog
-            </Button>
-
-            <Button
-              onClick={handleOpenClientSelectModal}
-              disabled={!backendOrgId || clientDialogsLoading}
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
-            >
-              <MessageCircle className='mr-2 h-4 w-4' />
-              {clientDialogsLoading ? 'Loading...' : 'Get Client Dialogs'}
-            </Button>
-
-            {/* Раздел тестовых диалогов */}
-            <div className='mt-4 border-t border-orange-200 pt-4'>
-              <h4 className='mb-3 text-sm font-semibold text-orange-800 dark:text-orange-200'>
-                Test Dialogs
-              </h4>
-
+            {localStorageFunnel?.id !== '0' && (
               <Button
-                onClick={handleFetchTestDialogs}
+                onClick={handleCreateDialog}
                 disabled={
-                  testDialogsLoading || !backendOrgId || !localStorageFunnel?.id
-                }
-                variant='outline'
-                size='sm'
-                className='mb-2 w-full justify-start text-purple-600 hover:bg-purple-50 hover:text-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20 dark:hover:text-purple-300'
-              >
-                <TestTube className='mr-2 h-4 w-4' />
-                {testDialogsLoading ? 'Loading...' : 'Get Test Dialogs'}
-              </Button>
-
-              <Button
-                onClick={handleOpenCreateTestDialogModal}
-                disabled={
-                  createTestDialogLoading ||
+                  createDialogLoading ||
                   !backendOrgId ||
                   !localStorageFunnel?.id
                 }
                 variant='outline'
                 size='sm'
-                className='mb-2 w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
+                className='w-full justify-start text-green-600 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300'
               >
-                <Plus className='mr-2 h-4 w-4' />
-                {createTestDialogLoading ? 'Creating...' : 'Create Test Dialog'}
+                <MessageCircle className='mr-2 h-4 w-4' />
+                {createDialogLoading ? 'Creating...' : 'Create Dialog'}
               </Button>
+            )}
 
+            {localStorageFunnel?.id !== '0' && (
               <Button
-                onClick={handleOpenTestDialogMessagesModal}
+                onClick={handleOpenMessagesModal}
                 disabled={
                   !backendOrgId ||
                   !localStorageFunnel?.id ||
-                  availableTestDialogs.length === 0
+                  availableDialogs.length === 0
                 }
                 variant='outline'
                 size='sm'
-                className='mb-2 w-full justify-start text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300'
+                className='w-full justify-start'
               >
                 <Eye className='mr-2 h-4 w-4' />
-                Get Test Dialog Messages
+                Get Dialog Messages
               </Button>
+            )}
 
+            {localStorageFunnel?.id !== '0' && (
               <Button
-                onClick={handleOpenSendTestMessageModal}
+                onClick={handleOpenPostMessageModal}
                 disabled={
                   !backendOrgId ||
                   !localStorageFunnel?.id ||
-                  availableTestDialogs.length === 0 ||
-                  sendTestMessageLoading
+                  availableDialogs.length === 0 ||
+                  postMessageLoading
                 }
                 variant='outline'
                 size='sm'
-                className='w-full justify-start text-cyan-600 hover:bg-cyan-50 hover:text-cyan-700 dark:text-cyan-400 dark:hover:bg-cyan-900/20 dark:hover:text-cyan-300'
+                className='w-full justify-start text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300'
               >
                 <Send className='mr-2 h-4 w-4' />
-                Send Test Message
+                Post New Message
               </Button>
-            </div>
+            )}
+
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenDeleteModal}
+                disabled={
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  availableDialogs.length === 0
+                }
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
+              >
+                <Trash2 className='mr-2 h-4 w-4' />
+                Delete Dialog
+              </Button>
+            )}
+
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenClientSelectModal}
+                disabled={!backendOrgId || clientDialogsLoading}
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
+              >
+                <MessageCircle className='mr-2 h-4 w-4' />
+                {clientDialogsLoading ? 'Loading...' : 'Get Client Dialogs'}
+              </Button>
+            )}
           </div>
 
           {/* Сообщения об успехе */}
@@ -2028,10 +1910,18 @@ export function DialogsDebug() {
           {localStorageFunnel && (
             <details className='mt-2'>
               <summary className='cursor-pointer text-orange-600 dark:text-orange-400'>
-                View Current Funnel Local Data
+                {localStorageFunnel.id === '0'
+                  ? 'View All Funnels Local Data'
+                  : 'View Current Funnel Local Data'}
               </summary>
               <pre className='mt-2 max-h-64 overflow-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800 dark:text-gray-200'>
-                {JSON.stringify(localStorageFunnel, null, 2)}
+                {localStorageFunnel.id === '0'
+                  ? JSON.stringify(
+                      JSON.parse(localStorage.getItem('funnels') || '[]'),
+                      null,
+                      2
+                    )
+                  : JSON.stringify(localStorageFunnel, null, 2)}
               </pre>
             </details>
           )}
@@ -2432,252 +2322,6 @@ export function DialogsDebug() {
       )}
 
       {/* Модальные окна для тестовых диалогов */}
-
-      {/* Модальное окно для создания тестового диалога */}
-      {isCreateTestDialogModalOpen && (
-        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
-          <div className='mx-4 w-full max-w-2xl rounded-lg bg-white p-6 dark:bg-gray-800'>
-            <div className='mb-4 flex items-center justify-between'>
-              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
-                Create Test Dialog
-              </h2>
-              <button
-                onClick={handleCloseCreateTestDialogModal}
-                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-              >
-                <svg
-                  className='h-6 w-6'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M6 18L18 6M6 6l12 12'
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className='space-y-4'>
-              <div className='grid grid-cols-2 gap-4'>
-                <div>
-                  <Label
-                    htmlFor='test_dialog_stage'
-                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                  >
-                    Stage *
-                  </Label>
-                  <Select
-                    value={testDialogForm.stage}
-                    onValueChange={(value) =>
-                      setTestDialogForm((prev) => ({ ...prev, stage: value }))
-                    }
-                  >
-                    <SelectTrigger className='mt-1'>
-                      <SelectValue placeholder='Choose a stage' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='all'>all</SelectItem>
-                      {funnelStages.map((stage: any, index: number) => (
-                        <SelectItem
-                          key={index}
-                          value={stage.name || `stage_${index}`}
-                        >
-                          {stage.name || `Stage ${index + 1}`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor='test_dialog_manager'
-                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                  >
-                    Manager
-                  </Label>
-                  <Input
-                    id='test_dialog_manager'
-                    type='text'
-                    value={testDialogForm.manager}
-                    onChange={(e) =>
-                      setTestDialogForm((prev) => ({
-                        ...prev,
-                        manager: e.target.value
-                      }))
-                    }
-                    className='mt-1'
-                    placeholder='Manager name'
-                  />
-                </div>
-              </div>
-
-              <div className='grid grid-cols-2 gap-4'>
-                <div className='flex items-center space-x-2'>
-                  <Checkbox
-                    id='test_dialog_ai'
-                    checked={testDialogForm.ai}
-                    onCheckedChange={(checked) =>
-                      setTestDialogForm((prev) => ({
-                        ...prev,
-                        ai: checked as boolean
-                      }))
-                    }
-                  />
-                  <Label
-                    htmlFor='test_dialog_ai'
-                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                  >
-                    AI
-                  </Label>
-                </div>
-
-                <div className='flex items-center space-x-2'>
-                  <Checkbox
-                    id='test_dialog_unsubscribed'
-                    checked={testDialogForm.unsubscribed}
-                    onCheckedChange={(checked) =>
-                      setTestDialogForm((prev) => ({
-                        ...prev,
-                        unsubscribed: checked as boolean
-                      }))
-                    }
-                  />
-                  <Label
-                    htmlFor='test_dialog_unsubscribed'
-                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                  >
-                    Unsubscribed
-                  </Label>
-                </div>
-              </div>
-
-              <div>
-                <Label
-                  htmlFor='test_dialog_description'
-                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                >
-                  Description
-                </Label>
-                <Textarea
-                  id='test_dialog_description'
-                  value={testDialogForm.description}
-                  onChange={(e) =>
-                    setTestDialogForm((prev) => ({
-                      ...prev,
-                      description: e.target.value
-                    }))
-                  }
-                  rows={3}
-                  className='mt-1'
-                  placeholder='Test dialog description'
-                />
-              </div>
-
-              <div className='grid grid-cols-2 gap-4'>
-                <div>
-                  <Label
-                    htmlFor='test_dialog_tags'
-                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                  >
-                    Tags (comma-separated)
-                  </Label>
-                  <Input
-                    id='test_dialog_tags'
-                    type='text'
-                    value={testDialogForm.tags}
-                    onChange={(e) =>
-                      setTestDialogForm((prev) => ({
-                        ...prev,
-                        tags: e.target.value
-                      }))
-                    }
-                    className='mt-1'
-                    placeholder='tag1, tag2, tag3'
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor='test_dialog_price'
-                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                  >
-                    Price
-                  </Label>
-                  <Input
-                    id='test_dialog_price'
-                    type='number'
-                    value={testDialogForm.price}
-                    onChange={(e) =>
-                      setTestDialogForm((prev) => ({
-                        ...prev,
-                        price: Number(e.target.value)
-                      }))
-                    }
-                    className='mt-1'
-                    placeholder='0'
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label
-                  htmlFor='test_dialog_messenger_connection_id'
-                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
-                >
-                  Messenger Connection ID
-                </Label>
-                <Input
-                  id='test_dialog_messenger_connection_id'
-                  type='number'
-                  value={testDialogForm.messenger_connection_id}
-                  onChange={(e) =>
-                    setTestDialogForm((prev) => ({
-                      ...prev,
-                      messenger_connection_id: Number(e.target.value)
-                    }))
-                  }
-                  className='mt-1'
-                  placeholder='0'
-                />
-              </div>
-
-              {createTestDialogError && (
-                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
-                  <strong>Ошибка:</strong>
-                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
-                    {createTestDialogError}
-                  </pre>
-                </div>
-              )}
-
-              <div className='flex justify-end space-x-3 pt-4'>
-                <Button
-                  onClick={handleCloseCreateTestDialogModal}
-                  variant='outline'
-                  disabled={createTestDialogLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateTestDialog}
-                  disabled={createTestDialogLoading || !testDialogForm.stage}
-                  className='bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
-                >
-                  <Plus className='mr-2 h-4 w-4' />
-                  {createTestDialogLoading
-                    ? 'Creating...'
-                    : 'Create Test Dialog'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Модальное окно для просмотра сообщений тестового диалога */}
       {isTestDialogMessagesModalOpen && (

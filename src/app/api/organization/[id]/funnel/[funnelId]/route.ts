@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}`;
     console.log(
       `[GET /api/organization/[id]/funnel/[funnelId]] Fetching from: ${apiUrl}`
     );
@@ -146,7 +146,7 @@ export async function DELETE(request: NextRequest) {
   );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}`;
     console.log(
       `[DELETE /api/organization/[id]/funnel/[funnelId]] Deleting from: ${apiUrl}`
     );

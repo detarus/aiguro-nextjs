@@ -2,6 +2,7 @@
 
 import { useOrganization } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import { Button } from '@/components/ui/button';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { Bot, Plus, List, Trash2 } from 'lucide-react';
@@ -18,6 +19,7 @@ import {
 
 export function AssistantsDebug() {
   const { organization } = useOrganization();
+  const { currentFunnel } = useFunnels();
 
   // Состояние для отображения localStorage значений
   const [localStorageFunnel, setLocalStorageFunnel] = useState<any>(null);
@@ -67,7 +69,15 @@ export function AssistantsDebug() {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedAssistantCodeName, setSelectedAssistantCodeName] =
     useState('');
+  const [selectedAssistantId, setSelectedAssistantId] = useState('');
+  const [updateCodeName, setUpdateCodeName] = useState('');
+  const [updateName, setUpdateName] = useState('');
   const [updateText, setUpdateText] = useState('');
+  const [updateDescription, setUpdateDescription] = useState('');
+  const [updatePrompt, setUpdatePrompt] = useState('');
+  const [updateStageNumber, setUpdateStageNumber] = useState(0);
+  const [updateTemperature, setUpdateTemperature] = useState(0.8);
+  const [updateTopP, setUpdateTopP] = useState(0.95);
 
   // Состояние для модального окна удаления
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -80,21 +90,25 @@ export function AssistantsDebug() {
   // Функция для обновления localStorage значений
   const updateLocalStorageData = () => {
     if (typeof window !== 'undefined') {
-      // Обновляем текущую воронку
-      const storedFunnel = localStorage.getItem('currentFunnel');
-      if (storedFunnel) {
-        try {
-          setLocalStorageFunnel(JSON.parse(storedFunnel));
-        } catch {
+      // Используем currentFunnel из контекста, если он есть, иначе из localStorage
+      if (currentFunnel) {
+        setLocalStorageFunnel(currentFunnel);
+      } else {
+        const storedFunnel = localStorage.getItem('currentFunnel');
+        if (storedFunnel) {
+          try {
+            setLocalStorageFunnel(JSON.parse(storedFunnel));
+          } catch {
+            setLocalStorageFunnel(null);
+          }
+        } else {
           setLocalStorageFunnel(null);
         }
-      } else {
-        setLocalStorageFunnel(null);
       }
     }
   };
 
-  // Обновляем localStorage значения при монтировании компонента
+  // Обновляем localStorage значения при монтировании компонента и изменении currentFunnel
   useEffect(() => {
     updateLocalStorageData();
 
@@ -112,7 +126,7 @@ export function AssistantsDebug() {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
-  }, []);
+  }, [currentFunnel]);
 
   // Очищаем данные при смене организации
   useEffect(() => {
@@ -495,9 +509,17 @@ export function AssistantsDebug() {
 
     console.log('=== UPDATE PARAMETERS ===');
     console.log('Selected Assistant Code Name:', selectedAssistantCodeName);
+    console.log('Selected Assistant ID:', selectedAssistantId);
+    console.log('Update Code Name:', updateCodeName);
+    console.log('Update Name:', updateName);
     console.log('Update Text:', updateText);
+    console.log('Update Description:', updateDescription);
+    console.log('Update Prompt:', updatePrompt);
+    console.log('Update Stage Number:', updateStageNumber);
+    console.log('Update Temperature:', updateTemperature);
+    console.log('Update Top P:', updateTopP);
 
-    if (!selectedAssistantCodeName) {
+    if (!selectedAssistantId) {
       console.error(
         '❌ VALIDATION FAILED: Please select an assistant to update'
       );
@@ -505,9 +527,16 @@ export function AssistantsDebug() {
       return;
     }
 
-    if (!updateText.trim()) {
-      console.error('❌ VALIDATION FAILED: Text is required');
-      setUpdateAssistantError('Text is required');
+    // Валидация только для обязательных полей
+    if (!updateCodeName.trim()) {
+      console.error('❌ VALIDATION FAILED: Code name is required');
+      setUpdateAssistantError('Code name is required');
+      return;
+    }
+
+    if (!updateName.trim()) {
+      console.error('❌ VALIDATION FAILED: Name is required');
+      setUpdateAssistantError('Name is required');
       return;
     }
 
@@ -516,15 +545,46 @@ export function AssistantsDebug() {
     setUpdateAssistantSuccessMessage(null);
 
     try {
-      const putUrl = `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/assistant`;
+      const putUrl = `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/assistant/update/${selectedAssistantId}`;
       console.log('=== API REQUEST INFO ===');
       console.log('PUT URL:', putUrl);
       console.log('Request Method: PUT');
 
-      const requestBody = {
-        code_name: selectedAssistantCodeName,
-        text: updateText
+      // Создаем request body только с заполненными полями
+      const requestBody: any = {
+        code_name: updateCodeName,
+        name: updateName
       };
+
+      // Добавляем опциональные поля только если они заполнены
+      if (updateText.trim()) {
+        requestBody.text = updateText;
+      }
+
+      if (updateDescription.trim()) {
+        requestBody.description = updateDescription;
+      }
+
+      if (updatePrompt.trim()) {
+        requestBody.prompt = updatePrompt;
+      }
+
+      // Добавляем parameters только если есть значения
+      const parameters: any = {};
+      if (updateTemperature !== 0.8) {
+        parameters.temperature = updateTemperature;
+      }
+      if (updateTopP !== 0.95) {
+        parameters.top_p = updateTopP;
+      }
+      if (Object.keys(parameters).length > 0) {
+        requestBody.parameters = parameters;
+      }
+
+      // Добавляем stage_number только если он не равен 0
+      if (updateStageNumber !== 0) {
+        requestBody.stage_number = updateStageNumber;
+      }
       console.log('Request Body:', JSON.stringify(requestBody, null, 2));
 
       console.log('=== MAKING PUT REQUEST ===');
@@ -752,8 +812,37 @@ export function AssistantsDebug() {
   const handleCloseUpdateModal = () => {
     setIsUpdateModalOpen(false);
     setSelectedAssistantCodeName('');
+    setSelectedAssistantId('');
+    setUpdateCodeName('');
+    setUpdateName('');
     setUpdateText('');
+    setUpdateDescription('');
+    setUpdatePrompt('');
+    setUpdateStageNumber(0);
+    setUpdateTemperature(0.8);
+    setUpdateTopP(0.95);
     setUpdateAssistantError(null);
+  };
+
+  const handleAssistantSelect = (assistantCodeName: string) => {
+    setSelectedAssistantCodeName(assistantCodeName);
+
+    // Находим выбранного ассистента и заполняем поля
+    const selectedAssistant = availableAssistants.find(
+      (assistant: any) => assistant.code_name === assistantCodeName
+    );
+
+    if (selectedAssistant) {
+      setSelectedAssistantId(selectedAssistant.id.toString());
+      setUpdateCodeName(selectedAssistant.code_name || '');
+      setUpdateName(selectedAssistant.name || '');
+      setUpdateText(selectedAssistant.text || '');
+      setUpdateDescription(selectedAssistant.description || '');
+      setUpdatePrompt(selectedAssistant.prompt || '');
+      setUpdateStageNumber(selectedAssistant.stage_number || 0);
+      setUpdateTemperature(selectedAssistant.parameters?.temperature || 0.8);
+      setUpdateTopP(selectedAssistant.parameters?.top_p || 0.95);
+    }
   };
 
   // Получаем список ассистентов для селекта удаления
@@ -802,46 +891,52 @@ export function AssistantsDebug() {
               {allAssistantsLoading ? 'Loading...' : 'Get All Assistants'}
             </Button>
 
-            <Button
-              onClick={handleOpenCreateModal}
-              disabled={!backendOrgId || !localStorageFunnel?.id}
-              variant='outline'
-              size='sm'
-              className='w-full justify-start'
-            >
-              <Plus className='mr-2 h-4 w-4' />
-              Create New Assistant
-            </Button>
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenCreateModal}
+                disabled={!backendOrgId || !localStorageFunnel?.id}
+                variant='outline'
+                size='sm'
+                className='w-full justify-start'
+              >
+                <Plus className='mr-2 h-4 w-4' />
+                Create New Assistant
+              </Button>
+            )}
 
-            <Button
-              onClick={handleOpenUpdateModal}
-              disabled={
-                !backendOrgId ||
-                !localStorageFunnel?.id ||
-                availableAssistants.length === 0
-              }
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
-            >
-              <Bot className='mr-2 h-4 w-4' />
-              Update Assistant
-            </Button>
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenUpdateModal}
+                disabled={
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  availableAssistants.length === 0
+                }
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300'
+              >
+                <Bot className='mr-2 h-4 w-4' />
+                Update Assistant
+              </Button>
+            )}
 
-            <Button
-              onClick={handleOpenDeleteModal}
-              disabled={
-                !backendOrgId ||
-                !localStorageFunnel?.id ||
-                availableAssistants.length === 0
-              }
-              variant='outline'
-              size='sm'
-              className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
-            >
-              <Trash2 className='mr-2 h-4 w-4' />
-              Delete Assistant
-            </Button>
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenDeleteModal}
+                disabled={
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  availableAssistants.length === 0
+                }
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
+              >
+                <Trash2 className='mr-2 h-4 w-4' />
+                Delete Assistant
+              </Button>
+            )}
           </div>
 
           {/* Сообщения об успехе */}
@@ -959,10 +1054,18 @@ export function AssistantsDebug() {
           {localStorageFunnel && (
             <details className='mt-2'>
               <summary className='cursor-pointer text-purple-600 dark:text-purple-400'>
-                View Current Funnel Local Data
+                {localStorageFunnel.id === '0'
+                  ? 'View All Funnels Local Data'
+                  : 'View Current Funnel Local Data'}
               </summary>
               <pre className='mt-2 max-h-64 overflow-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800 dark:text-gray-200'>
-                {JSON.stringify(localStorageFunnel, null, 2)}
+                {localStorageFunnel.id === '0'
+                  ? JSON.stringify(
+                      JSON.parse(localStorage.getItem('funnels') || '[]'),
+                      null,
+                      2
+                    )
+                  : JSON.stringify(localStorageFunnel, null, 2)}
               </pre>
             </details>
           )}
@@ -1067,7 +1170,7 @@ export function AssistantsDebug() {
       {/* Модальное окно для обновления ассистента */}
       {isUpdateModalOpen && (
         <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
-          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800'>
+          <div className='mx-4 w-full max-w-4xl rounded-lg bg-white p-6 dark:bg-gray-800'>
             <div className='mb-4 flex items-center justify-between'>
               <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
                 Update Assistant
@@ -1102,7 +1205,7 @@ export function AssistantsDebug() {
                 </Label>
                 <Select
                   value={selectedAssistantCodeName}
-                  onValueChange={setSelectedAssistantCodeName}
+                  onValueChange={handleAssistantSelect}
                 >
                   <SelectTrigger className='mt-1'>
                     <SelectValue placeholder='Choose an assistant to update' />
@@ -1120,6 +1223,40 @@ export function AssistantsDebug() {
                 </Select>
               </div>
 
+              <div className='grid grid-cols-2 gap-4'>
+                <div>
+                  <Label
+                    htmlFor='update_code_name'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Code Name
+                  </Label>
+                  <Input
+                    id='update_code_name'
+                    value={updateCodeName}
+                    onChange={(e) => setUpdateCodeName(e.target.value)}
+                    placeholder='Enter code name'
+                    className='mt-1'
+                  />
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor='update_name'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Name
+                  </Label>
+                  <Input
+                    id='update_name'
+                    value={updateName}
+                    onChange={(e) => setUpdateName(e.target.value)}
+                    placeholder='Enter name'
+                    className='mt-1'
+                  />
+                </div>
+              </div>
+
               <div>
                 <Label
                   htmlFor='update_text'
@@ -1131,10 +1268,109 @@ export function AssistantsDebug() {
                   id='update_text'
                   value={updateText}
                   onChange={(e) => setUpdateText(e.target.value)}
-                  placeholder='Enter new assistant text/prompt'
+                  placeholder='Enter assistant text'
+                  className='mt-1'
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='update_description'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Description
+                </Label>
+                <Textarea
+                  id='update_description'
+                  value={updateDescription}
+                  onChange={(e) => setUpdateDescription(e.target.value)}
+                  placeholder='Enter description'
+                  className='mt-1'
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='update_prompt'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Prompt
+                </Label>
+                <Textarea
+                  id='update_prompt'
+                  value={updatePrompt}
+                  onChange={(e) => setUpdatePrompt(e.target.value)}
+                  placeholder='Enter prompt'
                   className='mt-1'
                   rows={4}
                 />
+              </div>
+
+              <div className='grid grid-cols-3 gap-4'>
+                <div>
+                  <Label
+                    htmlFor='update_stage_number'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Stage Number
+                  </Label>
+                  <Input
+                    id='update_stage_number'
+                    type='number'
+                    value={updateStageNumber}
+                    onChange={(e) =>
+                      setUpdateStageNumber(parseInt(e.target.value) || 0)
+                    }
+                    placeholder='Enter stage number'
+                    className='mt-1'
+                  />
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor='update_temperature'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Temperature
+                  </Label>
+                  <Input
+                    id='update_temperature'
+                    type='number'
+                    step='0.1'
+                    min='0'
+                    max='2'
+                    value={updateTemperature}
+                    onChange={(e) =>
+                      setUpdateTemperature(parseFloat(e.target.value) || 0.8)
+                    }
+                    placeholder='Enter temperature'
+                    className='mt-1'
+                  />
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor='update_top_p'
+                    className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                  >
+                    Top P
+                  </Label>
+                  <Input
+                    id='update_top_p'
+                    type='number'
+                    step='0.01'
+                    min='0'
+                    max='1'
+                    value={updateTopP}
+                    onChange={(e) =>
+                      setUpdateTopP(parseFloat(e.target.value) || 0.95)
+                    }
+                    placeholder='Enter top p'
+                    className='mt-1'
+                  />
+                </div>
               </div>
 
               {updateAssistantError && (
@@ -1158,8 +1394,9 @@ export function AssistantsDebug() {
                   onClick={handleUpdateAssistant}
                   disabled={
                     updateAssistantLoading ||
-                    !selectedAssistantCodeName ||
-                    !updateText.trim()
+                    !selectedAssistantId ||
+                    !updateCodeName.trim() ||
+                    !updateName.trim()
                   }
                   className='bg-blue-600 text-white hover:bg-blue-700'
                 >

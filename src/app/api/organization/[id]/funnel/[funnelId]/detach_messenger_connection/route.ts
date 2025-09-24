@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
-export async function POST(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   // Extract the organization ID and funnel ID from the URL path
   const url = new URL(request.url);
   const pathSegments = url.pathname.split('/');
@@ -24,10 +24,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Extract messenger_connection_id from query parameters
+  const messengerConnectionId = url.searchParams.get('messenger_connection_id');
+  if (!messengerConnectionId) {
+    return NextResponse.json(
+      { error: 'messenger_connection_id query parameter is required' },
+      { status: 400 }
+    );
+  }
+
   const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] No token received from __session cookie.'
+      '[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] No token received from __session cookie.'
     );
     return NextResponse.json(
       { error: 'Authentication failed.' },
@@ -36,29 +45,28 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(
-    '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Token received from __session cookie, creating test dialog.'
+    '[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] Token received from __session cookie, detaching messenger connection.'
   );
   console.log(
-    `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Request details - orgId: ${orgId}, funnelId: ${funnelId}`
+    `[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] Request details - orgId: ${orgId}, funnelId: ${funnelId}, messengerConnectionId: ${messengerConnectionId}`
   );
 
   try {
-    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialog/test`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/detach_messenger_connection?messenger_connection_id=${messengerConnectionId}`;
     console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Posting to: ${apiUrl}`
+      `[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] Deleting from: ${apiUrl}`
     );
 
     const response = await fetch(apiUrl, {
-      method: 'POST',
+      method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
-      },
-      body: '' // Пустое тело запроса согласно новому API
+      }
     });
 
     console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Response status: ${response.status}`
+      `[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] Response status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -67,7 +75,7 @@ export async function POST(request: NextRequest) {
       try {
         const errorData = await response.json();
         console.error(
-          '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] API error response:',
+          '[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] API error response:',
           errorData
         );
 
@@ -95,17 +103,17 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Successfully created test dialog:',
+      '[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] Successfully detached messenger connection:',
       data
     );
     return NextResponse.json(data);
   } catch (error) {
     console.error(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Unexpected error:',
+      '[DELETE /api/organization/[id]/funnel/[funnelId]/detach_messenger_connection] Unexpected error:',
       error
     );
     return NextResponse.json(
-      { error: 'Failed to create test dialog' },
+      { error: 'Failed to detach messenger connection' },
       { status: 500 }
     );
   }

@@ -14,6 +14,7 @@ import { ClientActions } from './components/client-actions';
 import { ClientSelectionProvider } from './context/client-selection-context';
 import AddFunnelModal from '../overview/AddFunnelModal';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
+import { AllFunnelsClientsPlaceholder } from '@/components/all-funnels-placeholder';
 
 export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,6 +148,13 @@ export default function ClientsPage() {
     async (forceRefresh = false) => {
       if (!backendOrgId || !currentFunnel?.id) {
         console.log('Missing backendOrgId or currentFunnel.id, skipping fetch');
+        setLoading(false);
+        return;
+      }
+
+      // Если выбраны "Все воронки", не загружаем данные
+      if (currentFunnel.id === '0') {
+        console.log('All funnels selected, skipping data fetch');
         setLoading(false);
         return;
       }
@@ -335,6 +343,17 @@ export default function ClientsPage() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Показываем заглушку для "Все воронки"
+  if (currentFunnel?.id === '0') {
+    return (
+      <div className='min-h-screen bg-white dark:bg-gray-900'>
+        <div className='p-6'>
+          <AllFunnelsClientsPlaceholder />
         </div>
       </div>
     );

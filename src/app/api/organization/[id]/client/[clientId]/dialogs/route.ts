@@ -56,7 +56,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Делаем запрос к backend API
     console.log('=== BACKEND REQUEST PREPARATION ===');
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/client/${clientId}/dialogs`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/client/${clientId}/dialogs`;
     console.log('Making GET request to:', apiUrl);
 
     // Выполняем запрос к backend

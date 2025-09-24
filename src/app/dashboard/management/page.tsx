@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { AllFunnelsPlaceholder } from '@/components/all-funnels-placeholder';
 import {
   IconBrandTelegram,
   IconBrandWhatsapp,
@@ -101,6 +102,10 @@ interface Stage {
   followups?: { delay_minutes: number }[];
   deals_count?: number;
   deals_amount?: number;
+  assistant?: {
+    name: string;
+    code_name: string;
+  };
 }
 
 // Интерфейсы для настроек AI
@@ -734,7 +739,7 @@ function PromptTestingComponent({
 
     const poll = async () => {
       try {
-        if (!isPollingRef.current) return;
+        if (!isPollingRef.current || !selectedTestDialogId) return;
 
         const token = getClerkTokenFromClientCookie();
         if (!token) {
@@ -787,10 +792,15 @@ function PromptTestingComponent({
           stopPolling(false); // Останавливаем поллинг, но кнопка заблокирована
           setAiThinking(false); // Убираем индикатор печати
           displayNewMessagesSequentially(newAiMessages); // Показываем сообщения по одному
+          return; // Выходим из функции поллинга
+        }
+
+        // Проверяем, что поллинг еще активен перед продолжением
+        if (!isPollingRef.current) {
           return;
         }
 
-        // Продолжаем поллинг
+        // Продолжаем поллинг только если нет новых сообщений
         attempts++;
         if (attempts >= maxAttempts) {
           stopPolling(true);
@@ -837,9 +847,9 @@ function PromptTestingComponent({
         throw new Error('Токен авторизации недоступен');
       }
 
-      // Отправляем сообщение
+      // Отправляем сообщение через тестовый API роут
       const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/${selectedTestDialogId}/message`,
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test/${selectedTestDialogId}/message`,
         {
           method: 'POST',
           headers: {
@@ -848,7 +858,8 @@ function PromptTestingComponent({
           },
           body: JSON.stringify({
             text: messageText,
-            role: 'user'
+            role: 'user',
+            time: new Date().toISOString()
           })
         }
       );
@@ -1568,6 +1579,11 @@ function ManagementPageContent() {
       return;
     }
 
+    // Если выбраны "Все воронки", не загружаем этапы
+    if (currentFunnel.id === '0') {
+      return;
+    }
+
     try {
       setAssistantsLoading(true);
       const token = getClerkTokenFromClientCookie();
@@ -1677,15 +1693,15 @@ function ManagementPageContent() {
 
       const stage = funnelStages[selectedStageIndex];
 
-      if (stage.assistant_code_name) {
+      if (stage.assistant && (stage.assistant as any).id) {
         console.log(
-          'Saving prompt for assistant code_name:',
-          stage.assistant_code_name
+          'Saving prompt for assistant ID:',
+          (stage.assistant as any).id
         );
 
-        // Используем API из assistant debug для обновления ассистента
+        // Используем ID ассистента из данных этапа
         const response = await fetch(
-          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant`,
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant/update/${(stage.assistant as any).id}`,
           {
             method: 'PUT',
             headers: {
@@ -1693,8 +1709,9 @@ function ManagementPageContent() {
               Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
-              code_name: stage.assistant_code_name,
-              text: instructions
+              code_name: stage.assistant.code_name,
+              name: stage.assistant.name,
+              prompt: instructions
             })
           }
         );
@@ -1706,6 +1723,17 @@ function ManagementPageContent() {
           console.log('Save response data:', responseData);
           setSuccessMessage('Промпт успешно обновлен');
           setHasChanges(false);
+
+          // Обновляем данные в локальном состоянии
+          const updatedStages = [...funnelStages];
+          updatedStages[selectedStageIndex] = {
+            ...stage,
+            assistant: {
+              ...stage.assistant,
+              prompt: instructions
+            } as any
+          };
+          setFunnelStages(updatedStages);
 
           // Убираем сообщение об успехе через 3 секунды
           setTimeout(() => {
@@ -1725,7 +1753,7 @@ function ManagementPageContent() {
           throw new Error(errorMessage);
         }
       } else {
-        // Если нет assistant_code_name, показываем предупреждение
+        // Если нет ассистента, показываем предупреждение
         setError(
           'У этого этапа не назначен ассистент. Промпт не может быть сохранен.'
         );
@@ -1739,90 +1767,40 @@ function ManagementPageContent() {
   };
 
   const handleReloadPrompt = () => {
-    setInstructions('');
+    if (selectedStageIndex !== null) {
+      loadPromptForStage(selectedStageIndex);
+    }
     setHasChanges(false);
   };
 
-  // Функция загрузки промпта для этапа (используя метод из assistant debug)
+  // Функция загрузки промпта для этапа из данных воронки
   const loadPromptForStage = async (stageIndex: number) => {
-    if (!currentFunnel || !backendOrgId || !funnelStages[stageIndex]) {
+    if (!currentFunnel || !funnelStages[stageIndex]) {
       setInstructions('');
       return;
     }
 
     try {
-      const token = getClerkTokenFromClientCookie();
-      if (!token) {
-        console.error('No token available');
-        setInstructions('');
-        return;
-      }
-
       const stage = funnelStages[stageIndex];
+      console.log('Loading prompt for stage:', stage);
 
-      // Если у этапа есть assistant_code_name, загружаем данные ассистента
-      if (stage.assistant_code_name) {
+      // Берем промпт из данных ассистента этапа
+      if (stage.assistant && (stage.assistant as any).prompt) {
         console.log(
-          'Loading assistant data for code_name:',
-          stage.assistant_code_name
+          'Found prompt in assistant data:',
+          (stage.assistant as any).prompt
         );
-
-        // Сначала получаем всех ассистентов воронки
-        const assistantsResponse = await fetch(
-          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistants`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-
-        if (assistantsResponse.ok) {
-          const assistantsData = await assistantsResponse.json();
-          console.log('All assistants:', assistantsData);
-
-          // Ищем ассистента по code_name из assistant_code_name этапа
-          const targetAssistant = assistantsData.find(
-            (assistant: any) =>
-              assistant.code_name === stage.assistant_code_name
-          );
-
-          if (targetAssistant) {
-            console.log('Found assistant:', targetAssistant);
-            setInstructions(
-              targetAssistant.prompt ||
-                targetAssistant.text ||
-                stage.prompt ||
-                ''
-            );
-          } else {
-            console.log(
-              'Assistant not found for code_name:',
-              stage.assistant_code_name
-            );
-            // Если ассистент не найден, используем промпт из stage
-            setInstructions(stage.prompt || '');
-          }
-        } else {
-          console.error(
-            'Failed to fetch assistants:',
-            assistantsResponse.status
-          );
-          // Если API не работает, используем промпт из stage
-          setInstructions(stage.prompt || '');
-        }
+        setInstructions((stage.assistant as any).prompt);
+      } else if (stage.prompt) {
+        console.log('Found prompt in stage data:', stage.prompt);
+        setInstructions(stage.prompt);
       } else {
-        console.log('No assistant_code_name for stage:', stage.name);
-        // Если нет assistant_code_name, используем промпт из stage
-        setInstructions(stage.prompt || '');
+        console.log('No prompt found for stage');
+        setInstructions('');
       }
     } catch (error) {
       console.error('Error loading prompt for stage:', error);
-      // В случае ошибки используем промпт из stage как fallback
-      const stage = funnelStages[stageIndex];
-      setInstructions(stage.prompt || '');
+      setInstructions('');
     }
   };
 
@@ -1916,8 +1894,12 @@ function ManagementPageContent() {
 
   // Загрузка данных при изменении воронки
   useEffect(() => {
+    // Если выбраны "Все воронки", не загружаем данные
+    if (currentFunnel?.id === '0') {
+      return;
+    }
     fetchFunnelStages();
-  }, [fetchFunnelStages]);
+  }, [fetchFunnelStages, currentFunnel?.id]);
 
   // Загрузка промпта при изменении выбранного этапа
   useEffect(() => {
@@ -1969,6 +1951,15 @@ function ManagementPageContent() {
 
   if (!organization) {
     return <div>Загрузка...</div>;
+  }
+
+  // Показываем заглушку для "Все воронки"
+  if (currentFunnel?.id === '0') {
+    return (
+      <PageContainer>
+        <AllFunnelsPlaceholder />
+      </PageContainer>
+    );
   }
 
   return (
@@ -2148,7 +2139,7 @@ function ManagementPageContent() {
                                             : 'text-gray-700'
                                         }`}
                                       >
-                                        {stage.name}
+                                        {stage.assistant?.name || stage.name}
                                       </h3>
                                     )}
 
@@ -2191,7 +2182,8 @@ function ManagementPageContent() {
                                             e.stopPropagation();
                                             handleStartEditing(
                                               index,
-                                              stage.name
+                                              stage.assistant?.name ||
+                                                stage.name
                                             );
                                           }}
                                         >
@@ -2356,7 +2348,9 @@ function ManagementPageContent() {
                                 stageName={
                                   selectedStageIndex !== null &&
                                   funnelStages[selectedStageIndex]
-                                    ? funnelStages[selectedStageIndex].name
+                                    ? funnelStages[selectedStageIndex].assistant
+                                        ?.name ||
+                                      funnelStages[selectedStageIndex].name
                                     : 'Этап не выбран'
                                 }
                                 currentFunnel={currentFunnel}
@@ -2466,7 +2460,7 @@ function ManagementPageContent() {
 
                                           return (
                                             <Card
-                                              key={`${stage.name}-${agent.id}`}
+                                              key={`${stage.assistant?.name || stage.name}-${agent.id}`}
                                               className={`mb-4 border shadow-sm ${
                                                 agent.enabled
                                                   ? 'cursor-pointer bg-white'
@@ -2609,7 +2603,8 @@ function ManagementPageContent() {
                       Название этапа
                     </label>
                     <div className='text-sm text-gray-700'>
-                      {stageSettingsModal.stage.name}
+                      {stageSettingsModal.stage.assistant?.name ||
+                        stageSettingsModal.stage.name}
                     </div>
                   </div>
                   <div>
@@ -2673,7 +2668,7 @@ function ManagementPageContent() {
               <Button
                 onClick={() => {
                   if (stageSettingsModal.stage) {
-                    window.location.href = `/dashboard/management/ai-assistants?stage=${encodeURIComponent(stageSettingsModal.stage.name)}`;
+                    window.location.href = `/dashboard/management/ai-assistants?stage=${encodeURIComponent(stageSettingsModal.stage.assistant?.name || stageSettingsModal.stage.name)}`;
                   }
                 }}
               >

@@ -38,9 +38,12 @@ export async function GET(request: NextRequest) {
   console.log(
     '[GET /api/organization/[id]/funnel/[funnelId]/test_dialogs] Token received from __session cookie, fetching test dialogs.'
   );
+  console.log(
+    `[GET /api/organization/[id]/funnel/[funnelId]/test_dialogs] Request details - orgId: ${orgId}, funnelId: ${funnelId}`
+  );
 
   try {
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel/${funnelId}/test_dialogs`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialogs/test`;
     console.log(
       `[GET /api/organization/[id]/funnel/[funnelId]/test_dialogs] Fetching from: ${apiUrl}`
     );

@@ -10,7 +10,7 @@ import { CreateFunnelModal } from '@/components/modal/create-funnel-modal';
 
 export function FunnelDebug() {
   const { organization } = useOrganization();
-  const { funnels } = useFunnels();
+  const { funnels, currentFunnel } = useFunnels();
 
   // Состояние для модального окна создания воронки
   const [isCreateFunnelModalOpen, setIsCreateFunnelModalOpen] = useState(false);
@@ -52,16 +52,20 @@ export function FunnelDebug() {
   // Функция для обновления localStorage значений
   const updateLocalStorageData = () => {
     if (typeof window !== 'undefined') {
-      // Обновляем текущую воронку
-      const storedFunnel = localStorage.getItem('currentFunnel');
-      if (storedFunnel) {
-        try {
-          setLocalStorageFunnel(JSON.parse(storedFunnel));
-        } catch {
+      // Используем currentFunnel из контекста, если он есть, иначе из localStorage
+      if (currentFunnel) {
+        setLocalStorageFunnel(currentFunnel);
+      } else {
+        const storedFunnel = localStorage.getItem('currentFunnel');
+        if (storedFunnel) {
+          try {
+            setLocalStorageFunnel(JSON.parse(storedFunnel));
+          } catch {
+            setLocalStorageFunnel(null);
+          }
+        } else {
           setLocalStorageFunnel(null);
         }
-      } else {
-        setLocalStorageFunnel(null);
       }
 
       // Обновляем список воронок
@@ -78,11 +82,12 @@ export function FunnelDebug() {
     }
   };
 
-  // Отслеживаем изменения funnels из хука (для синхронизации)
+  // Отслеживаем изменения funnels и currentFunnel из хука (для синхронизации)
   useEffect(() => {
     console.log('FunnelDebug: funnels from hook changed:', funnels);
+    console.log('FunnelDebug: currentFunnel from hook changed:', currentFunnel);
     updateLocalStorageData();
-  }, [funnels]);
+  }, [funnels, currentFunnel]);
 
   // Обновляем localStorage значения при монтировании компонента
   useEffect(() => {
@@ -464,31 +469,35 @@ export function FunnelDebug() {
             {allFunnelsLoading ? 'Loading...' : 'Get All Funnels'}
           </Button>
 
-          <Button
-            onClick={handleFetchCurrentFunnel}
-            disabled={
-              currentFunnelLoading || !backendOrgId || !localStorageFunnel?.id
-            }
-            variant='outline'
-            size='sm'
-            className='w-full justify-start'
-          >
-            <RefreshCw className='mr-2 h-4 w-4' />
-            {currentFunnelLoading ? 'Loading...' : 'Get Current Funnel'}
-          </Button>
+          {localStorageFunnel?.id !== '0' && (
+            <Button
+              onClick={handleFetchCurrentFunnel}
+              disabled={
+                currentFunnelLoading || !backendOrgId || !localStorageFunnel?.id
+              }
+              variant='outline'
+              size='sm'
+              className='w-full justify-start'
+            >
+              <RefreshCw className='mr-2 h-4 w-4' />
+              {currentFunnelLoading ? 'Loading...' : 'Get Current Funnel'}
+            </Button>
+          )}
 
-          <Button
-            onClick={handleDeleteCurrentFunnel}
-            disabled={
-              deleteFunnelLoading || !backendOrgId || !localStorageFunnel?.id
-            }
-            variant='outline'
-            size='sm'
-            className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
-          >
-            <Trash2 className='mr-2 h-4 w-4' />
-            {deleteFunnelLoading ? 'Deleting...' : 'Delete Current Funnel'}
-          </Button>
+          {localStorageFunnel?.id !== '0' && (
+            <Button
+              onClick={handleDeleteCurrentFunnel}
+              disabled={
+                deleteFunnelLoading || !backendOrgId || !localStorageFunnel?.id
+              }
+              variant='outline'
+              size='sm'
+              className='w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300'
+            >
+              <Trash2 className='mr-2 h-4 w-4' />
+              {deleteFunnelLoading ? 'Deleting...' : 'Delete Current Funnel'}
+            </Button>
+          )}
         </div>
 
         {/* Сообщения об успехе */}
@@ -577,10 +586,14 @@ export function FunnelDebug() {
         {localStorageFunnel && (
           <details className='mt-2'>
             <summary className='cursor-pointer text-orange-600 dark:text-orange-400'>
-              View Current Funnel Local Data
+              {localStorageFunnel.id === '0'
+                ? 'View All Funnels Local Data'
+                : 'View Current Funnel Local Data'}
             </summary>
             <pre className='mt-2 max-h-64 overflow-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800 dark:text-gray-200'>
-              {JSON.stringify(localStorageFunnel, null, 2)}
+              {localStorageFunnel.id === '0'
+                ? JSON.stringify(localStorageFunnels, null, 2)
+                : JSON.stringify(localStorageFunnel, null, 2)}
             </pre>
           </details>
         )}

@@ -24,10 +24,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Extract messenger_connection_id from query parameters
+  const messengerConnectionId = url.searchParams.get('messenger_connection_id');
+  if (!messengerConnectionId) {
+    return NextResponse.json(
+      { error: 'messenger_connection_id query parameter is required' },
+      { status: 400 }
+    );
+  }
+
   const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] No token received from __session cookie.'
+      '[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] No token received from __session cookie.'
     );
     return NextResponse.json(
       { error: 'Authentication failed.' },
@@ -36,16 +45,16 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(
-    '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Token received from __session cookie, creating test dialog.'
+    '[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] Token received from __session cookie, attaching messenger connection.'
   );
   console.log(
-    `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Request details - orgId: ${orgId}, funnelId: ${funnelId}`
+    `[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] Request details - orgId: ${orgId}, funnelId: ${funnelId}, messengerConnectionId: ${messengerConnectionId}`
   );
 
   try {
-    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/dialog/test`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel/${funnelId}/attach_messenger_connection?messenger_connection_id=${messengerConnectionId}`;
     console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Posting to: ${apiUrl}`
+      `[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] Posting to: ${apiUrl}`
     );
 
     const response = await fetch(apiUrl, {
@@ -53,12 +62,11 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
-      },
-      body: '' // Пустое тело запроса согласно новому API
+      }
     });
 
     console.log(
-      `[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Response status: ${response.status}`
+      `[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] Response status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -67,7 +75,7 @@ export async function POST(request: NextRequest) {
       try {
         const errorData = await response.json();
         console.error(
-          '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] API error response:',
+          '[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] API error response:',
           errorData
         );
 
@@ -95,17 +103,17 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Successfully created test dialog:',
+      '[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] Successfully attached messenger connection:',
       data
     );
     return NextResponse.json(data);
   } catch (error) {
     console.error(
-      '[POST /api/organization/[id]/funnel/[funnelId]/test_dialog] Unexpected error:',
+      '[POST /api/organization/[id]/funnel/[funnelId]/attach_messenger_connection] Unexpected error:',
       error
     );
     return NextResponse.json(
-      { error: 'Failed to create test dialog' },
+      { error: 'Failed to attach messenger connection' },
       { status: 500 }
     );
   }

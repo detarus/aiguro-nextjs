@@ -162,8 +162,10 @@ export function TableHeader({
             <Select value={selectedFunnel} onValueChange={onFunnelChange}>
               <SelectTrigger className='h-[32px] max-h-[32px] w-full max-w-xs min-w-[180px] text-sm'>
                 <SelectValue className='truncate'>
-                  {funnels.find((f) => f.id === selectedFunnel)?.name ||
-                    'Выберите воронку'}
+                  {selectedFunnel === 'all-funnels'
+                    ? 'Все воронки'
+                    : funnels.find((f) => f.id === selectedFunnel)?.name ||
+                      'Выберите воронку'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

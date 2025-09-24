@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     };
 
     console.log('📤 Request data:', {
-      url: 'https://app.dev.aiguro.ru/api/organization?organization_id=1',
+      url: `${process.env.AIGURO_API_BASE_URL}/api/organization?organization_id=1`,
       method: 'POST',
       body: requestBody,
       clerkOrgId,
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const backendResponse = await fetch(
-        'https://app.dev.aiguro.ru/api/organization?organization_id=1',
+        `${process.env.AIGURO_API_BASE_URL}/api/organization?organization_id=1`,
         {
           method: 'POST',
           headers: {

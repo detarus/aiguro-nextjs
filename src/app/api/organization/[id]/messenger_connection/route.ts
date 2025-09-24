@@ -1,21 +1,24 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getClerkTokenFromCookie } from '@/lib/auth-utils';
 
-export async function GET(request: NextRequest) {
-  const organizationId = request.nextUrl.pathname
-    .split('/')
-    .filter(Boolean)
-    .pop();
-  if (!organizationId)
+export async function POST(request: NextRequest) {
+  // Extract the organization ID from the URL path
+  const url = new URL(request.url);
+  const pathSegments = url.pathname.split('/');
+  const orgIdIndex = pathSegments.indexOf('organization') + 1;
+  const orgId = pathSegments[orgIdIndex];
+
+  if (!orgId) {
     return NextResponse.json(
-      { error: 'Organization ID missing.' },
+      { error: 'Organization ID not found in URL' },
       { status: 400 }
     );
+  }
 
   const token = getClerkTokenFromCookie(request);
   if (!token) {
     console.error(
-      '[GET /api/aiguro-organizations/[id]] No token received from __session cookie.'
+      '[POST /api/organization/[id]/messenger_connection] No token received from __session cookie.'
     );
     return NextResponse.json(
       { error: 'Authentication failed.' },
@@ -24,25 +27,35 @@ export async function GET(request: NextRequest) {
   }
 
   console.log(
-    '[GET /api/aiguro-organizations/[id]] Token received from __session cookie, fetching organization.'
+    '[POST /api/organization/[id]/messenger_connection] Token received from __session cookie, creating messenger connection.'
+  );
+  console.log(
+    `[POST /api/organization/[id]/messenger_connection] Request details - orgId: ${orgId}`
   );
 
   try {
-    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${organizationId}`;
+    const requestBody = await request.json();
     console.log(
-      `[GET /api/aiguro-organizations/[id]] Fetching from: ${apiUrl}`
+      '[POST /api/organization/[id]/messenger_connection] Request body:',
+      requestBody
+    );
+
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/messenger_connection`;
+    console.log(
+      `[POST /api/organization/[id]/messenger_connection] Posting to: ${apiUrl}`
     );
 
     const response = await fetch(apiUrl, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
-      }
+      },
+      body: JSON.stringify(requestBody)
     });
 
     console.log(
-      `[GET /api/aiguro-organizations/[id]] Response status: ${response.status}`
+      `[POST /api/organization/[id]/messenger_connection] Response status: ${response.status}`
     );
 
     if (!response.ok) {
@@ -51,7 +64,7 @@ export async function GET(request: NextRequest) {
       try {
         const errorData = await response.json();
         console.error(
-          '[GET /api/aiguro-organizations/[id]] API error response:',
+          '[POST /api/organization/[id]/messenger_connection] API error response:',
           errorData
         );
 
@@ -71,9 +84,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      console.error(
-        `[GET /api/aiguro-organizations/[id]] Error: ${errorMessage}`
-      );
       return NextResponse.json(
         { error: errorMessage },
         { status: response.status }
@@ -82,17 +92,17 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
     console.log(
-      '[GET /api/aiguro-organizations/[id]] Successfully fetched organization:',
+      '[POST /api/organization/[id]/messenger_connection] Successfully created messenger connection:',
       data
     );
     return NextResponse.json(data);
   } catch (error) {
     console.error(
-      '[GET /api/aiguro-organizations/[id]] Unexpected error:',
+      '[POST /api/organization/[id]/messenger_connection] Unexpected error:',
       error
     );
     return NextResponse.json(
-      { error: 'Failed to fetch organization data' },
+      { error: 'Failed to create messenger connection' },
       { status: 500 }
     );
   }

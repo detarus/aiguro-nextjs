@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     );
 
     // Make the real POST request
-    const apiUrl = `https://app.dev.aiguro.ru/api/organization/${orgId}/funnel`;
+    const apiUrl = `${process.env.AIGURO_API_BASE_URL}/api/organization/${orgId}/funnel`;
     console.log(
       `[POST /api/organization/[id]/funnel] Making request to: ${apiUrl}`
     );

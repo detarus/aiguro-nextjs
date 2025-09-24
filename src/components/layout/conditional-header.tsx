@@ -205,11 +205,8 @@ export default function ConditionalHeader() {
         // Открываем модальное окно создания воронки
         openAddFunnelModal();
       }
-    } else if (funnelId === 'all-funnels') {
-      // Обработка выбора "Все воронки" (если нужно)
-      console.log('All funnels selected');
     } else {
-      // Выбираем воронку по ID
+      // Выбираем воронку по ID (включая 'all-funnels')
       selectFunnel(funnelId);
 
       // Перезагружаем страницу после смены воронки
@@ -250,11 +247,17 @@ export default function ConditionalHeader() {
     return null;
   }
 
+  // Определяем selectedFunnel с учетом возможного null
+  const selectedFunnel =
+    currentFunnel?.id === '0'
+      ? 'all-funnels'
+      : currentFunnel?.id || 'all-funnels';
+
   return (
     <TableHeader
       title={config?.title || pageConfig.title}
       funnels={funnelsList}
-      selectedFunnel={currentFunnel?.id}
+      selectedFunnel={selectedFunnel}
       onFunnelChange={handleFunnelChange}
       onSearch={config?.onSearch || ((query) => console.log('Search:', query))}
       searchValue={config?.searchValue || ''}

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     };
 
     console.log('📤 Request data:', {
-      url: `${process.env.AIGURO_API_BASE_URL}/api/organization?organization_id=1`,
+      url: `${process.env.AIGURO_API_BASE_URL}/api/organization`,
       method: 'POST',
       body: requestBody,
       clerkOrgId,
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const backendResponse = await fetch(
-        `${process.env.AIGURO_API_BASE_URL}/api/organization?organization_id=1`,
+        `${process.env.AIGURO_API_BASE_URL}/api/organization`,
         {
           method: 'POST',
           headers: {
@@ -131,7 +131,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating organization:', error);
     return NextResponse.json(
-      { error: 'Failed to create organization' },
+      {
+        error: 'Failed to create organization',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

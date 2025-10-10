@@ -17,7 +17,7 @@ export function OrganizationSyncWrapper({
   children,
   fallback
 }: OrganizationSyncWrapperProps) {
-  const { isReady, isLoading, error, backendOrgId } = useOrganizationReady();
+  const { isReady, isLoading, error } = useOrganizationReady();
   const { isSyncing, syncError, syncProgress, triggerSync } =
     useOrganizationSync();
 

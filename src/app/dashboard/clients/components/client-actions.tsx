@@ -1,12 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  IconPlus,
-  IconDownload,
-  IconUpload,
-  IconTrash
-} from '@tabler/icons-react';
+import { IconUpload } from '@tabler/icons-react';
 import {
   Tooltip,
   TooltipContent,

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
   IconRotateClockwise,
@@ -331,9 +332,11 @@ export function StageConfiguration({
               <div className='flex items-center justify-between border-b p-4'>
                 <div className='flex items-center gap-4'>
                   <div className='flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-200'>
-                    <img
+                    <Image
                       src='/placeholder-avatar.png'
                       alt='AI Assistant'
+                      width={40}
+                      height={40}
                       className='h-full w-full object-cover'
                       onError={(e) => {
                         e.currentTarget.src =

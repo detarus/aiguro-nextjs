@@ -1,17 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  IconEdit,
-  IconCheck,
-  IconX,
-  IconSettings,
-  IconPlus
-} from '@tabler/icons-react';
+import { IconEdit, IconCheck, IconX, IconPlus } from '@tabler/icons-react';
 import { Separator } from '@/components/ui/separator';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 
@@ -109,7 +102,8 @@ export function StagesBlock({
     );
   };
 
-  const handleStageEdit = (stageName: string) => {
+  const _handleStageEdit = (stageName: string) => {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     // Переход к странице редактирования этапа AI-ассистентов
     window.location.href = `/dashboard/management/ai-assistants?stage=${encodeURIComponent(stageName)}`;
   };
@@ -281,7 +275,7 @@ export function StagesBlock({
                       variant='outline'
                       size='sm'
                       className='w-full border-2 border-dashed border-gray-300 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-600'
-                      onClick={() => handleStageEdit(stage.name)}
+                      onClick={() => _handleStageEdit(stage.name)}
                     >
                       <IconPlus className='mr-1 h-3 w-3' />
                       Добавить подсказки

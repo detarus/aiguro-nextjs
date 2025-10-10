@@ -3,14 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
-import {
-  IconArrowLeft,
-  IconSend,
-  IconSettings,
-  IconMessage
-} from '@tabler/icons-react';
-import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/contexts/FunnelsContext';
+import { IconArrowLeft, IconSend } from '@tabler/icons-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Card,
@@ -26,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Avatar } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -54,9 +47,6 @@ interface Agent {
 }
 
 export default function AgentTestingPage() {
-  const { organization } = useOrganization();
-  const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  const { currentFunnel } = useFunnels();
   const router = useRouter();
   const searchParams = useSearchParams();
   const agentParam = searchParams.get('agent');
@@ -95,8 +85,7 @@ export default function AgentTestingPage() {
       messages: []
     }
   ]);
-  const [activeDialogId, setActiveDialogId] =
-    useState<string>('default-dialog');
+  const [_activeDialogId] = useState<string>('default-dialog');
   const [userMessage, setUserMessage] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
@@ -104,8 +93,6 @@ export default function AgentTestingPage() {
   const [contextMemory, setContextMemory] = useState(true);
   const [dataCollection, setDataCollection] = useState(false);
   const [managerPause, setManagerPause] = useState(true);
-  const [knowledgeBase, setKnowledgeBase] = useState(true);
-  const [voiceCommands, setVoiceCommands] = useState(false);
 
   // Обработчик возврата назад
   const handleBack = () => {
@@ -145,7 +132,7 @@ export default function AgentTestingPage() {
     // Обновляем диалоги с новым сообщением пользователя
     setDialogs((prevDialogs) =>
       prevDialogs.map((dialog) =>
-        dialog.id === activeDialogId
+        dialog.id === _activeDialogId
           ? { ...dialog, messages: [...dialog.messages, newUserMessage] }
           : dialog
       )
@@ -163,7 +150,6 @@ export default function AgentTestingPage() {
     // Имитация ответа ассистента
     setTimeout(() => {
       // Получаем имя выбранного агента
-      const agent = agents.find((a) => a.id === selectedAgent);
       let responseText = '';
 
       switch (selectedAgent) {
@@ -192,7 +178,7 @@ export default function AgentTestingPage() {
 
       setDialogs((prevDialogs) =>
         prevDialogs.map((dialog) =>
-          dialog.id === activeDialogId
+          dialog.id === _activeDialogId
             ? { ...dialog, messages: [...dialog.messages, assistantMessage] }
             : dialog
         )
@@ -212,7 +198,9 @@ export default function AgentTestingPage() {
   };
 
   // Получение активного диалога
-  const activeDialog = dialogs.find((dialog) => dialog.id === activeDialogId) ||
+  const activeDialog = dialogs.find(
+    (dialog) => dialog.id === _activeDialogId
+  ) ||
     dialogs[0] || { id: '', messages: [] };
 
   // Установка выбранного агента из URL при загрузке страницы
@@ -220,6 +208,7 @@ export default function AgentTestingPage() {
     if (agentParam && agents.some((agent) => agent.id === agentParam)) {
       setSelectedAgent(agentParam);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentParam]);
 
   // Сохранить настройки

@@ -87,6 +87,7 @@ export function FunnelDebug() {
     console.log('FunnelDebug: funnels from hook changed:', funnels);
     console.log('FunnelDebug: currentFunnel from hook changed:', currentFunnel);
     updateLocalStorageData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [funnels, currentFunnel]);
 
   // Обновляем localStorage значения при монтировании компонента
@@ -107,6 +108,7 @@ export function FunnelDebug() {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Очищаем данные при смене организации

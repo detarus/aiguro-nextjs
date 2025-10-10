@@ -1,20 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
-import {
-  IconArrowLeft,
-  IconTrash,
-  IconEdit,
-  IconPlus,
-  IconSend,
-  IconRotateClockwise
-} from '@tabler/icons-react';
-import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/contexts/FunnelsContext';
-import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { IconArrowLeft, IconTrash } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import {
   Card,
   CardContent,
@@ -28,7 +20,6 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectTrigger,
@@ -132,14 +123,6 @@ export default function AnalysisPage() {
     useBehaviorScenarios: false
   });
 
-  // Состояние для нового возможного значения
-  const [newValue, setNewValue] = useState<string>('');
-
-  // Состояние для режима редактирования
-  const [editingParameterId, setEditingParameterId] = useState<string | null>(
-    null
-  );
-
   // Состояния для промпта и диалога
   const [prompt, setPrompt] = useState<string>(
     'Вы - ассистент по анализу данных. Ваша задача - анализировать продажи и помогать улучшать эффективность. Отвечайте кратко и предоставляйте данные в структурированном виде.'
@@ -152,7 +135,6 @@ export default function AnalysisPage() {
   ]);
   const [activeDialogId, setActiveDialogId] =
     useState<string>('default-dialog');
-  const [userMessage, setUserMessage] = useState<string>('');
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,7 +169,6 @@ export default function AnalysisPage() {
       useBehaviorScenarios: false
     });
 
-    setNewValue('');
     setSuccessMessage('Параметр успешно добавлен');
   };
 
@@ -198,26 +179,6 @@ export default function AnalysisPage() {
       parameters: prev.parameters.filter((param) => param.id !== id)
     }));
     setSuccessMessage('Параметр удален');
-  };
-
-  // Обработчик добавления возможного значения
-  const handleAddPossibleValue = () => {
-    if (!newValue) return;
-
-    setNewParameter((prev) => ({
-      ...prev,
-      possibleValues: [...(prev.possibleValues || []), newValue]
-    }));
-
-    setNewValue('');
-  };
-
-  // Обработчик удаления возможного значения
-  const handleRemovePossibleValue = (value: string) => {
-    setNewParameter((prev) => ({
-      ...prev,
-      possibleValues: (prev.possibleValues || []).filter((v) => v !== value)
-    }));
   };
 
   // Обработчик изменения промпта
@@ -249,105 +210,6 @@ export default function AnalysisPage() {
       setSaving(false);
     }
   };
-
-  // Создать новый диалог
-  const createNewDialog = () => {
-    const newDialogId = `dialog-${Date.now()}`;
-    const newDialog: ChatDialog = {
-      id: newDialogId,
-      messages: []
-    };
-
-    setDialogs([...dialogs, newDialog]);
-    setActiveDialogId(newDialogId);
-  };
-
-  // Удалить текущий диалог
-  const deleteCurrentDialog = () => {
-    // Проверяем, что есть хотя бы один диалог помимо текущего
-    if (dialogs.length <= 1) {
-      // Если это единственный диалог, просто очищаем его сообщения
-      setDialogs([{ id: activeDialogId, messages: [] }]);
-      return;
-    }
-
-    // Находим индекс текущего диалога
-    const currentIndex = dialogs.findIndex(
-      (dialog) => dialog.id === activeDialogId
-    );
-
-    // Удаляем текущий диалог
-    const newDialogs = dialogs.filter((dialog) => dialog.id !== activeDialogId);
-
-    // Определяем, какой диалог станет активным после удаления
-    let newActiveIndex = 0;
-    if (currentIndex > 0) {
-      // Если удаляемый диалог не первый, активируем предыдущий
-      newActiveIndex = currentIndex - 1;
-    }
-
-    // Устанавливаем новый список диалогов и новый активный диалог
-    setDialogs(newDialogs);
-    setActiveDialogId(newDialogs[newActiveIndex].id);
-  };
-
-  // Отправить сообщение
-  const sendMessage = async () => {
-    if (!userMessage.trim()) return;
-
-    // Добавляем сообщение пользователя
-    const newUserMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      text: userMessage,
-      sender: 'user',
-      timestamp: Date.now()
-    };
-
-    // Обновляем диалоги с новым сообщением пользователя
-    setDialogs((prevDialogs) =>
-      prevDialogs.map((dialog) =>
-        dialog.id === activeDialogId
-          ? { ...dialog, messages: [...dialog.messages, newUserMessage] }
-          : dialog
-      )
-    );
-
-    // Сохраняем сообщение пользователя
-    const userMessageText = userMessage;
-
-    // Очищаем поле ввода
-    setUserMessage('');
-
-    // Имитация ответа ассистента
-    setTimeout(() => {
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        text: `Это автоматический ответ на ваш аналитический запрос: "${userMessageText}"`,
-        sender: 'assistant',
-        timestamp: Date.now()
-      };
-
-      setDialogs((prevDialogs) =>
-        prevDialogs.map((dialog) =>
-          dialog.id === activeDialogId
-            ? { ...dialog, messages: [...dialog.messages, assistantMessage] }
-            : dialog
-        )
-      );
-    }, 1000);
-  };
-
-  // Обработчик нажатия Enter для отправки сообщения
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  // Получение активного диалога
-  const activeDialog = dialogs.find((dialog) => dialog.id === activeDialogId) ||
-    dialogs[0] || { id: '', messages: [] };
 
   // Загрузка данных при монтировании и изменении организации/воронки
   useEffect(() => {

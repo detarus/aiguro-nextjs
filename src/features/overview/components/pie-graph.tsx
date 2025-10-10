@@ -59,7 +59,7 @@ const chartConfig = {
 
 export function PieGraph() {
   const router = useRouter();
-  const { stageStats, totalDialogs, loading } = useOverviewContext();
+  const { stageStats, loading } = useOverviewContext();
 
   const handleNavigateToDialogs = () => {
     router.push('/dashboard/messengers');

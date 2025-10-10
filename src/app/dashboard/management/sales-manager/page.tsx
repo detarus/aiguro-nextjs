@@ -1,12 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { IconArrowLeft } from '@tabler/icons-react';
-import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/contexts/FunnelsContext';
-import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -19,7 +16,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 
 // Интерфейсы
@@ -35,9 +31,6 @@ interface SalesManagerSettings {
 }
 
 export default function SalesManagerPage() {
-  const { organization } = useOrganization();
-  const backendOrgId = organization?.publicMetadata?.id_backend as string;
-  const { currentFunnel } = useFunnels();
   const router = useRouter();
 
   // Состояния

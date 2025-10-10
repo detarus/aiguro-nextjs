@@ -48,8 +48,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function BarGraph() {
-  const { searchQuery, stageStats, totalDialogs, loading } =
-    useOverviewContext();
+  const { searchQuery, stageStats, loading } = useOverviewContext();
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>('desktop');
 

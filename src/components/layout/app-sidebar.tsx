@@ -19,7 +19,6 @@ import { OrganizationSwitcher } from '@/components/organization-switcher';
 import {
   IconLayoutDashboard,
   IconLayoutKanban,
-  IconListCheck,
   IconMessage,
   IconChartBar,
   IconUsers,
@@ -41,6 +40,7 @@ import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Структура навигационного меню
 const navigationSections = [
@@ -162,11 +162,12 @@ const navigationSections = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { user } = useUser();
-  const { organization } = useOrganization();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const ___user = useUser(); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const ___organization = useOrganization(); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const { setTheme, resolvedTheme } = useTheme();
   const [isCreateOrgModalOpen, setIsCreateOrgModalOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const isMobile = useIsMobile();
 
   // Prevent hydration mismatch
   React.useEffect(() => {
@@ -216,23 +217,25 @@ export default function AppSidebar() {
   };
 
   return (
-    <Sidebar className='border-none bg-transparent dark:bg-transparent'>
+    <Sidebar className='bg-sidebar dark:bg-sidebar border-none'>
       <SidebarHeader className='p-4'>
-        {/* Логотип AI Guro */}
-        <div className='mb-0 flex items-center gap-3'>
-          <div className='flex h-7 w-7 items-center justify-center rounded-lg bg-gray-800 dark:bg-gray-100'>
-            <IconSettings className='h-4 w-4 text-white dark:text-gray-900' />
+        {/* Логотип AI Guro - только на десктопе */}
+        {!isMobile && (
+          <div className='mb-0 flex items-center gap-3'>
+            <div className='flex h-7 w-7 items-center justify-center rounded-lg bg-gray-800 dark:bg-gray-100'>
+              <IconSettings className='h-4 w-4 text-white dark:text-gray-900' />
+            </div>
+            <div className='flex items-center gap-2'>
+              <h1 className='text-base font-semibold text-gray-900 dark:text-white'>
+                AI Guro
+              </h1>
+              <span className='text-gray-400 dark:text-gray-500'>|</span>
+              <p className='text-xs text-gray-500 dark:text-gray-300'>
+                Sales Hub
+              </p>
+            </div>
           </div>
-          <div className='flex items-center gap-2'>
-            <h1 className='text-base font-semibold text-gray-900 dark:text-white'>
-              AI Guro
-            </h1>
-            <span className='text-gray-400 dark:text-gray-500'>|</span>
-            <p className='text-xs text-gray-500 dark:text-gray-300'>
-              Sales Hub
-            </p>
-          </div>
-        </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent className='px-3'>

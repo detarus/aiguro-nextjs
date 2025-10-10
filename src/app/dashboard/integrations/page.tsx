@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
   IconTrash,
@@ -16,8 +15,7 @@ import {
   IconBrandTelegram,
   IconBrandWhatsapp,
   IconBrandInstagram,
-  IconBrandFacebook,
-  IconRefresh
+  IconBrandFacebook
 } from '@tabler/icons-react';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -229,7 +227,6 @@ function IntegrationsPage() {
     MessengerConnection[]
   >([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [integrationStatuses, setIntegrationStatuses] = useState<
     Record<string, boolean>
   >(() => {
@@ -241,9 +238,6 @@ function IntegrationsPage() {
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('');
-  const [organizationConnections, setOrganizationConnections] = useState<
-    MessengerConnection[]
-  >([]);
   const [newTokens, setNewTokens] = useState<Record<string, string>>({});
   const [creatingConnection, setCreatingConnection] = useState<
     Record<string, boolean>
@@ -329,7 +323,7 @@ function IntegrationsPage() {
 
         setFunnels(parsedFunnels);
         setMessengerConnections(parsedConnections);
-        setOrganizationConnections(parsedConnections);
+        setMessengerConnections(parsedConnections);
         setLastUpdated(new Date(lastUpdatedStr));
 
         // Обновляем данные интеграций
@@ -431,7 +425,7 @@ function IntegrationsPage() {
         return;
       }
 
-      setError(null);
+      // Error state removed
       if (forceRefresh) {
         setIsRefreshing(true);
       } else {
@@ -451,7 +445,7 @@ function IntegrationsPage() {
 
         if (funnelsData.length === 0) {
           setMessengerConnections([]);
-          setOrganizationConnections([]);
+          setMessengerConnections([]);
           updateIntegrationData([], []);
           setLoadingProgress({ current: 0, total: 0, status: '' });
           return;
@@ -492,7 +486,7 @@ function IntegrationsPage() {
 
         console.log('All connections with funnel info:', allConnections);
         setMessengerConnections(allConnections);
-        setOrganizationConnections(allConnections);
+        setMessengerConnections(allConnections);
 
         // Сохраняем в кэш
         saveToCache(funnelsData, allConnections);
@@ -503,12 +497,13 @@ function IntegrationsPage() {
         setLoadingProgress({ current: 0, total: 0, status: '' });
       } catch (error) {
         console.error('Error loading data:', error);
-        setError('Ошибка загрузки данных');
+        console.error('Ошибка загрузки данных');
       } finally {
         setLoading(false);
         setIsRefreshing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [backendOrgId]
   );
 
@@ -590,6 +585,7 @@ function IntegrationsPage() {
       // Затем загружаем остальные данные
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendOrgId, loadData]);
 
   // Автоматическое обновление каждые 10 минут
@@ -672,7 +668,7 @@ function IntegrationsPage() {
       );
 
       // Временно удаляем из локального состояния
-      setOrganizationConnections((prev) =>
+      setMessengerConnections((prev) =>
         prev.filter((conn) => conn.id !== connectionId)
       );
 
@@ -739,7 +735,7 @@ function IntegrationsPage() {
 
       // Обновляем состояние подключений
       setMessengerConnections((prev) => [...prev, enrichedConnection]);
-      setOrganizationConnections((prev) => [...prev, enrichedConnection]);
+      setMessengerConnections((prev) => [...prev, enrichedConnection]);
 
       // Очищаем поле ввода токена
       setNewTokens((prev) => ({ ...prev, [funnelId]: '' }));
@@ -756,45 +752,6 @@ function IntegrationsPage() {
   // Функция для обработки изменений токена нового подключения
   const handleNewTokenChange = (funnelId: string, value: string) => {
     setNewTokens((prev) => ({ ...prev, [funnelId]: value }));
-  };
-
-  const getFirstThreeAccounts = (integrationId: string) => {
-    // Получаем подключения для данного типа мессенджера
-    const serviceConnections = messengerConnections.filter(
-      (conn) => conn.messenger_type === integrationId
-    );
-
-    // Преобразуем в формат для отображения, используя реальные названия воронок
-    return serviceConnections.slice(0, 3).map((conn) => {
-      // Пытаемся найти воронку по ID (учитываем разные типы)
-      const funnel = conn.funnel_id
-        ? funnels.find(
-            (f) => f.id === conn.funnel_id || f.id.toString() === conn.funnel_id
-          )
-        : null;
-      const funnelName =
-        funnel?.display_name ||
-        funnel?.name ||
-        conn.name ||
-        `Подключение ${conn.id}`;
-
-      // Извлекаем значение подключения из различных возможных полей
-      const connectionValue =
-        conn.connection_data?.account ||
-        conn.connection_data?.username ||
-        conn.connection_data?.token ||
-        conn.connection_data?.phone ||
-        conn.name ||
-        (conn.connection_data ? JSON.stringify(conn.connection_data) : null) ||
-        'Подключение';
-
-      return {
-        id: conn.id,
-        label: funnelName,
-        value: connectionValue,
-        editable: true
-      };
-    });
   };
 
   // Показываем индикатор загрузки

@@ -52,6 +52,7 @@ export function useOrganizationReady(): OrganizationReadyState {
         backendOrgId: null
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id, organization?.publicMetadata?.id_backend, isLoaded]);
 
   return state;

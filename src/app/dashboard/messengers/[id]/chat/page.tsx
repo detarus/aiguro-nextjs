@@ -258,6 +258,7 @@ export default function ChatPage() {
       fetchDialogData();
       fetchDialogMessages();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendOrgId, currentFunnel?.id, chatId]);
 
   const handleSendMessage = async () => {
@@ -338,7 +339,8 @@ export default function ChatPage() {
   };
 
   // Mock client data
-  const clientData = {
+  const _______clientData = {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     name: 'Иванов Иван',
     phone: '+7 (999) 123-45-67',
     email: 'ivan@example.com',

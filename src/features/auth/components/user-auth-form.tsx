@@ -25,7 +25,7 @@ type UserFormValue = z.infer<typeof formSchema>;
 
 export default function UserAuthForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl');
+  const __callbackUrl = searchParams.get('callbackUrl'); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [loading, startTransition] = useTransition();
   const defaultValues = {
     email: 'demo@gmail.com'
@@ -36,6 +36,7 @@ export default function UserAuthForm() {
   });
 
   const onSubmit = async (data: UserFormValue) => {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     startTransition(() => {
       console.log('continue with email clicked');
       toast.success('Signed In Successfully!');

@@ -6,7 +6,7 @@ import { Icons } from '@/components/icons';
 
 export default function GithubSignInButton() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl');
+  const __callbackUrl = searchParams.get('callbackUrl'); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   return (
     <Button

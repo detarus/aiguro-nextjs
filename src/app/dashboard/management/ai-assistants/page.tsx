@@ -49,6 +49,11 @@ interface GeneralSettings {
     strictlyNecessary3: boolean;
     functionalCookies3: boolean;
     functionalCookies4: boolean;
+    contextMemory: boolean;
+    dataCollection: boolean;
+    stopAgentAfterManager: boolean;
+    agentKnowledgeBase: boolean;
+    voiceRequests: boolean;
   };
 }
 
@@ -67,7 +72,12 @@ export default function AIAssistantsPage() {
       functionalCookies2: false,
       strictlyNecessary3: true,
       functionalCookies3: false,
-      functionalCookies4: false
+      functionalCookies4: false,
+      contextMemory: true,
+      dataCollection: false,
+      stopAgentAfterManager: true,
+      agentKnowledgeBase: true,
+      voiceRequests: false
     }
   });
 
@@ -388,7 +398,14 @@ export default function AIAssistantsPage() {
         const generalKey = `ai_general_settings_${backendOrgId}`;
         const savedGeneral = localStorage.getItem(generalKey);
         if (savedGeneral) {
-          setGeneralSettings(JSON.parse(savedGeneral));
+          const parsed = JSON.parse(savedGeneral);
+          // Мерджим с дефолтными значениями, чтобы новые поля были включены
+          setGeneralSettings((prev) => ({
+            cookieSettings: {
+              ...prev.cookieSettings,
+              ...parsed.cookieSettings
+            }
+          }));
         }
 
         // Загружаем промпты
@@ -712,6 +729,14 @@ export default function AIAssistantsPage() {
 
   const activeStage = stages.find((stage) => stage.id === activeStageId);
 
+  // Отладка для проверки передаваемых значений
+  console.log('AIAssistantsPage Debug:', {
+    backendOrgId,
+    currentFunnelId: currentFunnel?.id,
+    currentFunnelName: currentFunnel?.name,
+    hasCurrentFunnel: !!currentFunnel
+  });
+
   // Обработчик возврата назад
   const handleBack = () => {
     router.push('/dashboard/management');
@@ -771,6 +796,16 @@ export default function AIAssistantsPage() {
           </Button>
         </div>
 
+        {/* ТЕСТОВЫЙ БЛОК - ПРОВЕРКА РЕНДЕРИНГА */}
+        <div className='rounded-lg bg-red-500 p-8 text-center text-2xl font-bold text-white'>
+          🔴 ТЕСТОВЫЙ БЛОК НА ГЛАВНОЙ СТРАНИЦЕ - ВИДНО?
+          <div className='mt-4 text-lg'>
+            backendOrgId: {backendOrgId || 'НЕТ'}
+            <br />
+            funnelId: {currentFunnel?.id || 'НЕТ'}
+          </div>
+        </div>
+
         {/* Показываем скелетон при загрузке с локальными данными */}
         {loading && hasLocalData ? (
           <SkeletonLoader />
@@ -782,6 +817,8 @@ export default function AIAssistantsPage() {
                 generalSettings={generalSettings}
                 onSettingChange={handleGeneralSettingChange}
                 onSave={handleSaveGeneralSettings}
+                backendOrgId={backendOrgId}
+                funnelId={currentFunnel?.id}
               />
             </div>
 
@@ -819,6 +856,25 @@ export default function AIAssistantsPage() {
             </div>
           </div>
         )}
+
+        {/* ПРОСТОЙ СКЕЛЕТ СПИСКА ФАЙЛОВ - ВНЕ GRID */}
+        <div className='mt-6 rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800'>
+          <h3 className='mb-4 text-xl font-bold'>📁 Файлы базы знаний</h3>
+          <div className='space-y-3'>
+            <div className='rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20'>
+              <p className='font-semibold'>Статус:</p>
+              <p className='mt-2 text-sm'>
+                • backendOrgId: {backendOrgId || '❌ НЕТ'}
+              </p>
+              <p className='text-sm'>
+                • funnelId: {currentFunnel?.id || '❌ НЕТ'}
+              </p>
+            </div>
+            <div className='rounded-lg border-2 border-dashed border-gray-300 p-8 text-center dark:border-gray-600'>
+              <p className='text-gray-500'>Здесь будет список файлов</p>
+            </div>
+          </div>
+        </div>
 
         {/* Error Display */}
         {error && (

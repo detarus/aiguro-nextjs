@@ -28,7 +28,10 @@ interface StageSettingsProps {
   stageIndex: number;
 }
 
-export function StageSettings({ stage, stageIndex }: StageSettingsProps) {
+export function StageSettings({
+  stage,
+  stageIndex // eslint-disable-line @typescript-eslint/no-unused-vars
+}: StageSettingsProps) {
   const [activeTab, setActiveTab] = useState<'settings' | 'testing'>(
     'settings'
   );

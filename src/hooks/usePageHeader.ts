@@ -22,6 +22,7 @@ export function usePageHeader() {
 
   const updateConfig = useCallback((newConfig: PageHeaderConfig) => {
     setConfig((prevConfig) => {
+      // eslint-disable-line @typescript-eslint/no-unused-vars
       // Если передается объект с undefined значениями, это означает очистку
       const hasUndefinedValues = Object.values(newConfig).some(
         (value) => value === undefined

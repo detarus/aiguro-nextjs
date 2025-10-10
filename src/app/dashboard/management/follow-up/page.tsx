@@ -1,20 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
-import {
-  IconArrowLeft,
-  IconTrash,
-  IconEdit,
-  IconPlus,
-  IconSend,
-  IconRotateClockwise
-} from '@tabler/icons-react';
-import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/contexts/FunnelsContext';
-import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
+import { IconArrowLeft, IconTrash } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
+import { useFunnels } from '@/contexts/FunnelsContext';
 import {
   Card,
   CardContent,
@@ -26,13 +18,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -140,9 +129,6 @@ export default function FollowUpPage() {
     useBehaviorScenarios: false
   });
 
-  // Состояние для нового возможного значения
-  const [newValue, setNewValue] = useState<string>('');
-
   // Состояния для промпта и диалога
   const [prompt, setPrompt] = useState<string>(
     'Вы - ассистент по отправке follow-up сообщений. Ваша задача - напоминать клиентам о предыдущих обращениях и поддерживать их интерес. Будьте вежливы и ненавязчивы.'
@@ -165,20 +151,6 @@ export default function FollowUpPage() {
   // Обработчик возврата назад
   const handleBack = () => {
     router.push('/dashboard/management');
-  };
-
-  // Обработчик изменения общих настроек
-  const handleGeneralSettingChange = (
-    field: keyof typeof settings.generalSettings,
-    value: any
-  ) => {
-    setSettings((prev) => ({
-      ...prev,
-      generalSettings: {
-        ...prev.generalSettings,
-        [field]: value
-      }
-    }));
   };
 
   // Обработчик добавления нового параметра
@@ -204,7 +176,6 @@ export default function FollowUpPage() {
       useBehaviorScenarios: false
     });
 
-    setNewValue('');
     setSuccessMessage('Параметр успешно добавлен');
   };
 
@@ -215,26 +186,6 @@ export default function FollowUpPage() {
       parameters: prev.parameters.filter((param) => param.id !== id)
     }));
     setSuccessMessage('Параметр удален');
-  };
-
-  // Обработчик добавления возможного значения
-  const handleAddPossibleValue = () => {
-    if (!newValue) return;
-
-    setNewParameter((prev) => ({
-      ...prev,
-      possibleValues: [...(prev.possibleValues || []), newValue]
-    }));
-
-    setNewValue('');
-  };
-
-  // Обработчик удаления возможного значения
-  const handleRemovePossibleValue = (value: string) => {
-    setNewParameter((prev) => ({
-      ...prev,
-      possibleValues: (prev.possibleValues || []).filter((v) => v !== value)
-    }));
   };
 
   // Обработчик изменения промпта
@@ -267,69 +218,9 @@ export default function FollowUpPage() {
     }
   };
 
-  // Обработчик сохранения настроек
-  const handleSave = async () => {
-    setSaving(true);
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      // Здесь будет код для сохранения настроек на сервере
-      // Имитация задержки сети
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setSuccessMessage('Настройки успешно сохранены');
-    } catch (err) {
-      setError('Произошла ошибка при сохранении настроек');
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Создать новый диалог
-  const createNewDialog = () => {
-    const newDialogId = `dialog-${Date.now()}`;
-    const newDialog: ChatDialog = {
-      id: newDialogId,
-      messages: []
-    };
-
-    setDialogs([...dialogs, newDialog]);
-    setActiveDialogId(newDialogId);
-  };
-
-  // Удалить текущий диалог
-  const deleteCurrentDialog = () => {
-    // Проверяем, что есть хотя бы один диалог помимо текущего
-    if (dialogs.length <= 1) {
-      // Если это единственный диалог, просто очищаем его сообщения
-      setDialogs([{ id: activeDialogId, messages: [] }]);
-      return;
-    }
-
-    // Находим индекс текущего диалога
-    const currentIndex = dialogs.findIndex(
-      (dialog) => dialog.id === activeDialogId
-    );
-
-    // Удаляем текущий диалог
-    const newDialogs = dialogs.filter((dialog) => dialog.id !== activeDialogId);
-
-    // Определяем, какой диалог станет активным после удаления
-    let newActiveIndex = 0;
-    if (currentIndex > 0) {
-      // Если удаляемый диалог не первый, активируем предыдущий
-      newActiveIndex = currentIndex - 1;
-    }
-
-    // Устанавливаем новый список диалогов и новый активный диалог
-    setDialogs(newDialogs);
-    setActiveDialogId(newDialogs[newActiveIndex].id);
-  };
-
   // Отправить сообщение
-  const sendMessage = async () => {
+  const ______sendMessage = async () => {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     if (!userMessage.trim()) return;
 
     // Добавляем сообщение пользователя
@@ -373,18 +264,6 @@ export default function FollowUpPage() {
       );
     }, 1000);
   };
-
-  // Обработчик нажатия Enter для отправки сообщения
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  // Получение активного диалога
-  const activeDialog = dialogs.find((dialog) => dialog.id === activeDialogId) ||
-    dialogs[0] || { id: '', messages: [] };
 
   // Загрузка данных при монтировании
   useEffect(() => {

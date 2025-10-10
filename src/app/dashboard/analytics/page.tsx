@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { IconTrendingUp, IconDownload, IconEye } from '@tabler/icons-react';
-import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/contexts/FunnelsContext';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 import {
@@ -60,14 +59,8 @@ interface SmartAnalyticsData {
 }
 
 export default function AnalyticsPage() {
-  const { organization } = useOrganization();
-  const backendOrgId = organization?.publicMetadata?.id_backend as string;
   const { currentFunnel } = useFunnels(); // Подключаем хук для работы с воронками
   const { updateConfig } = usePageHeaderContext();
-
-  // Состояния
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('7d');
 
   // Моковые данные для демонстрации
   // Данные для воронки "Онлайн-образование"
@@ -300,15 +293,12 @@ export default function AnalyticsPage() {
 
   // Обработчики для TableHeader
   const handleTimeFilterChange = (period: string) => {
-    setSelectedPeriod(period);
-    setIsLoading(true);
+    console.log('Time filter changed:', period);
     // Имитация загрузки данных
-    setTimeout(() => setIsLoading(false), 1000);
   };
 
   const handleRefresh = () => {
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 1500);
+    console.log('Refreshing data');
   };
 
   const handleSearch = (query: string) => {
@@ -340,7 +330,8 @@ export default function AnalyticsPage() {
         onData: () => console.log('Data')
       }
     });
-  }, [updateConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getTrendIcon = (trend?: 'up' | 'down' | 'neutral') => {
     if (trend === 'up') return '↗️';

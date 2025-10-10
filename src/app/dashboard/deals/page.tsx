@@ -6,20 +6,9 @@ import { useFunnels } from '@/contexts/FunnelsContext';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useSidebar } from '@/components/ui/sidebar';
-import {
-  IconSearch,
-  IconLayoutKanban,
-  IconList,
-  IconFileDownload,
-  IconFileReport
-} from '@tabler/icons-react';
 import { ClientTable, Client } from './components/client-table';
 import { KanbanBoard } from './components/kanban-board';
-import { ClientActions } from './components/client-actions';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 import { AllFunnelsDealsPlaceholder } from '@/components/all-funnels-placeholder';
 
@@ -65,18 +54,12 @@ export interface Dialog {
 export default function DealsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'new'>(
-    'all'
-  );
   const [deals, setDeals] = useState<Dialog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const { state } = useSidebar();
   const { organization } = useOrganization();
-  const { currentFunnel, funnels } = useFunnels();
+  const { currentFunnel } = useFunnels();
   const { updateConfig, clearConfig } = usePageHeaderContext();
 
   // Получаем backend ID организации
@@ -108,7 +91,7 @@ export default function DealsPage() {
       if (cachedDeals && lastUpdatedStr) {
         const parsedDeals: Dialog[] = JSON.parse(cachedDeals);
         setDeals(parsedDeals);
-        setLastUpdated(new Date(lastUpdatedStr));
+        // Last updated time is cached but not displayed
 
         console.log('Данные сделок загружены из кэша');
         return true;
@@ -128,7 +111,7 @@ export default function DealsPage() {
       // Обновляем время последнего обновления
       const now = new Date();
       localStorage.setItem(getLastUpdatedKey(), now.toISOString());
-      setLastUpdated(now);
+      // Last updated time is cached but not displayed
     } catch (error) {
       console.error('Ошибка сохранения сделок в кэш:', error);
     }
@@ -287,11 +270,7 @@ export default function DealsPage() {
       }
 
       setError(null);
-      if (forceRefresh) {
-        setIsRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
 
       try {
         const dealsData = await fetchDealsFromServer();
@@ -306,22 +285,17 @@ export default function DealsPage() {
         setDeals([]); // Очищаем сделки при ошибке
       } finally {
         setLoading(false);
-        setIsRefreshing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [backendOrgId, currentFunnel?.id]
   );
 
   // Функция обновления данных
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchAllData(true);
-  };
-
-  // Предоставляем функцию обновления данных для дочерних компонентов
-  const refreshData = useCallback(() => {
-    console.log('Запрос на обновление данных от дочернего компонента');
-    handleRefresh();
-  }, [handleRefresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Функция для обновления клиента в массиве сделок
   const handleClientUpdate = (updatedClient: Client) => {
@@ -440,7 +414,8 @@ export default function DealsPage() {
     if (organization && currentFunnel) {
       fetchAllData();
     }
-  }, [backendOrgId, currentFunnel?.id, organization, fetchAllData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendOrgId, currentFunnel?.id, organization]);
 
   // Автоматическое обновление каждые 10 минут
   useEffect(() => {
@@ -452,7 +427,8 @@ export default function DealsPage() {
     }, CACHE_DURATION);
 
     return () => clearInterval(interval);
-  }, [backendOrgId, currentFunnel?.id, CACHE_DURATION, fetchAllData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendOrgId, currentFunnel?.id, CACHE_DURATION]);
 
   // Обновляем конфигурацию заголовка при изменении состояния
   useEffect(() => {
@@ -482,13 +458,7 @@ export default function DealsPage() {
     };
   }, [viewMode, updateConfig, clearConfig]);
 
-  // Динамически рассчитываем max-width в зависимости от состояния сайдбара
-  const getMaxWidth = () => {
-    if (state === 'collapsed') {
-      return 'calc(100vw - 3rem - 2rem)'; // 3rem для свернутого сайдбара + 2rem отступы
-    }
-    return 'calc(100vw - 16rem - 2rem)'; // 16rem для развернутого сайдбара + 2rem отступы
-  };
+  // Mobile-first responsive design - no fixed max-width calculations needed
 
   // Конвертируем Dialog в формат Client для совместимости с компонентами
   const dealsAsClients: Client[] = deals.map((deal) => ({
@@ -533,15 +503,9 @@ export default function DealsPage() {
       matchesSearch = nameMatch || emailMatch || phoneMatch || messageMatch;
     }
 
-    // Фильтрация по статусу
-    let matchesStatus = true;
-    if (statusFilter === 'active') {
-      matchesStatus = client.status === 'Активный';
-    } else if (statusFilter === 'new') {
-      matchesStatus = client.stage === 'Новый';
-    }
+    // Фильтрация по статусу удалена (нет UI для фильтра)
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   // Показываем индикатор загрузки
@@ -617,14 +581,18 @@ export default function DealsPage() {
       <div className='space-y-6'>
         {/* Отображение в зависимости от выбранного режима */}
         {viewMode === 'kanban' ? (
-          <KanbanBoard clients={filteredClients} />
+          <div className='w-full overflow-x-auto'>
+            <KanbanBoard clients={filteredClients} />
+          </div>
         ) : (
-          <ClientTable
-            clients={filteredClients}
-            backendOrgId={backendOrgId}
-            onClientUpdate={handleClientUpdate}
-            onRefresh={handleRefresh}
-          />
+          <div className='w-full overflow-x-auto'>
+            <ClientTable
+              clients={filteredClients}
+              backendOrgId={backendOrgId}
+              onClientUpdate={handleClientUpdate}
+              onRefresh={handleRefresh}
+            />
+          </div>
         )}
       </div>
     </PageContainer>

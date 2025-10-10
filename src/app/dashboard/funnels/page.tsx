@@ -5,7 +5,6 @@ import { useOrganization } from '@clerk/nextjs';
 import { PageContainer } from '@/components/ui/page-container';
 import { TableHeader as PageTableHeader } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
   Table,
@@ -21,7 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip';
-import { IconSearch, IconRefresh } from '@tabler/icons-react';
+import { IconRefresh } from '@tabler/icons-react';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { OrganizationSyncWrapper } from '@/components/OrganizationSyncWrapper';
 
@@ -50,9 +49,6 @@ function FunnelsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Ключи для localStorage
@@ -74,6 +70,7 @@ function FunnelsPageContent() {
         console.error('Error saving to cache:', error);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [backendOrgId]
   );
 
@@ -190,6 +187,7 @@ function FunnelsPageContent() {
         setIsRefreshing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [backendOrgId, saveToCache]
   );
 

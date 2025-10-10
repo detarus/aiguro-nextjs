@@ -2,19 +2,17 @@ import React from 'react';
 import { SidebarTrigger } from '../ui/sidebar';
 import { Separator } from '../ui/separator';
 import { Breadcrumbs } from '../breadcrumbs';
-import SearchInput from '../search-input';
-import { UserNav } from './user-nav';
 import { ThemeSelector } from '../theme-selector';
 import { ModeToggle } from './ThemeToggle/theme-toggle';
-import CtaGithub from './cta-github';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileHeaderPopup } from './mobile-header-popup';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '../ui/dropdown-menu';
 import {
@@ -31,8 +29,6 @@ import {
   IconFilter,
   IconLayoutGrid,
   IconDatabase,
-  IconChevronDown,
-  IconCalendar,
   IconSearch,
   IconPlus,
   IconLayoutKanban,
@@ -41,6 +37,44 @@ import {
 
 // Базовый header для обычных страниц
 export default function Header() {
+  const isMobile = useIsMobile();
+
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <header className='flex h-16 shrink-0 items-center justify-between gap-2 px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12'>
+        {/* AI Guro | Sales Hub Logo */}
+        <div className='flex items-center gap-2'>
+          <div className='flex h-7 w-7 items-center justify-center rounded-lg bg-gray-800 dark:bg-gray-100'>
+            <IconSettings className='h-4 w-4 text-white dark:text-gray-900' />
+          </div>
+          <div className='flex items-center gap-2'>
+            <h1 className='text-base font-semibold text-gray-900 dark:text-white'>
+              AI Guro
+            </h1>
+            <span className='text-gray-400 dark:text-gray-500'>|</span>
+            <p className='text-xs text-gray-500 dark:text-gray-300'>
+              Sales Hub
+            </p>
+          </div>
+        </div>
+
+        {/* Правая часть: Кнопки */}
+        <div className='flex items-center gap-2'>
+          {/* Кнопка фильтров - открывает мобильное меню */}
+          <MobileHeaderPopup
+            title='Dashboard'
+            triggerIcon={<IconFilter className='h-4 w-4' />}
+          />
+
+          {/* Кнопка сайдбара */}
+          <SidebarTrigger className='h-8 w-8 p-0' />
+        </div>
+      </header>
+    );
+  }
+
+  // Desktop layout
   return (
     <header className='flex h-16 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12'>
       <div className='flex items-center gap-2 px-4'>
@@ -104,6 +138,7 @@ export function TableHeader({
   settingsUrl = '/dashboard/management'
 }: TableHeaderProps) {
   const [activeTimeFilter, setActiveTimeFilter] = React.useState(timeFilter);
+  const isMobile = useIsMobile();
 
   // Синхронизируем внутреннее состояние с внешним пропом
   React.useEffect(() => {
@@ -122,6 +157,107 @@ export function TableHeader({
     </Button>
   );
 
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <header className='flex flex-col gap-3 border-b border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-900'>
+        {/* Первая строка: AI Guro Logo | Кнопки */}
+        <div className='flex items-center justify-between'>
+          {/* AI Guro | Sales Hub Logo */}
+          <div className='flex items-center gap-2'>
+            <div className='flex h-7 w-7 items-center justify-center rounded-lg bg-gray-800 dark:bg-gray-100'>
+              <IconSettings className='h-4 w-4 text-white dark:text-gray-900' />
+            </div>
+            <div className='flex items-center gap-2'>
+              <h1 className='text-base font-semibold text-gray-900 dark:text-white'>
+                AI Guro
+              </h1>
+              <span className='text-gray-400 dark:text-gray-500'>|</span>
+              <p className='text-xs text-gray-500 dark:text-gray-300'>
+                Sales Hub
+              </p>
+            </div>
+          </div>
+
+          {/* Правая часть: Кнопки */}
+          <div className='flex items-center gap-2'>
+            {/* Кнопка фильтров - открывает мобильное меню */}
+            <MobileHeaderPopup
+              title={title}
+              funnels={funnels}
+              selectedFunnel={selectedFunnel}
+              onFunnelChange={onFunnelChange}
+              onSearch={onSearch}
+              searchValue={searchValue}
+              onTimeFilterChange={onTimeFilterChange}
+              timeFilter={timeFilter}
+              timeFilterOptions={timeFilterOptions}
+              actions={actions}
+              viewMode={viewMode}
+              onViewModeChange={onViewModeChange}
+              showViewToggle={showViewToggle}
+              disableFunnelSettings={disableFunnelSettings}
+              settingsUrl={settingsUrl}
+              triggerIcon={<IconFilter className='h-4 w-4' />}
+            />
+
+            {/* Кнопка сайдбара */}
+            <SidebarTrigger className='h-8 w-8 p-0' />
+          </div>
+        </div>
+
+        {/* Вторая строка: Заголовок | Переключение воронки */}
+        <div className='flex items-center justify-between gap-4'>
+          {/* Левая часть: Заголовок */}
+          <h1 className='truncate text-lg font-semibold whitespace-nowrap text-gray-900 dark:text-gray-100'>
+            {title}
+          </h1>
+
+          {/* Правая часть: Переключение воронки */}
+          {funnels.length === 0 ? (
+            <Button
+              onClick={() => onFunnelChange?.('add-funnel')}
+              variant='default'
+              size='sm'
+              className='h-8 flex-shrink-0 text-sm'
+            >
+              <IconPlus className='mr-1 h-4 w-4' />
+              <span className='xs:inline hidden'>Создать воронку</span>
+              <span className='xs:hidden'>+</span>
+            </Button>
+          ) : (
+            <Select value={selectedFunnel} onValueChange={onFunnelChange}>
+              <SelectTrigger className='h-[32px] max-h-[32px] max-w-[180px] min-w-[120px] flex-shrink-0 text-sm'>
+                <SelectValue className='truncate'>
+                  {selectedFunnel === 'all-funnels'
+                    ? 'Все воронки'
+                    : funnels.find((f) => f.id === selectedFunnel)?.name ||
+                      'Выберите воронку'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem key='all-funnels' value='all-funnels'>
+                  Все воронки
+                </SelectItem>
+                {funnels
+                  .filter((f) => f.id !== 'create')
+                  .map((funnel) => (
+                    <SelectItem key={funnel.id} value={funnel.id}>
+                      {funnel.name}
+                    </SelectItem>
+                  ))}
+                <SelectItem value='add-funnel'>
+                  <span className='text-primary'>+ Создать воронку</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </header>
+    );
+  }
+
+  // Desktop layout
   return (
     <header className='flex flex-col gap-3 border-b border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-900'>
       {/* Первая строка: Хлебные крошки | Настройки воронки */}

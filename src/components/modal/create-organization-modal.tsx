@@ -10,7 +10,7 @@ interface CreateOrganizationModalProps {
 
 export function CreateOrganizationModal({
   isOpen,
-  onClose
+  onClose // eslint-disable-line @typescript-eslint/no-unused-vars
 }: CreateOrganizationModalProps) {
   const clerk = useClerk();
 

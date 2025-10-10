@@ -4,20 +4,13 @@ import { useState } from 'react';
 // import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
 
 interface FunnelSettingsSidebarProps {
   funnelName?: string;
 }
 
 export function FunnelSettingsSidebar({
-  funnelName = 'НОВАЯ'
+  funnelName = 'НОВАЯ' // eslint-disable-line @typescript-eslint/no-unused-vars
 }: FunnelSettingsSidebarProps) {
   const [strictlyNecessary, setStrictlyNecessary] = useState(true);
   const [functionalCookies, setFunctionalCookies] = useState(false);

@@ -124,6 +124,7 @@ export function ClientsDebug() {
   // Обновляем localStorage значения при монтировании компонента и изменении currentFunnel
   useEffect(() => {
     updateLocalStorageData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFunnel]);
 
   // Загружаем данные из localStorage при монтировании компонента

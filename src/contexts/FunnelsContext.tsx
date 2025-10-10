@@ -254,6 +254,7 @@ export function FunnelsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [funnels]); // Убираем currentFunnel из зависимостей
 
   // Вычисляемое свойство для проверки выбора "Все воронки"

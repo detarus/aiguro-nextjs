@@ -33,16 +33,10 @@ const NO_HEADER_PAGES = ['/dashboard/overview'];
 
 export default function ConditionalHeader() {
   const pathname = usePathname();
-  const { organization, isLoaded } = useOrganization();
+  const { isLoaded } = useOrganization();
   const [mounted, setMounted] = React.useState(false);
 
-  const {
-    currentFunnel,
-    funnels,
-    selectFunnel,
-    refreshFunnels,
-    setNewFunnelAsSelected
-  } = useFunnels();
+  const { currentFunnel, funnels, selectFunnel } = useFunnels();
   const { config, openAddFunnelModal } = usePageHeaderContext();
 
   // Prevent hydration mismatch

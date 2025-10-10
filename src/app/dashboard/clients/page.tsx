@@ -4,13 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/contexts/FunnelsContext';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
-import PageContainer from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useSidebar } from '@/components/ui/sidebar';
-import { IconSearch } from '@tabler/icons-react';
 import { ClientTable, Client } from './components/client-table';
-import { ClientActions } from './components/client-actions';
 import { ClientSelectionProvider } from './context/client-selection-context';
 import AddFunnelModal from '../overview/AddFunnelModal';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
@@ -26,15 +21,9 @@ export default function ClientsPage() {
   const [isAddModalOpen, setAddModalOpen] = useState(false);
   const [newFunnelName, setNewFunnelName] = useState('');
 
-  const { state } = useSidebar();
   const { organization } = useOrganization();
-  const {
-    currentFunnel,
-    funnels,
-    selectFunnel,
-    refreshFunnels,
-    setNewFunnelAsSelected
-  } = useFunnels();
+  const { currentFunnel, refreshFunnels, setNewFunnelAsSelected } =
+    useFunnels();
   const { updateConfig } = usePageHeaderContext();
 
   // Получаем backend ID организации
@@ -188,29 +177,13 @@ export default function ClientsPage() {
         setIsRefreshing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [backendOrgId, currentFunnel?.id]
   );
 
   // Функция обновления данных
   const handleRefresh = () => {
     fetchAllData(true);
-  };
-
-  // Обработка смены воронки (как в дашборде)
-  const handleFunnelChange = (funnelId: string) => {
-    if (funnelId === 'create') {
-      setAddModalOpen(true);
-    } else if (funnelId === 'all') {
-      console.log('Show all funnels');
-      // Здесь можно добавить логику показа всех воронок
-    } else {
-      const funnel = funnels?.find((f) => f.id === funnelId);
-      if (funnel) {
-        selectFunnel(funnel.id);
-        console.log('Все воронки:', funnels);
-        console.log('Выбрана воронка:', funnel);
-      }
-    }
   };
 
   // Функции для модального окна (скопированы из дашборда)
@@ -233,7 +206,8 @@ export default function ClientsPage() {
     if (organization && currentFunnel) {
       fetchAllData();
     }
-  }, [backendOrgId, currentFunnel?.id, organization, fetchAllData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendOrgId, currentFunnel?.id, organization]);
 
   // Автоматическое обновление каждые 10 минут
   useEffect(() => {
@@ -255,13 +229,7 @@ export default function ClientsPage() {
     return () => updateConfig({});
   }, [updateConfig]);
 
-  // Динамически рассчитываем max-width в зависимости от состояния сайдбара
-  const getMaxWidth = () => {
-    if (state === 'collapsed') {
-      return 'calc(100vw - 3rem - 2rem)'; // 3rem для свернутого сайдбара + 2rem отступы
-    }
-    return 'calc(100vw - 16rem - 2rem)'; // 16rem для развернутого сайдбара + 2rem отступы
-  };
+  // Mobile-first responsive design - no fixed max-width calculations needed
 
   // Фильтрация клиентов на стороне клиента
   const filteredClients = useMemo(() => {
@@ -363,13 +331,8 @@ export default function ClientsPage() {
     <div className='min-h-screen bg-white dark:bg-gray-900'>
       <div className='p-6'>
         <ClientSelectionProvider>
-          {/* Контейнер с горизонтальной прокруткой для контента */}
-          <div
-            className='overflow-x-auto'
-            style={{
-              maxWidth: getMaxWidth()
-            }}
-          >
+          {/* Responsive container for content */}
+          <div className='w-full overflow-x-auto'>
             <div className='min-w-[800px]'>
               {/* Таблица клиентов */}
               <ClientTable clients={filteredClients} />

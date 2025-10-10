@@ -126,6 +126,7 @@ export function AssistantsDebug() {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFunnel]);
 
   // Очищаем данные при смене организации

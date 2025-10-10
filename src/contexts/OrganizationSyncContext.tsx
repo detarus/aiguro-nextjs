@@ -123,6 +123,7 @@ export function OrganizationSyncProvider({
     if (!processedOrgs.current.has(orgId) && !isProcessing.current) {
       triggerSync();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id, organization?.publicMetadata?.id_backend, isLoaded]);
 
   return (

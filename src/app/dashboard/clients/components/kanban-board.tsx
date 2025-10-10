@@ -4,15 +4,13 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
-  IconPhone,
-  IconClock,
-  IconUser,
-  IconPlus,
   IconChevronDown,
-  IconChevronUp
+  IconChevronUp,
+  IconPhone,
+  IconUser,
+  IconClock
 } from '@tabler/icons-react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Client } from './client-table';

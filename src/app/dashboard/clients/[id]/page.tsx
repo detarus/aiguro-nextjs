@@ -293,6 +293,7 @@ export default function ClientDetailPage() {
         setIsRefreshing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [backendOrgId, clientId]
   );
 

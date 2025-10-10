@@ -11,7 +11,6 @@ import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import RenderResults from './render-result';
 import useThemeSwitching from './use-theme-switching';
-import { SearchIcon } from 'lucide-react';
 
 export default function KBar({ children }: { children: React.ReactNode }) {
   const router = useRouter();

@@ -1,13 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/contexts/FunnelsContext';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
 import AddFunnelModal from './overview/AddFunnelModal';
 
 export default function FunnelModalWrapper() {
-  const { organization } = useOrganization();
   const { isAddFunnelModalOpen, closeAddFunnelModal } = usePageHeaderContext();
   const { refreshFunnels, setNewFunnelAsSelected } = useFunnels();
 

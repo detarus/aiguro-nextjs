@@ -6,12 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import {
-  IconUser,
-  IconUsers,
-  IconBrain,
-  IconSettings
-} from '@tabler/icons-react';
+import { IconUser } from '@tabler/icons-react';
 
 interface AgentTeam {
   id: string;

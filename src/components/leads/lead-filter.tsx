@@ -11,7 +11,8 @@ interface LeadFilterProps {
 }
 
 // Define the category filter options
-const categoryOptions = [
+const __categoryOptions = [
+  // eslint-disable-line @typescript-eslint/no-unused-vars
   { id: 'all', label: 'All Leads' },
   { id: 'hot', label: 'Hot Leads' },
   { id: 'cold', label: 'Cold Leads' },

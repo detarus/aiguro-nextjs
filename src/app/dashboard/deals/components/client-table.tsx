@@ -24,13 +24,11 @@ import {
   IconEdit,
   IconArrowRight
 } from '@tabler/icons-react';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { useOrganization } from '@clerk/nextjs';
-import { useFunnels } from '@/contexts/FunnelsContext';
 
 // Типы для клиентов
 export interface Client {
@@ -84,10 +82,6 @@ export function ClientTable({
     message: string;
   }>({ id: null, status: 'idle', message: '' });
   const router = useRouter();
-  const { organization } = useOrganization();
-
-  // Используем хук для получения данных воронки
-  const { currentFunnel } = useFunnels();
 
   // Создаем карту стадий для сопоставления кодовых имен с русскими названиями и цветами
   const stageMap = useMemo(() => {
@@ -123,7 +117,8 @@ export function ClientTable({
 
     console.log('Карта стадий создана:', map);
     return map;
-  }, [currentFunnel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleClientSelection = (id: number) => {
     setSelectedClients((prev) => {
@@ -153,40 +148,6 @@ export function ClientTable({
       deleteClient(id);
     });
     setSelectedClients(new Set());
-  };
-
-  const toggleEditMode = (id: number) => {
-    setEditMode((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        // При выходе из режима редактирования, сохраняем изменения
-        handleSaveChanges(id);
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const handleClientChange = (
-    id: number,
-    field: keyof Client,
-    value: string
-  ) => {
-    // Если значение "Не указано" и пользователь начал редактирование,
-    // заменяем это значение на пустую строку
-    const currentValue = clientData[id]?.[field];
-    const newValue =
-      currentValue === 'Не указано' && value === 'Не указано' ? '' : value;
-
-    setClientData((prev) => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        [field]: newValue
-      }
-    }));
   };
 
   const handleSaveChanges = async (id: number) => {
@@ -666,15 +627,6 @@ export function ClientTable({
     }));
   };
 
-  // Функция для переключения выбора всех клиентов
-  const toggleSelectAll = () => {
-    if (selectedClients.size === clients.length) {
-      setSelectedClients(new Set());
-    } else {
-      setSelectedClients(new Set(clients.map((client) => client.id)));
-    }
-  };
-
   // Функция для начала редактирования клиента
   const startEdit = (id: number) => {
     // Инициализируем данные клиента в clientData, если их еще нет
@@ -713,9 +665,9 @@ export function ClientTable({
   };
 
   return (
-    <div className='overflow-hidden rounded-md'>
-      <div className='overflow-x-auto'>
-        <Table>
+    <div className='w-full overflow-hidden rounded-md'>
+      <div className='w-full overflow-x-auto'>
+        <Table className='w-full min-w-[800px]'>
           <TableHeader>
             <TableRow>
               <TableHead className='w-[40px]'>

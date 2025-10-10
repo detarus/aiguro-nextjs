@@ -8,17 +8,14 @@ import React, {
   useRef
 } from 'react';
 import { useOrganization } from '@clerk/nextjs';
-import { useSearchParams } from 'next/navigation';
 import { useFunnels } from '@/contexts/FunnelsContext';
 import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -37,6 +34,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { getClerkTokenFromClientCookie } from '@/lib/auth-utils';
 import { AllFunnelsPlaceholder } from '@/components/all-funnels-placeholder';
+import { FileUploader } from '@/components/file-uploader';
 import {
   IconBrandTelegram,
   IconBrandWhatsapp,
@@ -44,14 +42,14 @@ import {
   IconBrandFacebook,
   IconSettings,
   IconUsers,
-  IconAlertTriangle,
   IconAlertCircle,
   IconRotateClockwise,
   IconPlus,
-  IconSend,
   IconTrash,
   IconCheck,
-  IconX
+  IconX,
+  IconUpload,
+  IconRefresh
 } from '@tabler/icons-react';
 
 // Импорт Kanban компонентов
@@ -66,7 +64,7 @@ import {
   type DragOverEvent,
   type DragStartEvent
 } from '@dnd-kit/core';
-import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
+import { SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -139,11 +137,6 @@ interface ChatMessage {
   text: string;
   sender: 'user' | 'assistant';
   time: string;
-}
-
-interface ChatDialog {
-  id: string;
-  messages: ChatMessage[];
 }
 
 // Конфигурация интеграций
@@ -239,12 +232,142 @@ function StageSkeleton() {
 function AgentGeneralSettings({
   generalSettings,
   onSettingChange,
-  onSave
+  onSave,
+  backendOrgId,
+  funnelId
 }: {
   generalSettings: GeneralSettings;
   onSettingChange: (key: string, value: boolean) => void;
   onSave: () => void;
+  backendOrgId?: string;
+  funnelId?: string;
 }) {
+  const [files, setFiles] = useState<any[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    file: null as File | null,
+    description: '',
+    category: '',
+    is_public: false
+  });
+
+  const FILE_CATEGORIES = [
+    { value: 'general_info', label: 'Общая информация' },
+    { value: 'service_catalog', label: 'Каталог услуг' },
+    { value: 'dialog_management', label: 'Ведение диалога' },
+    { value: 'client_work', label: 'Работа с клиентом' }
+  ];
+
+  const isKnowledgeBaseEnabled =
+    generalSettings.cookieSettings.agentKnowledgeBase;
+
+  // Загрузка файлов при активации базы знаний
+  useEffect(() => {
+    if (isKnowledgeBaseEnabled && backendOrgId && funnelId) {
+      fetchFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isKnowledgeBaseEnabled, backendOrgId, funnelId]);
+
+  const fetchFiles = async () => {
+    if (!backendOrgId || !funnelId) return;
+
+    setFilesLoading(true);
+    try {
+      const token = getClerkTokenFromClientCookie();
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnels/${funnelId}/files`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Files data:', data); // Отладка
+        setFiles(data.files || []);
+      }
+    } catch (error) {
+      console.error('Error fetching files:', error);
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleOpenUploadModal = () => {
+    setUploadForm({
+      file: null,
+      description: '',
+      category: '',
+      is_public: false
+    });
+    setUploadModalOpen(true);
+  };
+
+  const handleUploadFile = async () => {
+    if (!uploadForm.file || !backendOrgId || !funnelId) return;
+
+    setUploadLoading(true);
+    try {
+      const token = getClerkTokenFromClientCookie();
+      const formData = new FormData();
+      formData.append('file', uploadForm.file);
+      if (uploadForm.description)
+        formData.append('description', uploadForm.description);
+      if (uploadForm.category) formData.append('category', uploadForm.category);
+      formData.append('is_public', uploadForm.is_public.toString());
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnels/${funnelId}/files`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (response.ok) {
+        setUploadModalOpen(false);
+        await fetchFiles(); // Перезагружаем список файлов
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string | number) => {
+    if (!backendOrgId || !funnelId) return;
+
+    if (!confirm('Вы уверены, что хотите удалить этот файл?')) return;
+
+    try {
+      const token = getClerkTokenFromClientCookie();
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnels/${funnelId}/files/${fileId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.ok) {
+        await fetchFiles(); // Перезагружаем список файлов
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+    }
+  };
   const cookieOptions = [
     {
       key: 'contextMemory',
@@ -284,45 +407,243 @@ function AgentGeneralSettings({
   ];
 
   return (
-    <Card className='h-fit'>
-      {/* <CardHeader>
-        <CardTitle>Настройки мультиагента</CardTitle>
-        <p className='text-muted-foreground text-sm'>
-          Вы можете настроить и адаптировать под свои задачи в этом меню агента
-        </p>
-      </CardHeader> */}
-      <CardContent className='space-y-4'>
-        <div className='space-y-3'>
-          {cookieOptions.map((setting) => (
-            <div
-              key={setting.key}
-              className='flex items-center justify-between gap-4'
-            >
-              <div className='flex-1'>
-                <h4 className='text-sm font-medium'>{setting.title}</h4>
-                <p className='text-muted-foreground text-xs'>
-                  {setting.description}
-                </p>
+    <>
+      <Card className='h-fit'>
+        {/* <CardHeader>
+          <CardTitle>Настройки мультиагента</CardTitle>
+          <p className='text-muted-foreground text-sm'>
+            Вы можете настроить и адаптировать под свои задачи в этом меню агента
+          </p>
+        </CardHeader> */}
+        <CardContent className='space-y-4'>
+          <div className='space-y-3'>
+            {cookieOptions.map((setting) => (
+              <React.Fragment key={setting.key}>
+                <div className='flex items-center justify-between gap-4'>
+                  <div className='flex-1'>
+                    <h4 className='text-sm font-medium'>{setting.title}</h4>
+                    <p className='text-muted-foreground text-xs'>
+                      {setting.description}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={
+                      generalSettings.cookieSettings[
+                        setting.key as keyof typeof generalSettings.cookieSettings
+                      ]
+                    }
+                    onCheckedChange={(checked) =>
+                      onSettingChange(setting.key, checked)
+                    }
+                  />
+                </div>
+
+                {/* Показываем файлы СРАЗУ после "База знаний агента" */}
+                {setting.key === 'agentKnowledgeBase' &&
+                  isKnowledgeBaseEnabled && (
+                    <div className='mt-3 mb-3 ml-4 space-y-3 border-l-2 border-blue-300 pl-4'>
+                      <div className='flex items-center justify-between gap-2'>
+                        <h5 className='text-sm font-semibold text-blue-700'>
+                          📁 Файлы базы знаний
+                        </h5>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-7 w-7'
+                          onClick={fetchFiles}
+                          disabled={filesLoading || !backendOrgId || !funnelId}
+                        >
+                          <IconRefresh
+                            className={`h-3 w-3 ${filesLoading ? 'animate-spin' : ''}`}
+                          />
+                        </Button>
+                      </div>
+
+                      {!backendOrgId || !funnelId ? (
+                        <div className='rounded bg-yellow-50 p-2 text-xs text-yellow-600'>
+                          ⚠️ Недостаточно данных для загрузки файлов
+                        </div>
+                      ) : filesLoading ? (
+                        <div className='text-xs text-gray-500'>
+                          Загрузка файлов...
+                        </div>
+                      ) : (
+                        <>
+                          {files.length === 0 ? (
+                            <div className='rounded border-2 border-dashed bg-gray-50 p-3 text-center text-xs text-gray-500'>
+                              Файлы не загружены
+                            </div>
+                          ) : (
+                            <div className='space-y-1'>
+                              {files.slice(0, 5).map((file: any) => {
+                                // Используем original_name как основное название
+                                const fileName =
+                                  file.original_name ||
+                                  file.filename ||
+                                  file.name ||
+                                  `Файл ${file.id}`;
+                                const fileSize = file.size || '?';
+
+                                return (
+                                  <div
+                                    key={file.id}
+                                    className='group flex items-center gap-2 rounded bg-blue-50 p-2 text-xs transition-colors hover:bg-blue-100'
+                                  >
+                                    <span
+                                      className='flex-1 truncate font-medium'
+                                      title={fileName}
+                                    >
+                                      {fileName}
+                                    </span>
+                                    <span className='flex-shrink-0 text-gray-500'>
+                                      {fileSize} Bytes
+                                    </span>
+                                    <Button
+                                      variant='ghost'
+                                      size='icon'
+                                      className='h-6 w-6 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100'
+                                      onClick={() => handleDeleteFile(file.id)}
+                                    >
+                                      <IconTrash className='h-3 w-3 text-red-500' />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
+                              {files.length > 5 && (
+                                <div className='pt-1 text-center text-xs text-gray-500'>
+                                  И еще {files.length - 5} файл(ов)
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Кнопка загрузки внизу списка */}
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            className='w-full'
+                            onClick={handleOpenUploadModal}
+                            disabled={!backendOrgId || !funnelId}
+                          >
+                            <IconUpload className='mr-2 h-3 w-3' />
+                            Загрузить
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+              </React.Fragment>
+            ))}
+          </div>
+
+          <Button onClick={onSave} className='w-full'>
+            Сохранить настройки общения
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Модальное окно загрузки файла */}
+      <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
+        <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-[700px]'>
+          <DialogHeader>
+            <DialogTitle>Загрузить файл в базу знаний</DialogTitle>
+          </DialogHeader>
+
+          <div className='grid gap-4 py-4'>
+            <div className='grid gap-2'>
+              <Label>Файл *</Label>
+              <div className='min-h-[120px]'>
+                <FileUploader
+                  value={uploadForm.file ? [uploadForm.file] : []}
+                  onValueChange={(files) => {
+                    if (Array.isArray(files) && files.length > 0) {
+                      setUploadForm((prev) => ({ ...prev, file: files[0] }));
+                    } else {
+                      setUploadForm((prev) => ({ ...prev, file: null }));
+                    }
+                  }}
+                  accept={{ '*': [] }}
+                  maxSize={50 * 1024 * 1024}
+                  maxFiles={1}
+                />
               </div>
-              <Switch
-                checked={
-                  generalSettings.cookieSettings[
-                    setting.key as keyof typeof generalSettings.cookieSettings
-                  ]
+            </div>
+
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+              <div className='grid gap-2'>
+                <Label htmlFor='category'>Категория</Label>
+                <Select
+                  value={uploadForm.category}
+                  onValueChange={(value) =>
+                    setUploadForm((prev) => ({ ...prev, category: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='Выберите категорию' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FILE_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className='grid gap-2'>
+                <Label htmlFor='is_public'>Публичный доступ</Label>
+                <Select
+                  value={uploadForm.is_public ? 'true' : 'false'}
+                  onValueChange={(value) =>
+                    setUploadForm((prev) => ({
+                      ...prev,
+                      is_public: value === 'true'
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='false'>Нет</SelectItem>
+                    <SelectItem value='true'>Да</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className='grid gap-2'>
+              <Label htmlFor='description'>Описание</Label>
+              <Textarea
+                id='description'
+                value={uploadForm.description}
+                onChange={(e) =>
+                  setUploadForm((prev) => ({
+                    ...prev,
+                    description: e.target.value
+                  }))
                 }
-                onCheckedChange={(checked) =>
-                  onSettingChange(setting.key, checked)
-                }
+                placeholder='Краткое описание файла'
+                rows={2}
               />
             </div>
-          ))}
-        </div>
+          </div>
 
-        <Button onClick={onSave} className='w-full'>
-          Сохранить настройки общения
-        </Button>
-      </CardContent>
-    </Card>
+          <DialogFooter>
+            <Button variant='outline' onClick={() => setUploadModalOpen(false)}>
+              Отмена
+            </Button>
+            <Button
+              onClick={handleUploadFile}
+              disabled={uploadLoading || !uploadForm.file}
+            >
+              {uploadLoading ? 'Загрузка...' : 'Загрузить'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -340,13 +661,6 @@ function AISettingsComponent({
   onSave: () => void;
   hasChanges?: boolean;
 }) {
-  const transferOptions = [
-    { value: 'Менеджеру', label: 'Менеджеру' },
-    { value: 'Этап 1', label: 'Этап 1' },
-    { value: 'Этап 2', label: 'Этап 2' },
-    { value: 'Этап 3', label: 'Этап 3' }
-  ];
-
   return (
     <Card className='h-fit'>
       <CardContent className='space-y-6 px-6'>
@@ -735,7 +1049,6 @@ function PromptTestingComponent({
 
     let attempts = 0;
     const maxAttempts = 30; // 15 секунд максимум
-    const currentMessageIds = new Set(messages.map((msg) => msg.id));
 
     const poll = async () => {
       try {
@@ -1005,6 +1318,7 @@ function PromptTestingComponent({
     if (activeSettingsTab === 'test' && backendOrgId && currentFunnel?.id) {
       loadTestDialogs();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSettingsTab, backendOrgId, currentFunnel?.id]);
 
   // Загрузка сообщений при выборе диалога
@@ -1013,12 +1327,8 @@ function PromptTestingComponent({
       loadDialogMessages(selectedTestDialogId);
       fetchDialogData(selectedTestDialogId);
     }
-  }, [
-    selectedTestDialogId,
-    activeSettingsTab,
-    loadDialogMessages,
-    fetchDialogData
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTestDialogId, activeSettingsTab]);
 
   // Очистка поллинга при размонтировании
   useEffect(() => {
@@ -1347,19 +1657,22 @@ function KanbanColumn({
   title,
   children,
   className = '',
-  headerContent,
-  isDropZone = false
+  headerContent
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
   headerContent?: React.ReactNode;
-  isDropZone?: boolean;
 }) {
   return (
     <div
       className={`rounded-lg border bg-gray-50 ${className}`}
-      style={{ minHeight: '600px', width: '300px' }}
+      style={{
+        minHeight: '600px',
+        minWidth: '250px',
+        width: '100%',
+        maxWidth: '300px'
+      }}
     >
       <div className='rounded-t-lg border-b bg-white p-4'>
         <h3 className='text-sm font-semibold tracking-wide text-gray-700 uppercase'>
@@ -1395,17 +1708,11 @@ const getTranslatedStage = (stage?: string) => {
 };
 
 function ManagementPageContent() {
-  const searchParams = useSearchParams();
   const { organization } = useOrganization();
   const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [funnelStages, setFunnelStages] = useState<Stage[]>([]);
   const [assistantsLoading, setAssistantsLoading] = useState(true);
-  const [selectedStage, setSelectedStage] = useState<{
-    index: number;
-    stage: Stage;
-  } | null>(null);
 
   // Состояния для интеграций
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -1910,6 +2217,7 @@ function ManagementPageContent() {
     ) {
       loadPromptForStage(selectedStageIndex);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStageIndex, funnelStages, selectedAgentForSettings]);
 
   // Загрузка интеграций и агентов
@@ -1972,11 +2280,8 @@ function ManagementPageContent() {
           onDragEnd={onDragEnd}
           onDragOver={onDragOver}
         >
-          <ScrollArea
-            className='w-full'
-            style={{ maxWidth: 'calc(100vw - 302px)' }}
-          >
-            <div className='flex gap-6 pb-4'>
+          <ScrollArea className='w-full'>
+            <div className='flex flex-col gap-6 pb-4 md:flex-row'>
               {/* Колонка 1: Доступные источники или Настройки агента */}
               <KanbanColumn
                 title={selectedAgentForSettings ? '' : 'Доступные источники'}
@@ -2002,6 +2307,8 @@ function ManagementPageContent() {
                     generalSettings={generalSettings}
                     onSettingChange={handleGeneralSettingChange}
                     onSave={handleSaveGeneralSettings}
+                    backendOrgId={backendOrgId}
+                    funnelId={currentFunnel?.id}
                   />
                 ) : (
                   <SortableContext items={connectionIds}>
@@ -2031,7 +2338,7 @@ function ManagementPageContent() {
               {/* Объединенный блок: Агенты воронки + Этапы */}
               <div
                 className='rounded-lg border bg-gray-50'
-                style={{ minHeight: '600px', minWidth: '1200px' }}
+                style={{ minHeight: '600px', minWidth: '800px' }}
               >
                 <div className='rounded-t-lg border-b bg-white p-0'>
                   <div className='flex gap-0'>
@@ -2109,7 +2416,11 @@ function ManagementPageContent() {
                                       ? 'border border-blue-200 bg-blue-100'
                                       : 'hover:bg-gray-100'
                                   }`}
-                                  style={{ width: '256px' }}
+                                  style={{
+                                    minWidth: '200px',
+                                    width: '100%',
+                                    maxWidth: '256px'
+                                  }}
                                   onClick={() =>
                                     !isEditing && handleStageHeaderClick(index)
                                   }
@@ -2208,10 +2519,10 @@ function ManagementPageContent() {
 
                 <div className='p-4'>
                   <ScrollArea className='h-[480px]'>
-                    <div className='flex gap-4'>
+                    <div className='flex flex-col gap-4 md:flex-row'>
                       {/* Левая секция: Агенты воронки - скрывается в режиме настройки */}
                       {!selectedAgentForSettings && (
-                        <div className='w-80 flex-shrink-0'>
+                        <div className='w-full flex-shrink-0 md:w-80'>
                           <div className='space-y-3'>
                             {/* Добавляем состояние загрузки для агентов */}
                             {!backendOrgId
@@ -2330,10 +2641,7 @@ function ManagementPageContent() {
                       >
                         {selectedAgentForSettings ? (
                           // Показываем две колонки настроек для выбранного агента с ограниченной шириной
-                          <div
-                            className='grid grid-cols-3 gap-4'
-                            style={{ maxWidth: 'calc(100vw - 650px)' }}
-                          >
+                          <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
                             <div className='col-span-2'>
                               <PromptTestingComponent
                                 instructions={instructions}
@@ -2377,7 +2685,11 @@ function ManagementPageContent() {
                                     <div
                                       key={`stage-skeleton-${stageIndex}`}
                                       className='flex-shrink-0'
-                                      style={{ width: '240px' }}
+                                      style={{
+                                        minWidth: '200px',
+                                        width: '100%',
+                                        maxWidth: '240px'
+                                      }}
                                     >
                                       <div className='space-y-2'>
                                         {Array.from({ length: 2 }).map(
@@ -2437,7 +2749,11 @@ function ManagementPageContent() {
                                 <div
                                   key={index}
                                   className='flex-shrink-0'
-                                  style={{ width: '240px' }}
+                                  style={{
+                                    minWidth: '200px',
+                                    width: '100%',
+                                    maxWidth: '240px'
+                                  }}
                                 >
                                   <div className='space-y-2'>
                                     {!backendOrgId

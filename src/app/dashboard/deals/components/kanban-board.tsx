@@ -1,22 +1,12 @@
 'use client';
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import {
-  IconPhone,
-  IconClock,
-  IconUser,
-  IconPlus,
-  IconChevronDown,
-  IconChevronUp
-} from '@tabler/icons-react';
-import { useSidebar } from '@/components/ui/sidebar';
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { Client } from './client-table';
 import { useFunnels } from '@/contexts/FunnelsContext';
-import { useOrganization } from '@clerk/nextjs';
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -43,44 +33,10 @@ const getInitials = (name: string) => {
     .slice(0, 2);
 };
 
-// Функция для получения цвета статуса
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'Активный':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
-    case 'Неактивный':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
-    case 'Отложен':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300';
-    default:
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
-  }
-};
-
-// Функция для определения цвета стадии на основе индекса
-const getStageColor = (index: number) => {
-  const colors = [
-    'bg-blue-500',
-    'bg-purple-500',
-    'bg-amber-500',
-    'bg-green-500',
-    'bg-pink-500',
-    'bg-cyan-500',
-    'bg-indigo-500',
-    'bg-rose-500',
-    'bg-emerald-500',
-    'bg-violet-500'
-  ];
-  return colors[index % colors.length];
-};
-
 // Компонент карточки клиента
 function ClientCard({ client }: { client: Client }) {
-  const statusColor = getStatusColor(client.status);
   const initials = getInitials(client.name);
   const router = useRouter();
-  const { organization } = useOrganization();
-  const backendOrgId = organization?.publicMetadata?.id_backend as string;
 
   // Форматируем цену для отображения
   const formattedPrice = new Intl.NumberFormat('ru-RU', {
@@ -200,15 +156,7 @@ function KanbanColumn({
   clients: Client[];
   stageIndex: number;
 }) {
-  const router = useRouter();
-  const { organization } = useOrganization();
-  const backendOrgId = organization?.publicMetadata?.id_backend as string;
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // Обработчик для добавления нового диалога
-  const handleAddDialog = () => {
-    router.push(`/dashboard/messengers?new=true`);
-  };
 
   // Обработчик для раскрытия/скрытия статистики
   const handleToggleExpanded = () => {
@@ -216,7 +164,7 @@ function KanbanColumn({
   };
 
   return (
-    <div className='max-w-[320px] min-w-[300px] flex-1'>
+    <div className='w-[280px] min-w-[280px] flex-shrink-0'>
       {/* Заголовок колонки */}
       <div className='mb-4 rounded-lg border border-gray-200'>
         <div className={`h-1 w-full rounded-t-lg ${stage.color}`} />
@@ -344,23 +292,9 @@ function KanbanColumn({
   );
 }
 
-export function KanbanBoard({
-  clients,
-  onClientUpdate,
-  onRefresh
-}: KanbanBoardProps) {
-  const { state } = useSidebar();
-  const { organization } = useOrganization();
-  const backendOrgId = organization?.publicMetadata?.id_backend as string;
+export function KanbanBoard({ clients }: KanbanBoardProps) {
   const { currentFunnel } = useFunnels();
   const [stages, setStages] = useState<Stage[]>([]);
-  const [debug, setDebug] = useState<{
-    stageIds: string[];
-    stageCodeNames: Record<string, string | undefined>;
-    clientStages: Record<string, number>;
-    clientDetails: Array<{ id: number; name: string; stage: string }>;
-  }>({ stageIds: [], stageCodeNames: {}, clientStages: {}, clientDetails: [] });
-  const router = useRouter();
 
   // Инициализируем стадии
   useEffect(() => {
@@ -372,33 +306,6 @@ export function KanbanBoard({
       { id: 'Закрыто', title: 'Закрыто', color: 'bg-green-500' }
     ]);
   }, [currentFunnel]);
-
-  // Собираем статистику по этапам клиентов для отладки
-  useEffect(() => {
-    const clientStages: Record<string, number> = {};
-    const clientDetails: Array<{ id: number; name: string; stage: string }> =
-      [];
-
-    clients.forEach((client) => {
-      if (!clientStages[client.stage]) {
-        clientStages[client.stage] = 0;
-      }
-      clientStages[client.stage]++;
-
-      // Добавляем детальную информацию о клиенте для отладки
-      clientDetails.push({
-        id: client.id,
-        name: client.name,
-        stage: client.stage
-      });
-    });
-
-    setDebug((prev) => ({
-      ...prev,
-      clientStages,
-      clientDetails
-    }));
-  }, [clients]);
 
   // Группируем клиентов по стадиям с учетом сопоставления stage с assistant_code_name
   const clientsByStage = useMemo(() => {
@@ -492,13 +399,7 @@ export function KanbanBoard({
     return result;
   }, [stages, clients]);
 
-  // Динамически рассчитываем max-width в зависимости от состояния сайдбара
-  const getMaxWidth = () => {
-    if (state === 'collapsed') {
-      return 'calc(100vw - 3rem - 2rem)'; // 3rem для свернутого сайдбара + 2rem отступы
-    }
-    return 'calc(100vw - 16rem - 2rem)'; // 16rem для развернутого сайдбара + 2rem отступы
-  };
+  // Mobile-first responsive design - no fixed max-width calculations needed
 
   return (
     <div className='w-full'>
@@ -541,14 +442,9 @@ export function KanbanBoard({
         </div>
       )} */}
 
-      {/* Контейнер с ограниченной шириной и горизонтальной прокруткой */}
-      <div
-        className='overflow-x-auto'
-        style={{
-          maxWidth: getMaxWidth()
-        }}
-      >
-        <div className='flex gap-6 pb-4'>
+      {/* Responsive container with horizontal scroll */}
+      <div className='w-full overflow-x-auto'>
+        <div className='flex min-w-max gap-4 pb-4'>
           {stages.map((stage, index) => (
             <KanbanColumn
               key={stage.id}

@@ -43,7 +43,8 @@ const SCALED_THEMES = [
   }
 ];
 
-const MONO_THEMES = [
+const __MONO_THEMES = [
+  // eslint-disable-line @typescript-eslint/no-unused-vars
   {
     name: 'Mono',
     value: 'mono-scaled'

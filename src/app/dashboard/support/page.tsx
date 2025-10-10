@@ -2,13 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { PageContainer } from '@/components/ui/page-container';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -48,7 +42,6 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { usePageHeaderContext } from '@/contexts/PageHeaderContext';
-import { useOrganization } from '@clerk/nextjs';
 import { useFunnels } from '@/contexts/FunnelsContext';
 
 // Типы данных
@@ -162,7 +155,6 @@ const departments = [
 
 export default function SupportPage() {
   const router = useRouter();
-  const { organization } = useOrganization();
   const [tickets] = useState<Ticket[]>(mockTickets);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFunnelId, setSelectedFunnelId] =
@@ -177,7 +169,7 @@ export default function SupportPage() {
   });
 
   // Получаем воронки
-  const { currentFunnel, funnels, selectFunnel } = useFunnels();
+  const { funnels, selectFunnel } = useFunnels();
 
   const { updateConfig } = usePageHeaderContext();
 
@@ -189,12 +181,6 @@ export default function SupportPage() {
 
   // Настройка заголовка страницы
   useEffect(() => {
-    const funnelsList =
-      funnels?.map((funnel) => ({
-        id: funnel.id,
-        name: funnel.name || 'Без названия'
-      })) || [];
-
     updateConfig({
       title: 'Поддержка',
       onSearch: setSearchQuery,
@@ -259,7 +245,8 @@ export default function SupportPage() {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
-  const getPriorityBadge = (priority: Ticket['priority']) => {
+  const ___getPriorityBadge = (priority: Ticket['priority']) => {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     const priorityConfig = {
       low: { label: 'Низкий', color: 'bg-green-100 text-green-700' },
       medium: { label: 'Средний', color: 'bg-yellow-100 text-yellow-700' },

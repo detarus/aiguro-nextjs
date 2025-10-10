@@ -10,6 +10,7 @@ import { TestDialogsDebug } from '@/components/test-dialogs-debug';
 import { DialogsDebug } from '@/components/dialogs-debug';
 import { ClientsDebug } from '@/components/clients-debug';
 import { AssistantsDebug } from '@/components/assistants-debug';
+import { FilesDebug } from '@/components/files-debug';
 import { PageContainer } from '@/components/ui/page-container';
 
 export default function DebugPage() {
@@ -26,6 +27,7 @@ export default function DebugPage() {
         <DialogsDebug />
         <ClientsDebug />
         <AssistantsDebug />
+        <FilesDebug />
       </div>
     </PageContainer>
   );

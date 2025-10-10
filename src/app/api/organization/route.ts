@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { display_name, gid, is_active } = body;
+  const { display_name, gid } = body;
 
   // Validate required fields
   if (

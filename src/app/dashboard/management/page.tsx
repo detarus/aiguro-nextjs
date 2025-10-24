@@ -893,35 +893,38 @@ function AISettingsComponent({
   return (
     <Card className='h-fit'>
       <CardContent className='space-y-6 px-6'>
-        {/* Mode Toggle */}
+        {/* Mode Toggle - DISABLED */}
         <div className='space-y-2'>
-          <Label className='text-sm font-medium'>Форматы работы</Label>
+          <Label className='text-sm font-medium text-gray-400'>
+            Форматы работы
+          </Label>
           <Tabs
             value={aiSettings.mode}
             onValueChange={(value) => onAISettingChange('mode', value)}
           >
-            <TabsList className='bg-muted w-full'>
-              <TabsTrigger value='complete' className='flex-1 text-xs'>
+            <TabsList className='bg-muted w-full cursor-not-allowed opacity-50'>
+              <TabsTrigger value='complete' className='flex-1 text-xs' disabled>
                 Агент
               </TabsTrigger>
-              <TabsTrigger value='insert' className='flex-1 text-xs'>
+              <TabsTrigger value='insert' className='flex-1 text-xs' disabled>
                 Помощник
               </TabsTrigger>
-              <TabsTrigger value='edit' className='flex-1 text-xs'>
+              <TabsTrigger value='edit' className='flex-1 text-xs' disabled>
                 Менеджер
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
 
-        {/* Model Selection */}
+        {/* Model Selection - DISABLED */}
         <div className='space-y-2'>
-          <Label className='text-sm font-medium'>Модель AI</Label>
+          <Label className='text-sm font-medium text-gray-400'>Модель AI</Label>
           <Select
             value={aiSettings.model}
             onValueChange={(value) => onAISettingChange('model', value)}
+            disabled
           >
-            <SelectTrigger>
+            <SelectTrigger className='cursor-not-allowed opacity-50'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -937,55 +940,45 @@ function AISettingsComponent({
           <div className='flex items-center justify-between'>
             <Label className='text-sm font-medium'>Температура</Label>
             <span className='text-muted-foreground text-sm'>
-              {aiSettings.temperature}
+              {aiSettings.temperature || 0.0}
             </span>
           </div>
           <Slider
-            value={[aiSettings.temperature]}
+            value={[aiSettings.temperature || 0.0]}
             onValueChange={([value]) => onAISettingChange('temperature', value)}
-            max={1}
-            min={0}
+            max={2.0}
+            min={0.0}
             step={0.01}
             className='w-full'
           />
         </div>
 
-        {/* Maximum Length */}
+        {/* Top P */}
         <div className='space-y-3'>
           <div className='flex items-center justify-between'>
-            <Label className='text-sm font-medium'>Макс. длина сообщения</Label>
+            <Label className='text-sm font-medium'>Top P</Label>
             <span className='text-muted-foreground text-sm'>
-              {aiSettings.maxLength}
+              {aiSettings.topP || 0.0}
             </span>
           </div>
           <Slider
-            value={[aiSettings.maxLength]}
-            onValueChange={([value]) => onAISettingChange('maxLength', value)}
-            max={4000}
-            min={1}
-            step={1}
+            value={[aiSettings.topP || 0.0]}
+            onValueChange={([value]) => onAISettingChange('topP', value)}
+            max={1.0}
+            min={0.0}
+            step={0.01}
             className='w-full'
           />
         </div>
 
-        {/* Follow up */}
+        {/* Follow up - DISABLED */}
         <div className='space-y-3'>
-          <Label className='text-sm font-medium'>Фоллоу-ап</Label>
-          <div className='flex items-center gap-2'>
-            <Switch
-              checked={aiSettings.followUp.enabled}
-              onCheckedChange={(checked) =>
-                onFollowUpChange('enabled', checked)
-              }
-            />
+          <Label className='text-sm font-medium text-gray-400'>Фоллоу-ап</Label>
+          <div className='flex items-center gap-2 opacity-50'>
+            <Switch checked={false} onCheckedChange={() => {}} disabled />
             <div className='flex flex-1 gap-2'>
-              <Select
-                value={String(aiSettings.followUp.count)}
-                onValueChange={(value) =>
-                  onFollowUpChange('count', Number(value))
-                }
-              >
-                <SelectTrigger className='w-16'>
+              <Select value='2' onValueChange={() => {}} disabled>
+                <SelectTrigger className='w-16 cursor-not-allowed'>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -996,13 +989,8 @@ function AISettingsComponent({
                   <SelectItem value='5'>5</SelectItem>
                 </SelectContent>
               </Select>
-              <Select
-                value={`${aiSettings.followUp.delay} мин`}
-                onValueChange={(value) =>
-                  onFollowUpChange('delay', Number(value.replace(' мин', '')))
-                }
-              >
-                <SelectTrigger className='flex-1'>
+              <Select value='20 мин' onValueChange={() => {}} disabled>
+                <SelectTrigger className='flex-1 cursor-not-allowed'>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2315,7 +2303,12 @@ function ManagementPageContent() {
         workSchedule: generalSettings.workSchedule,
         workStart: generalSettings.workSchedule ? generalSettings.workStart : 9,
         workEnd: generalSettings.workSchedule ? generalSettings.workEnd : 18,
-        role_instruction: generalSettings.roleInstruction
+        role_instruction: generalSettings.roleInstruction,
+        // Добавляем параметры AI
+        parameters: {
+          temperature: aiSettings.temperature || 0.0,
+          top_p: aiSettings.topP || 0.0
+        }
       };
 
       const response = await fetch(
@@ -2471,7 +2464,12 @@ function ManagementPageContent() {
             body: JSON.stringify({
               code_name: stage.assistant.code_name,
               name: stage.assistant.name,
-              prompt: instructions
+              prompt: instructions,
+              // Добавляем параметры AI
+              parameters: {
+                temperature: aiSettings.temperature || 0.0,
+                top_p: aiSettings.topP || 0.0
+              }
             })
           }
         );
@@ -2657,29 +2655,128 @@ function ManagementPageContent() {
     if (editingStageIndex === null || !editingStageValue.trim()) return;
 
     try {
-      // Здесь будет API вызов для сохранения нового названия этапа
-      // TODO: Реализовать API вызов
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setError('Отсутствует токен авторизации');
+        return;
+      }
+
+      if (!currentFunnel?.id || !backendOrgId) {
+        setError('Отсутствуют необходимые данные для сохранения');
+        return;
+      }
+
+      const stage = funnelStages[editingStageIndex];
+      if (!stage?.assistant || !(stage.assistant as any).id) {
+        setError('Не найден ассистент для этого этапа');
+        return;
+      }
+
       console.log(
         'Saving stage name:',
         editingStageValue,
         'for stage index:',
-        editingStageIndex
+        editingStageIndex,
+        'assistant ID:',
+        (stage.assistant as any).id
       );
 
-      // Обновляем локальное состояние
-      setFunnelStages((prev) =>
-        prev.map((stage, index) =>
-          index === editingStageIndex
-            ? { ...stage, name: editingStageValue.trim() }
-            : stage
-        )
+      // API вызов для обновления ассистента
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant/update/${(stage.assistant as any).id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            code_name: stage.assistant.code_name,
+            name: editingStageValue.trim(), // Передаем новое название этапа
+            prompt: stage.assistant.prompt || '',
+            // Добавляем параметры AI
+            parameters: {
+              temperature: aiSettings.temperature || 0.0,
+              top_p: aiSettings.topP || 0.0
+            }
+          })
+        }
       );
 
-      // Сбрасываем состояние редактирования
-      setEditingStageIndex(null);
-      setEditingStageValue('');
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Stage name updated successfully:', responseData);
+
+        // Обновляем локальное состояние
+        setFunnelStages((prev) =>
+          prev.map((stage, index) =>
+            index === editingStageIndex
+              ? { ...stage, name: editingStageValue.trim() }
+              : stage
+          )
+        );
+
+        // Принудительно обновляем localStorage с актуальными данными воронки
+        try {
+          const funnelResponse = await fetch(
+            `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              }
+            }
+          );
+
+          if (funnelResponse.ok) {
+            const updatedFunnelData = await funnelResponse.json();
+            localStorage.setItem(
+              'currentFunnel',
+              JSON.stringify(updatedFunnelData)
+            );
+
+            // Также обновляем список воронок
+            const funnelsResponse = await fetch(
+              `/api/organization/${backendOrgId}/funnels`
+            );
+            if (funnelsResponse.ok) {
+              const funnelsData = await funnelsResponse.json();
+              localStorage.setItem('funnels', JSON.stringify(funnelsData));
+            }
+
+            console.log(
+              'LocalStorage updated with latest funnel data after stage name update'
+            );
+          }
+        } catch (error) {
+          console.error(
+            'Error updating localStorage after stage name update:',
+            error
+          );
+        }
+
+        // Сбрасываем состояние редактирования
+        setEditingStageIndex(null);
+        setEditingStageValue('');
+
+        // Показываем сообщение об успехе
+        setSuccessMessage('Название этапа успешно обновлено');
+        setTimeout(() => setSuccessMessage(null), 3000);
+
+        // Временное решение: полная перезагрузка страницы для гарантированного обновления данных
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Ошибка при обновлении названия этапа');
+        setTimeout(() => setError(null), 3000);
+      }
     } catch (error) {
       console.error('Error saving stage name:', error);
+      setError('Ошибка при обновлении названия этапа');
+      setTimeout(() => setError(null), 3000);
     }
   };
 

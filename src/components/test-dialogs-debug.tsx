@@ -62,6 +62,69 @@ export function TestDialogsDebug() {
   const [sendTestMessageSuccessMessage, setSendTestMessageSuccessMessage] =
     useState<string | null>(null);
 
+  // Состояние для кнопки "Create Test Stage Dialog"
+  const [createTestStageDialogData, setCreateTestStageDialogData] =
+    useState<any>(null);
+  const [createTestStageDialogLoading, setCreateTestStageDialogLoading] =
+    useState(false);
+  const [createTestStageDialogError, setCreateTestStageDialogError] = useState<
+    string | null
+  >(null);
+  const [
+    createTestStageDialogSuccessMessage,
+    setCreateTestStageDialogSuccessMessage
+  ] = useState<string | null>(null);
+
+  // Состояние для этапов воронки
+  const [funnelStages, setFunnelStages] = useState<any[]>([]);
+  const [funnelStagesLoading, setFunnelStagesLoading] = useState(false);
+
+  // Состояние для модального окна создания тестового диалога с этапом
+  const [
+    isCreateTestStageDialogModalOpen,
+    setIsCreateTestStageDialogModalOpen
+  ] = useState(false);
+  const [selectedStageNumber, setSelectedStageNumber] = useState<number>(0);
+  const [initialMessage, setInitialMessage] = useState('');
+
+  // Состояние для отправки сообщения в тестовый диалог этапа
+  const [sendTestStageMessageData, setSendTestStageMessageData] =
+    useState<any>(null);
+  const [sendTestStageMessageLoading, setSendTestStageMessageLoading] =
+    useState(false);
+  const [sendTestStageMessageError, setSendTestStageMessageError] = useState<
+    string | null
+  >(null);
+  const [
+    sendTestStageMessageSuccessMessage,
+    setSendTestStageMessageSuccessMessage
+  ] = useState<string | null>(null);
+
+  // Состояние для получения тестовых диалогов по этапу
+  const [getTestStageDialogsData, setGetTestStageDialogsData] =
+    useState<any>(null);
+  const [getTestStageDialogsLoading, setGetTestStageDialogsLoading] =
+    useState(false);
+  const [getTestStageDialogsError, setGetTestStageDialogsError] = useState<
+    string | null
+  >(null);
+  const [
+    getTestStageDialogsSuccessMessage,
+    setGetTestStageDialogsSuccessMessage
+  ] = useState<string | null>(null);
+
+  // Состояние для модальных окон новых методов
+  const [isSendTestStageMessageModalOpen, setIsSendTestStageMessageModalOpen] =
+    useState(false);
+  const [isGetTestStageDialogsModalOpen, setIsGetTestStageDialogsModalOpen] =
+    useState(false);
+  const [selectedTestStageDialogUuid, setSelectedTestStageDialogUuid] =
+    useState('');
+  const [testStageMessageText, setTestStageMessageText] = useState('');
+  const [testStageMessageRole, setTestStageMessageRole] = useState('user');
+  const [selectedStageForDialogs, setSelectedStageForDialogs] =
+    useState<number>(0);
+
   // Состояние для модальных окон
   const [isTestDialogMessagesModalOpen, setIsTestDialogMessagesModalOpen] =
     useState(false);
@@ -129,6 +192,15 @@ export function TestDialogsDebug() {
     setSendTestMessageData(null);
     setSendTestMessageError(null);
     setSendTestMessageSuccessMessage(null);
+    setCreateTestStageDialogData(null);
+    setCreateTestStageDialogError(null);
+    setCreateTestStageDialogSuccessMessage(null);
+    setSendTestStageMessageData(null);
+    setSendTestStageMessageError(null);
+    setSendTestStageMessageSuccessMessage(null);
+    setGetTestStageDialogsData(null);
+    setGetTestStageDialogsError(null);
+    setGetTestStageDialogsSuccessMessage(null);
   }, [backendOrgId]);
 
   // Очищаем данные при смене воронки
@@ -145,7 +217,67 @@ export function TestDialogsDebug() {
     setSendTestMessageData(null);
     setSendTestMessageError(null);
     setSendTestMessageSuccessMessage(null);
+    setCreateTestStageDialogData(null);
+    setCreateTestStageDialogError(null);
+    setCreateTestStageDialogSuccessMessage(null);
+    setSendTestStageMessageData(null);
+    setSendTestStageMessageError(null);
+    setSendTestStageMessageSuccessMessage(null);
+    setGetTestStageDialogsData(null);
+    setGetTestStageDialogsError(null);
+    setGetTestStageDialogsSuccessMessage(null);
   }, [localStorageFunnel?.id]);
+
+  // Функция для загрузки этапов воронки
+  const loadFunnelStages = async () => {
+    if (
+      !backendOrgId ||
+      !localStorageFunnel?.id ||
+      localStorageFunnel.id === '0'
+    ) {
+      setFunnelStages([]);
+      return;
+    }
+
+    setFunnelStagesLoading(true);
+    try {
+      const token = getClerkTokenFromClientCookie();
+      if (!token) {
+        setFunnelStages([]);
+        return;
+      }
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setFunnelStages(data.stages || []);
+      } else {
+        console.error('Failed to fetch funnel stages');
+        setFunnelStages([]);
+      }
+    } catch (error) {
+      console.error('Error loading funnel stages:', error);
+      setFunnelStages([]);
+    } finally {
+      setFunnelStagesLoading(false);
+    }
+  };
+
+  // Загружаем этапы воронки при изменении воронки
+  useEffect(() => {
+    loadFunnelStages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendOrgId, localStorageFunnel?.id]);
 
   // Функции для работы с тестовыми диалогами
 
@@ -561,6 +693,344 @@ export function TestDialogsDebug() {
     }
   };
 
+  // Обработчик создания тестового диалога с этапом
+  const handleCreateTestStageDialog = async () => {
+    console.log('Create Test Stage Dialog button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setCreateTestStageDialogError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setCreateTestStageDialogError(
+        'No backend organization ID found in metadata'
+      );
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setCreateTestStageDialogError('No current funnel selected');
+      return;
+    }
+
+    if (selectedStageNumber < 0 || selectedStageNumber >= funnelStages.length) {
+      setCreateTestStageDialogError('Please select a valid stage number');
+      return;
+    }
+
+    if (!initialMessage.trim()) {
+      setCreateTestStageDialogError('Initial message cannot be empty');
+      return;
+    }
+
+    setCreateTestStageDialogLoading(true);
+    setCreateTestStageDialogError(null);
+    setCreateTestStageDialogSuccessMessage(null);
+
+    try {
+      const requestBody = {
+        stage_number: selectedStageNumber,
+        initial_message: initialMessage.trim()
+      };
+
+      console.log(
+        'Making POST request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/dialog/test-stage'
+      );
+      console.log('Request body:', requestBody);
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/test-stage`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully created test stage dialog:', data);
+      setCreateTestStageDialogData(data);
+      setCreateTestStageDialogSuccessMessage(
+        `Тестовый диалог для этапа ${selectedStageNumber} успешно создан! UUID: ${data.uuid || data.id}`
+      );
+
+      // Закрываем модальное окно и очищаем поля
+      setIsCreateTestStageDialogModalOpen(false);
+      setSelectedStageNumber(0);
+      setInitialMessage('');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setCreateTestStageDialogSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error creating test stage dialog:', error);
+      setCreateTestStageDialogError(error.message || 'Unknown error occurred');
+    } finally {
+      setCreateTestStageDialogLoading(false);
+    }
+  };
+
+  // Обработчик отправки сообщения в тестовый диалог этапа
+  const handleSendTestStageMessage = async () => {
+    console.log('Send Test Stage Message button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setSendTestStageMessageError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setSendTestStageMessageError(
+        'No backend organization ID found in metadata'
+      );
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setSendTestStageMessageError('No current funnel selected');
+      return;
+    }
+
+    if (!selectedTestStageDialogUuid.trim()) {
+      setSendTestStageMessageError('Please select a test stage dialog UUID');
+      return;
+    }
+
+    if (!testStageMessageText.trim()) {
+      setSendTestStageMessageError('Message text cannot be empty');
+      return;
+    }
+
+    setSendTestStageMessageLoading(true);
+    setSendTestStageMessageError(null);
+    setSendTestStageMessageSuccessMessage(null);
+
+    try {
+      const requestBody = {
+        text: testStageMessageText.trim(),
+        role: testStageMessageRole
+      };
+
+      console.log(
+        'Making POST request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/dialog/test-stage/' +
+          selectedTestStageDialogUuid +
+          '/message'
+      );
+      console.log('Request body:', requestBody);
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/test-stage/${selectedTestStageDialogUuid}/message`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully sent test stage message:', data);
+      setSendTestStageMessageData(data);
+      setSendTestStageMessageSuccessMessage(
+        `Сообщение успешно отправлено в тестовый диалог этапа "${selectedTestStageDialogUuid}"!`
+      );
+
+      // Закрываем модальное окно и очищаем поля
+      setIsSendTestStageMessageModalOpen(false);
+      setSelectedTestStageDialogUuid('');
+      setTestStageMessageText('');
+      setTestStageMessageRole('user');
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setSendTestStageMessageSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error sending test stage message:', error);
+      setSendTestStageMessageError(error.message || 'Unknown error occurred');
+    } finally {
+      setSendTestStageMessageLoading(false);
+    }
+  };
+
+  // Обработчик получения тестовых диалогов по этапу
+  const handleGetTestStageDialogs = async () => {
+    console.log('Get Test Stage Dialogs button clicked!');
+
+    const token = getClerkTokenFromClientCookie();
+    if (!token) {
+      setGetTestStageDialogsError('No token available in __session cookie');
+      return;
+    }
+
+    if (!backendOrgId) {
+      setGetTestStageDialogsError(
+        'No backend organization ID found in metadata'
+      );
+      return;
+    }
+
+    if (!localStorageFunnel?.id) {
+      setGetTestStageDialogsError('No current funnel selected');
+      return;
+    }
+
+    if (
+      selectedStageForDialogs < 0 ||
+      selectedStageForDialogs >= funnelStages.length
+    ) {
+      setGetTestStageDialogsError('Please select a valid stage number');
+      return;
+    }
+
+    setGetTestStageDialogsLoading(true);
+    setGetTestStageDialogsError(null);
+    setGetTestStageDialogsSuccessMessage(null);
+
+    try {
+      console.log(
+        'Making GET request to /api/organization/' +
+          backendOrgId +
+          '/funnel/' +
+          localStorageFunnel.id +
+          '/dialog/test-stage-dialogs/' +
+          selectedStageForDialogs
+      );
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}/dialog/test-stage-dialogs/${selectedStageForDialogs}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+          console.error('API error response:', errorData);
+
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `${errorMessage}\nServer response: ${JSON.stringify(errorData)}`;
+          }
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = `${errorMessage}\nServer response: ${errorText}`;
+            }
+          } catch (textError) {
+            errorMessage = `${errorMessage}\nUnable to read server response`;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Successfully fetched test stage dialogs:', data);
+      setGetTestStageDialogsData(data);
+      setGetTestStageDialogsSuccessMessage(
+        `Тестовые диалоги для этапа ${selectedStageForDialogs} успешно получены! Найдено: ${Array.isArray(data) ? data.length : 'N/A'} диалогов`
+      );
+
+      // Закрываем модальное окно, но НЕ очищаем selectedStageForDialogs
+      setIsGetTestStageDialogsModalOpen(false);
+
+      // Убираем сообщение об успехе через 3 секунды
+      setTimeout(() => {
+        setGetTestStageDialogsSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error fetching test stage dialogs:', error);
+      setGetTestStageDialogsError(error.message || 'Unknown error occurred');
+    } finally {
+      setGetTestStageDialogsLoading(false);
+    }
+  };
+
   // Модальные окна
   const handleOpenTestDialogMessagesModal = () => {
     setIsTestDialogMessagesModalOpen(true);
@@ -588,9 +1058,69 @@ export function TestDialogsDebug() {
     setSendTestMessageError(null);
   };
 
+  const handleOpenCreateTestStageDialogModal = () => {
+    setIsCreateTestStageDialogModalOpen(true);
+    setCreateTestStageDialogError(null);
+    setCreateTestStageDialogSuccessMessage(null);
+  };
+
+  const handleCloseCreateTestStageDialogModal = () => {
+    setIsCreateTestStageDialogModalOpen(false);
+    setSelectedStageNumber(0);
+    setInitialMessage('');
+    setCreateTestStageDialogError(null);
+  };
+
+  const handleOpenSendTestStageMessageModal = () => {
+    setIsSendTestStageMessageModalOpen(true);
+    setSendTestStageMessageError(null);
+    setSendTestStageMessageSuccessMessage(null);
+
+    // Если нет диалогов, показываем информационное сообщение
+    if (availableTestStageDialogs.length === 0) {
+      setSendTestStageMessageError(
+        'Сначала получите тестовые диалоги этапа с помощью кнопки "Get Test Stage Dialogs"'
+      );
+    }
+  };
+
+  const handleCloseSendTestStageMessageModal = () => {
+    setIsSendTestStageMessageModalOpen(false);
+    setSelectedTestStageDialogUuid('');
+    setTestStageMessageText('');
+    setTestStageMessageRole('user');
+    setSendTestStageMessageError(null);
+  };
+
+  const handleOpenGetTestStageDialogsModal = () => {
+    setIsGetTestStageDialogsModalOpen(true);
+    setGetTestStageDialogsError(null);
+    setGetTestStageDialogsSuccessMessage(null);
+  };
+
+  const handleCloseGetTestStageDialogsModal = () => {
+    setIsGetTestStageDialogsModalOpen(false);
+    setGetTestStageDialogsError(null);
+  };
+
   // Получаем доступные тестовые диалоги для селекторов
   const availableTestDialogs =
     testDialogsData && Array.isArray(testDialogsData) ? testDialogsData : [];
+
+  // Получаем доступные тестовые диалоги этапа для селектора отправки сообщений
+  const availableTestStageDialogs =
+    getTestStageDialogsData && Array.isArray(getTestStageDialogsData)
+      ? getTestStageDialogsData
+      : [];
+
+  // Отладочная информация
+  console.log('=== DEBUG INFO ===');
+  console.log('availableTestStageDialogs:', availableTestStageDialogs);
+  console.log('getTestStageDialogsData:', getTestStageDialogsData);
+  console.log('localStorageFunnel?.id:', localStorageFunnel?.id);
+  console.log('backendOrgId:', backendOrgId);
+  console.log('sendTestStageMessageLoading:', sendTestStageMessageLoading);
+  console.log('=== END DEBUG ===');
 
   return (
     <>
@@ -682,6 +1212,80 @@ export function TestDialogsDebug() {
                 Send Test Message
               </Button>
             )}
+
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenCreateTestStageDialogModal}
+                disabled={
+                  createTestStageDialogLoading ||
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  funnelStages.length === 0
+                }
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20 dark:hover:text-orange-300'
+              >
+                <TestTube className='mr-2 h-4 w-4' />
+                {createTestStageDialogLoading
+                  ? 'Creating...'
+                  : 'Create Test Stage Dialog'}
+              </Button>
+            )}
+
+            {localStorageFunnel?.id !== '0' &&
+              (() => {
+                const isDisabled =
+                  sendTestStageMessageLoading ||
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  availableTestStageDialogs.length === 0;
+
+                console.log('Button disabled check:', {
+                  sendTestStageMessageLoading,
+                  backendOrgId: !!backendOrgId,
+                  localStorageFunnelId: !!localStorageFunnel?.id,
+                  availableTestStageDialogsLength:
+                    availableTestStageDialogs.length,
+                  isDisabled
+                });
+
+                return (
+                  <Button
+                    onClick={handleOpenSendTestStageMessageModal}
+                    disabled={isDisabled}
+                    variant='outline'
+                    size='sm'
+                    className='w-full justify-start text-pink-600 hover:bg-pink-50 hover:text-pink-700 dark:text-pink-400 dark:hover:bg-pink-900/20 dark:hover:text-pink-300'
+                    title={`Диалогов: ${availableTestStageDialogs.length}, Загрузка: ${sendTestStageMessageLoading}, OrgId: ${!!backendOrgId}, FunnelId: ${!!localStorageFunnel?.id}`}
+                  >
+                    <Send className='mr-2 h-4 w-4' />
+                    {sendTestStageMessageLoading
+                      ? 'Sending...'
+                      : 'Send Test Stage Message'}
+                  </Button>
+                );
+              })()}
+
+            {localStorageFunnel?.id !== '0' && (
+              <Button
+                onClick={handleOpenGetTestStageDialogsModal}
+                disabled={
+                  getTestStageDialogsLoading ||
+                  !backendOrgId ||
+                  !localStorageFunnel?.id ||
+                  funnelStages.length === 0
+                }
+                variant='outline'
+                size='sm'
+                className='w-full justify-start text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/20 dark:hover:text-indigo-300'
+              >
+                <MessageSquare className='mr-2 h-4 w-4' />
+                {getTestStageDialogsLoading
+                  ? 'Loading...'
+                  : 'Get Test Stage Dialogs'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -710,6 +1314,27 @@ export function TestDialogsDebug() {
           <div className='mt-2 rounded bg-cyan-100 p-2 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'>
             <strong>Успех (Send Test Message):</strong>{' '}
             {sendTestMessageSuccessMessage}
+          </div>
+        )}
+
+        {createTestStageDialogSuccessMessage && (
+          <div className='mt-2 rounded bg-orange-100 p-2 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'>
+            <strong>Успех (Create Test Stage Dialog):</strong>{' '}
+            {createTestStageDialogSuccessMessage}
+          </div>
+        )}
+
+        {sendTestStageMessageSuccessMessage && (
+          <div className='mt-2 rounded bg-pink-100 p-2 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'>
+            <strong>Успех (Send Test Stage Message):</strong>{' '}
+            {sendTestStageMessageSuccessMessage}
+          </div>
+        )}
+
+        {getTestStageDialogsSuccessMessage && (
+          <div className='mt-2 rounded bg-indigo-100 p-2 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'>
+            <strong>Успех (Get Test Stage Dialogs):</strong>{' '}
+            {getTestStageDialogsSuccessMessage}
           </div>
         )}
 
@@ -746,6 +1371,33 @@ export function TestDialogsDebug() {
             <strong>Ошибка (Send Test Message):</strong>
             <pre className='mt-1 text-sm whitespace-pre-wrap'>
               {sendTestMessageError}
+            </pre>
+          </div>
+        )}
+
+        {createTestStageDialogError && (
+          <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+            <strong>Ошибка (Create Test Stage Dialog):</strong>
+            <pre className='mt-1 text-sm whitespace-pre-wrap'>
+              {createTestStageDialogError}
+            </pre>
+          </div>
+        )}
+
+        {sendTestStageMessageError && (
+          <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+            <strong>Ошибка (Send Test Stage Message):</strong>
+            <pre className='mt-1 text-sm whitespace-pre-wrap'>
+              {sendTestStageMessageError}
+            </pre>
+          </div>
+        )}
+
+        {getTestStageDialogsError && (
+          <div className='mt-2 rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+            <strong>Ошибка (Get Test Stage Dialogs):</strong>
+            <pre className='mt-1 text-sm whitespace-pre-wrap'>
+              {getTestStageDialogsError}
             </pre>
           </div>
         )}
@@ -791,6 +1443,39 @@ export function TestDialogsDebug() {
             </summary>
             <pre className='mt-2 max-h-64 overflow-auto rounded bg-cyan-100 p-2 text-xs dark:bg-cyan-900/30 dark:text-cyan-200'>
               {JSON.stringify(sendTestMessageData, null, 2)}
+            </pre>
+          </details>
+        )}
+
+        {createTestStageDialogData && (
+          <details className='mt-2'>
+            <summary className='cursor-pointer text-orange-600 dark:text-orange-400'>
+              View Create Test Stage Dialog API Response
+            </summary>
+            <pre className='mt-2 max-h-64 overflow-auto rounded bg-orange-100 p-2 text-xs dark:bg-orange-900/30 dark:text-orange-200'>
+              {JSON.stringify(createTestStageDialogData, null, 2)}
+            </pre>
+          </details>
+        )}
+
+        {sendTestStageMessageData && (
+          <details className='mt-2'>
+            <summary className='cursor-pointer text-pink-600 dark:text-pink-400'>
+              View Send Test Stage Message API Response
+            </summary>
+            <pre className='mt-2 max-h-64 overflow-auto rounded bg-pink-100 p-2 text-xs dark:bg-pink-900/30 dark:text-pink-200'>
+              {JSON.stringify(sendTestStageMessageData, null, 2)}
+            </pre>
+          </details>
+        )}
+
+        {getTestStageDialogsData && (
+          <details className='mt-2'>
+            <summary className='cursor-pointer text-indigo-600 dark:text-indigo-400'>
+              View Get Test Stage Dialogs API Response
+            </summary>
+            <pre className='mt-2 max-h-64 overflow-auto rounded bg-indigo-100 p-2 text-xs dark:bg-indigo-900/30 dark:text-indigo-200'>
+              {JSON.stringify(getTestStageDialogsData, null, 2)}
             </pre>
           </details>
         )}
@@ -1035,6 +1720,366 @@ export function TestDialogsDebug() {
                 >
                   <Send className='mr-2 h-4 w-4' />
                   {sendTestMessageLoading ? 'Sending...' : 'Send Message'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для создания тестового диалога с этапом */}
+      {isCreateTestStageDialogModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-2xl rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Create Test Stage Dialog
+              </h2>
+              <button
+                onClick={handleCloseCreateTestStageDialogModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='stage_number_select'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Stage Number
+                </Label>
+                <Select
+                  value={selectedStageNumber.toString()}
+                  onValueChange={(value) =>
+                    setSelectedStageNumber(parseInt(value))
+                  }
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose a stage number' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {funnelStages.map((stage, index) => (
+                      <SelectItem key={index} value={index.toString()}>
+                        Stage {index}: {stage.name || `Stage ${index}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='initial_message'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Initial Message
+                </Label>
+                <Input
+                  id='initial_message'
+                  type='text'
+                  value={initialMessage}
+                  onChange={(e) => setInitialMessage(e.target.value)}
+                  placeholder='Enter initial message for the test dialog'
+                  className='mt-1'
+                />
+              </div>
+
+              {funnelStages.length === 0 && (
+                <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
+                  <strong>Информация:</strong> Нет доступных этапов воронки.
+                  Убедитесь, что воронка выбрана и содержит этапы.
+                </div>
+              )}
+
+              {createTestStageDialogError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {createTestStageDialogError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseCreateTestStageDialogModal}
+                  variant='outline'
+                  disabled={createTestStageDialogLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateTestStageDialog}
+                  disabled={
+                    createTestStageDialogLoading ||
+                    selectedStageNumber < 0 ||
+                    selectedStageNumber >= funnelStages.length ||
+                    !initialMessage.trim()
+                  }
+                  className='bg-orange-600 text-white hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600'
+                >
+                  <TestTube className='mr-2 h-4 w-4' />
+                  {createTestStageDialogLoading
+                    ? 'Creating...'
+                    : 'Create Dialog'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для отправки сообщения в тестовый диалог этапа */}
+      {isSendTestStageMessageModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-2xl rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Send Test Stage Message
+              </h2>
+              <button
+                onClick={handleCloseSendTestStageMessageModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='test_stage_dialog_select'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Test Stage Dialog
+                </Label>
+                <Select
+                  value={selectedTestStageDialogUuid}
+                  onValueChange={setSelectedTestStageDialogUuid}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose a test stage dialog' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTestStageDialogs.map((dialog: any) => (
+                      <SelectItem key={dialog.uuid} value={dialog.uuid}>
+                        {dialog.uuid} (Stage: {dialog.stage})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='test_stage_message_text'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Message Text
+                </Label>
+                <Input
+                  id='test_stage_message_text'
+                  type='text'
+                  value={testStageMessageText}
+                  onChange={(e) => setTestStageMessageText(e.target.value)}
+                  placeholder='Enter your message'
+                  className='mt-1'
+                />
+              </div>
+
+              <div>
+                <Label
+                  htmlFor='test_stage_message_role'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Message Role
+                </Label>
+                <Select
+                  value={testStageMessageRole}
+                  onValueChange={setTestStageMessageRole}
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose message role' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='user'>User</SelectItem>
+                    <SelectItem value='assistant'>Assistant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {availableTestStageDialogs.length === 0 && (
+                <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
+                  <strong>Информация:</strong> Сначала получите тестовые диалоги
+                  этапа с помощью кнопки &quot;Get Test Stage Dialogs&quot;
+                  <br />
+                  <small>
+                    Отладка: Диалогов найдено:{' '}
+                    {availableTestStageDialogs.length}
+                  </small>
+                </div>
+              )}
+
+              {availableTestStageDialogs.length > 0 && (
+                <div className='rounded bg-green-100 p-2 text-green-700 dark:bg-green-900/30 dark:text-green-300'>
+                  <strong>Успех:</strong> Найдено{' '}
+                  {availableTestStageDialogs.length} диалогов для выбора
+                </div>
+              )}
+
+              {sendTestStageMessageError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {sendTestStageMessageError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseSendTestStageMessageModal}
+                  variant='outline'
+                  disabled={sendTestStageMessageLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSendTestStageMessage}
+                  disabled={
+                    sendTestStageMessageLoading ||
+                    !selectedTestStageDialogUuid.trim() ||
+                    !testStageMessageText.trim() ||
+                    availableTestStageDialogs.length === 0
+                  }
+                  className='bg-pink-600 text-white hover:bg-pink-700 dark:bg-pink-700 dark:hover:bg-pink-600'
+                >
+                  <Send className='mr-2 h-4 w-4' />
+                  {sendTestStageMessageLoading ? 'Sending...' : 'Send Message'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для получения тестовых диалогов по этапу */}
+      {isGetTestStageDialogsModalOpen && (
+        <div className='bg-opacity-50 fixed inset-0 z-50 flex items-center justify-center bg-black'>
+          <div className='mx-4 w-full max-w-2xl rounded-lg bg-white p-6 dark:bg-gray-800'>
+            <div className='mb-4 flex items-center justify-between'>
+              <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                Get Test Stage Dialogs
+              </h2>
+              <button
+                onClick={handleCloseGetTestStageDialogsModal}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              >
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-4'>
+              <div>
+                <Label
+                  htmlFor='stage_for_dialogs_select'
+                  className='text-sm font-medium text-gray-700 dark:text-gray-300'
+                >
+                  Select Stage Number
+                </Label>
+                <Select
+                  value={selectedStageForDialogs.toString()}
+                  onValueChange={(value) =>
+                    setSelectedStageForDialogs(parseInt(value))
+                  }
+                >
+                  <SelectTrigger className='mt-1'>
+                    <SelectValue placeholder='Choose a stage number' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {funnelStages.map((stage, index) => (
+                      <SelectItem key={index} value={index.toString()}>
+                        Stage {index}: {stage.name || `Stage ${index}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {funnelStages.length === 0 && (
+                <div className='rounded bg-yellow-100 p-2 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'>
+                  <strong>Информация:</strong> Нет доступных этапов воронки.
+                  Убедитесь, что воронка выбрана и содержит этапы.
+                </div>
+              )}
+
+              {getTestStageDialogsError && (
+                <div className='rounded bg-red-100 p-2 text-red-700 dark:bg-red-900/30 dark:text-red-300'>
+                  <strong>Ошибка:</strong>
+                  <pre className='mt-1 text-sm whitespace-pre-wrap'>
+                    {getTestStageDialogsError}
+                  </pre>
+                </div>
+              )}
+
+              <div className='flex justify-end space-x-3 pt-4'>
+                <Button
+                  onClick={handleCloseGetTestStageDialogsModal}
+                  variant='outline'
+                  disabled={getTestStageDialogsLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGetTestStageDialogs}
+                  disabled={
+                    getTestStageDialogsLoading ||
+                    selectedStageForDialogs < 0 ||
+                    selectedStageForDialogs >= funnelStages.length
+                  }
+                  className='bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600'
+                >
+                  <MessageSquare className='mr-2 h-4 w-4' />
+                  {getTestStageDialogsLoading ? 'Loading...' : 'Get Dialogs'}
                 </Button>
               </div>
             </div>

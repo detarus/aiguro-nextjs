@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -128,8 +129,22 @@ interface GeneralSettings {
     dataCollection: boolean;
     stopAgentAfterManager: boolean;
     agentKnowledgeBase: boolean;
+    companyKnowledgeBase: boolean;
     voiceRequests: boolean;
   };
+  // Поля для числовых настроек
+  contextMemorySize: number;
+  mergeToArray: number;
+  breakSize: number;
+  breakWait: number;
+  autoPause: number;
+  // Поля для работы по расписанию
+  workSchedule: boolean;
+  autoAnswer: string;
+  workStart: number;
+  workEnd: number;
+  // Общий промпт агента
+  roleInstruction: string;
 }
 
 interface ChatMessage {
@@ -234,13 +249,21 @@ function AgentGeneralSettings({
   onSettingChange,
   onSave,
   backendOrgId,
-  funnelId
+  funnelId,
+  saving,
+  successMessage,
+  errorMessage,
+  hasChanges
 }: {
   generalSettings: GeneralSettings;
-  onSettingChange: (key: string, value: boolean) => void;
+  onSettingChange: (key: string, value: boolean | number | string) => void;
   onSave: () => void;
   backendOrgId?: string;
   funnelId?: string;
+  saving?: boolean;
+  successMessage?: string | null;
+  errorMessage?: string | null;
+  hasChanges?: boolean;
 }) {
   const [files, setFiles] = useState<any[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -368,33 +391,60 @@ function AgentGeneralSettings({
       console.error('Error deleting file:', error);
     }
   };
+
   const cookieOptions = [
     {
       key: 'contextMemory',
       title: 'Память контекста',
-      description:
-        'Сохраняет информацию о предыдущих действиях пользователя для обеспечения последовательного взаимодействия с сайтом.',
-      enabled: true
+      description: 'Сохраняет информацию о предыдущих действиях пользователя.',
+      enabled: true,
+      hasNumericField: true,
+      numericFieldKey: 'contextMemorySize',
+      numericFieldLabel: 'Размер памяти контекста'
     },
     {
       key: 'dataCollection',
       title: 'Сбор массива данных',
       description:
         'Позволяет собирать анонимные данные о поведении пользователя для анализа и улучшения сервиса.',
-      enabled: false
+      enabled: false,
+      hasNumericField: true,
+      numericFieldKey: 'mergeToArray',
+      numericFieldLabel: 'Объединение в массив'
     },
     {
       key: 'stopAgentAfterManager',
       title: 'Пауза после сообщения от менеджера',
       description:
         'Обеспечивает автоматическую остановку работы чат-агента после вмешательства менеджера.',
-      enabled: true
+      enabled: true,
+      hasNumericField: true,
+      numericFieldKey: 'breakSize',
+      numericFieldLabel: 'Размер паузы',
+      hasSubFields: true,
+      subFields: [
+        {
+          key: 'breakWait',
+          label: 'Время ожидания паузы'
+        },
+        {
+          key: 'autoPause',
+          label: 'Автоматическая пауза'
+        }
+      ]
     },
     {
       key: 'agentKnowledgeBase',
       title: 'База знаний агента',
       description:
         'Даёт агенту доступ к внутренней базе знаний для предоставления точных и полезных ответов пользователю.',
+      enabled: true
+    },
+    {
+      key: 'companyKnowledgeBase',
+      title: 'База знаний организации',
+      description:
+        'Даёт агенту доступ к корпоративной базе знаний организации.',
       enabled: true
     },
     {
@@ -409,13 +459,25 @@ function AgentGeneralSettings({
   return (
     <>
       <Card className='h-fit'>
-        {/* <CardHeader>
-          <CardTitle>Настройки мультиагента</CardTitle>
-          <p className='text-muted-foreground text-sm'>
-            Вы можете настроить и адаптировать под свои задачи в этом меню агента
-          </p>
-        </CardHeader> */}
-        <CardContent className='space-y-4'>
+        <CardContent className='space-y-6'>
+          {/* Общий промпт агента */}
+          <div className='space-y-2'>
+            <Label htmlFor='roleInstruction' className='text-sm font-medium'>
+              Общий промпт агента
+            </Label>
+            <Textarea
+              id='roleInstruction'
+              value={generalSettings.roleInstruction}
+              onChange={(e) =>
+                onSettingChange('roleInstruction', e.target.value)
+              }
+              placeholder='Введите общий промпт для агента...'
+              rows={4}
+              className='resize-none'
+            />
+          </div>
+
+          {/* Основные настройки */}
           <div className='space-y-3'>
             {cookieOptions.map((setting) => (
               <React.Fragment key={setting.key}>
@@ -438,10 +500,80 @@ function AgentGeneralSettings({
                   />
                 </div>
 
+                {/* Числовое поле для основных настроек */}
+                {setting.hasNumericField &&
+                  generalSettings.cookieSettings[
+                    setting.key as keyof typeof generalSettings.cookieSettings
+                  ] && (
+                    <div className='mt-2 space-y-2 border-l-2 border-blue-300 pl-4'>
+                      <div className='flex items-center justify-between'>
+                        <Label className='text-sm font-medium'>
+                          {setting.numericFieldLabel}
+                        </Label>
+                      </div>
+                      <div className='pl-4'>
+                        <Input
+                          type='number'
+                          value={
+                            (generalSettings[
+                              setting.numericFieldKey as keyof typeof generalSettings
+                            ] as number) || 0
+                          }
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            onSettingChange(
+                              setting.numericFieldKey,
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          placeholder={`Введите ${setting.numericFieldLabel.toLowerCase()}`}
+                          className='w-full'
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                {/* Дополнительные поля для паузы после менеджера */}
+                {setting.hasSubFields &&
+                  generalSettings.cookieSettings[
+                    setting.key as keyof typeof generalSettings.cookieSettings
+                  ] && (
+                    <div className='mt-2 space-y-2 border-l-2 border-blue-300 pl-4'>
+                      {setting.subFields?.map((subField) => (
+                        <div key={subField.key} className='space-y-2'>
+                          <div className='flex items-center justify-between'>
+                            <Label className='text-sm font-medium'>
+                              {subField.label}
+                            </Label>
+                          </div>
+                          <div className='pl-4'>
+                            <Input
+                              type='number'
+                              value={
+                                (generalSettings[
+                                  subField.key as keyof typeof generalSettings
+                                ] as number) || 0
+                              }
+                              onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>
+                              ) =>
+                                onSettingChange(
+                                  subField.key,
+                                  parseInt(e.target.value) || 0
+                                )
+                              }
+                              placeholder={`Введите ${subField.label.toLowerCase()}`}
+                              className='w-full'
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                 {/* Показываем файлы СРАЗУ после "База знаний агента" */}
                 {setting.key === 'agentKnowledgeBase' &&
                   isKnowledgeBaseEnabled && (
-                    <div className='mt-3 mb-3 ml-4 space-y-3 border-l-2 border-blue-300 pl-4'>
+                    <div className='mt-3 mb-3 space-y-3 border-l-2 border-blue-300 pl-4'>
                       <div className='flex items-center justify-between gap-2'>
                         <h5 className='text-sm font-semibold text-blue-700'>
                           📁 Файлы базы знаний
@@ -536,8 +668,105 @@ function AgentGeneralSettings({
             ))}
           </div>
 
-          <Button onClick={onSave} className='w-full'>
-            Сохранить настройки общения
+          {/* Настройки рабочего расписания */}
+          <div className='space-y-4'>
+            <h3 className='text-sm font-semibold text-gray-700'>
+              Рабочее расписание
+            </h3>
+
+            <div className='flex items-center justify-between'>
+              <Label className='text-sm font-medium'>
+                Включить рабочее расписание
+              </Label>
+              <Switch
+                checked={generalSettings.workSchedule}
+                onCheckedChange={(checked) =>
+                  onSettingChange('workSchedule', checked)
+                }
+              />
+            </div>
+
+            {generalSettings.workSchedule && (
+              <div className='space-y-3 pl-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='autoAnswer' className='text-sm font-medium'>
+                    Автоответ вне рабочего времени
+                  </Label>
+                  <Textarea
+                    id='autoAnswer'
+                    value={generalSettings.autoAnswer}
+                    onChange={(e) =>
+                      onSettingChange('autoAnswer', e.target.value)
+                    }
+                    placeholder='Введите сообщение для автоответа...'
+                    rows={2}
+                    className='resize-none'
+                  />
+                </div>
+
+                <div className='grid grid-cols-2 gap-4'>
+                  <div className='space-y-2'>
+                    <Label htmlFor='workStart' className='text-sm font-medium'>
+                      Начало рабочего дня (час)
+                    </Label>
+                    <Input
+                      id='workStart'
+                      type='number'
+                      min='0'
+                      max='23'
+                      value={generalSettings.workStart}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        onSettingChange(
+                          'workStart',
+                          parseInt(e.target.value) || 9
+                        )
+                      }
+                      className='w-full'
+                    />
+                  </div>
+
+                  <div className='space-y-2'>
+                    <Label htmlFor='workEnd' className='text-sm font-medium'>
+                      Конец рабочего дня (час)
+                    </Label>
+                    <Input
+                      id='workEnd'
+                      type='number'
+                      min='0'
+                      max='23'
+                      value={generalSettings.workEnd}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        onSettingChange(
+                          'workEnd',
+                          parseInt(e.target.value) || 18
+                        )
+                      }
+                      className='w-full'
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Сообщения об успехе и ошибке */}
+          {successMessage && (
+            <div className='rounded-md bg-green-50 p-3 text-sm text-green-700'>
+              {successMessage}
+            </div>
+          )}
+          {errorMessage && (
+            <div className='rounded-md bg-red-50 p-3 text-sm text-red-700'>
+              {errorMessage}
+            </div>
+          )}
+
+          <Button
+            onClick={onSave}
+            className='w-full'
+            disabled={saving || !hasChanges}
+          >
+            {saving ? 'Сохранение...' : 'Сохранить настройки агента'}
           </Button>
         </CardContent>
       </Card>
@@ -831,7 +1060,8 @@ function PromptTestingComponent({
   error,
   stageName,
   currentFunnel,
-  backendOrgId
+  backendOrgId,
+  hasChanges
 }: {
   instructions: string;
   activeSettingsTab: 'setup' | 'test';
@@ -845,6 +1075,7 @@ function PromptTestingComponent({
   stageName?: string;
   currentFunnel?: any;
   backendOrgId?: string;
+  hasChanges?: boolean;
 }) {
   // Состояния чата
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1362,11 +1593,17 @@ function PromptTestingComponent({
           value={activeSettingsTab}
           onValueChange={(value) => onTabChange(value as 'setup' | 'test')}
         >
-          <TabsList className='w-full pt-1'>
-            <TabsTrigger value='setup' className='flex-1'>
+          <TabsList className='grid w-full grid-cols-2'>
+            <TabsTrigger
+              value='setup'
+              className='data-[state=active]:bg-blue-600 data-[state=active]:text-white'
+            >
               Настройка
             </TabsTrigger>
-            <TabsTrigger value='test' className='flex-1'>
+            <TabsTrigger
+              value='test'
+              className='data-[state=active]:bg-blue-600 data-[state=active]:text-white'
+            >
               Тестирование
             </TabsTrigger>
           </TabsList>
@@ -1392,7 +1629,7 @@ function PromptTestingComponent({
               <div className='flex gap-2'>
                 <Button
                   onClick={onSubmitInstructions}
-                  disabled={saving}
+                  disabled={saving || !hasChanges}
                   className='flex-1'
                 >
                   {saving ? 'Сохранение...' : 'Сохранить промпт'}
@@ -1754,8 +1991,19 @@ function ManagementPageContent() {
       dataCollection: false,
       stopAgentAfterManager: true,
       agentKnowledgeBase: true,
+      companyKnowledgeBase: true,
       voiceRequests: false
-    }
+    },
+    contextMemorySize: 0,
+    mergeToArray: 0,
+    breakSize: 0,
+    breakWait: 0,
+    autoPause: 0,
+    workSchedule: false,
+    autoAnswer: '',
+    workStart: 9,
+    workEnd: 18,
+    roleInstruction: ''
   });
 
   const [aiSettings, setAiSettings] = useState<AISettings>({
@@ -1779,15 +2027,58 @@ function ManagementPageContent() {
   const [instructions, setInstructions] = useState('');
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [hasAgentSettingsChanges, setHasAgentSettingsChanges] = useState(false);
+  const [hasPromptChanges, setHasPromptChanges] = useState(false);
+  const [hasAISettingsChanges, setHasAISettingsChanges] = useState(false);
 
   // Состояние для Drag and Drop
   const [activeConnection, setActiveConnection] = useState<Integration | null>(
     null
   );
 
-  const { currentFunnel, funnels, loading: funnelsLoading } = useFunnels();
+  const {
+    currentFunnel,
+    funnels,
+    loading: funnelsLoading,
+    refreshFunnels
+  } = useFunnels();
+
+  // Загружаем настройки агента из данных воронки
+  useEffect(() => {
+    if (currentFunnel && currentFunnel.id !== '0') {
+      const funnel = currentFunnel as any; // Расширенный тип с дополнительными полями
+
+      setGeneralSettings((prev) => ({
+        ...prev,
+        cookieSettings: {
+          contextMemory: funnel.useCompanyKnowledgeBase || false,
+          dataCollection: (funnel.mergeToArray || 0) > 0,
+          stopAgentAfterManager: funnel.autoPauseFull || false,
+          agentKnowledgeBase: funnel.useFunnelKnowledgeBase || false,
+          companyKnowledgeBase: funnel.useCompanyKnowledgeBase || false,
+          voiceRequests: funnel.acceptAudio || false
+        },
+        contextMemorySize: funnel.contextMemorySize || 0,
+        mergeToArray: funnel.mergeToArray || 0,
+        breakSize: funnel.breakSize || 0,
+        breakWait: funnel.breakWait || 0,
+        autoPause: funnel.autoPause || 0,
+        workSchedule: funnel.workSchedule || false,
+        autoAnswer: funnel.autoAnswer || '',
+        workStart: funnel.workStart || 9,
+        workEnd: funnel.workEnd || 18,
+        roleInstruction: funnel.role_instruction || ''
+      }));
+
+      // Сбрасываем флаги изменений при загрузке новой воронки
+      setHasAgentSettingsChanges(false);
+      setHasPromptChanges(false);
+      setHasAISettingsChanges(false);
+    }
+  }, [currentFunnel]);
 
   // Загрузка интеграций
   const fetchIntegrations = useCallback(async () => {
@@ -1924,22 +2215,140 @@ function ManagementPageContent() {
   }, [currentFunnel, backendOrgId, funnelsLoading]);
 
   // Обработчики для настроек
-  const handleGeneralSettingChange = (key: string, value: boolean) => {
-    setGeneralSettings((prev) => ({
-      ...prev,
-      cookieSettings: {
-        ...prev.cookieSettings,
-        [key]: value
+  const handleGeneralSettingChange = (
+    key: string,
+    value: boolean | number | string
+  ) => {
+    setGeneralSettings((prev) => {
+      // Обрабатываем cookieSettings
+      if (key in prev.cookieSettings) {
+        return {
+          ...prev,
+          cookieSettings: {
+            ...prev.cookieSettings,
+            [key]: value as boolean
+          }
+        };
       }
-    }));
-    setHasChanges(true);
+
+      // Обрабатываем числовые поля
+      if (
+        [
+          'contextMemorySize',
+          'mergeToArray',
+          'breakSize',
+          'breakWait',
+          'autoPause'
+        ].includes(key)
+      ) {
+        return {
+          ...prev,
+          [key]: value as number
+        };
+      }
+
+      // Обрабатываем строковые поля
+      if (['roleInstruction', 'autoAnswer'].includes(key)) {
+        return {
+          ...prev,
+          [key]: value
+        };
+      }
+
+      // Обрабатываем boolean поля
+      if (['workSchedule'].includes(key)) {
+        return {
+          ...prev,
+          [key]: value as boolean
+        };
+      }
+
+      // Обрабатываем остальные поля
+      return {
+        ...prev,
+        [key]: value
+      };
+    });
+    setHasAgentSettingsChanges(true);
   };
 
-  const handleSaveGeneralSettings = () => {
-    // Здесь можно добавить API вызов для сохранения настроек
-    setSuccessMessage('Настройки успешно сохранены');
-    setHasChanges(false);
-    setTimeout(() => setSuccessMessage(null), 3000);
+  const handleSaveGeneralSettings = async () => {
+    if (!backendOrgId || !currentFunnel || currentFunnel.id === '0') {
+      setErrorMessage('Недостаточно данных для сохранения настроек');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const token = getClerkTokenFromClientCookie();
+
+      // Подготавливаем данные для отправки
+      const updateData = {
+        display_name: currentFunnel.display_name || currentFunnel.name,
+        mergeToArray: generalSettings.cookieSettings.dataCollection
+          ? generalSettings.mergeToArray
+          : 0,
+        breakSize: generalSettings.cookieSettings.stopAgentAfterManager
+          ? generalSettings.breakSize
+          : 0,
+        breakWait: generalSettings.cookieSettings.stopAgentAfterManager
+          ? generalSettings.breakWait
+          : 0,
+        contextMemorySize: generalSettings.cookieSettings.contextMemory
+          ? generalSettings.contextMemorySize
+          : 0,
+        useCompanyKnowledgeBase:
+          generalSettings.cookieSettings.companyKnowledgeBase,
+        useFunnelKnowledgeBase:
+          generalSettings.cookieSettings.agentKnowledgeBase,
+        autoPause: generalSettings.cookieSettings.stopAgentAfterManager
+          ? generalSettings.autoPause
+          : 0,
+        autoPauseFull: generalSettings.cookieSettings.stopAgentAfterManager,
+        autoAnswer: generalSettings.workSchedule
+          ? generalSettings.autoAnswer
+          : '',
+        antiSpam: 0, // Это поле не в настройках агента
+        acceptFile: false, // Это поле не в настройках агента
+        acceptAudio: generalSettings.cookieSettings.voiceRequests,
+        workSchedule: generalSettings.workSchedule,
+        workStart: generalSettings.workSchedule ? generalSettings.workStart : 9,
+        workEnd: generalSettings.workSchedule ? generalSettings.workEnd : 18,
+        role_instruction: generalSettings.roleInstruction
+      };
+
+      const response = await fetch(
+        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(updateData)
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Ошибка при сохранении настроек');
+      }
+
+      setSuccessMessage('Настройки агента успешно сохранены');
+      setHasAgentSettingsChanges(false);
+
+      // Обновляем контекст воронок
+      await refreshFunnels();
+
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error: any) {
+      console.error('Error saving general settings:', error);
+      setErrorMessage(error.message || 'Ошибка при сохранении настроек');
+      setTimeout(() => setErrorMessage(null), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAISettingChange = (field: keyof AISettings, value: any) => {
@@ -1947,7 +2356,7 @@ function ManagementPageContent() {
       ...prev,
       [field]: value
     }));
-    setHasChanges(true);
+    setHasAISettingsChanges(true);
   };
 
   const handleFollowUpChange = (field: string, value: any) => {
@@ -1958,13 +2367,13 @@ function ManagementPageContent() {
         [field]: value
       }
     }));
-    setHasChanges(true);
+    setHasAISettingsChanges(true);
   };
 
   const handleSaveAISettings = () => {
     // Здесь можно добавить API вызов для сохранения AI настроек
     setSuccessMessage('AI настройки успешно сохранены');
-    setHasChanges(false);
+    setHasAISettingsChanges(false);
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
@@ -1974,7 +2383,7 @@ function ManagementPageContent() {
 
   const handleInstructionsChange = (value: string) => {
     setInstructions(value);
-    setHasChanges(true);
+    setHasPromptChanges(true);
   };
 
   const handleSubmitInstructions = async () => {
@@ -2029,7 +2438,7 @@ function ManagementPageContent() {
           const responseData = await response.json();
           console.log('Save response data:', responseData);
           setSuccessMessage('Промпт успешно обновлен');
-          setHasChanges(false);
+          setHasPromptChanges(false);
 
           // Обновляем данные в локальном состоянии
           const updatedStages = [...funnelStages];
@@ -2077,7 +2486,7 @@ function ManagementPageContent() {
     if (selectedStageIndex !== null) {
       loadPromptForStage(selectedStageIndex);
     }
-    setHasChanges(false);
+    setHasPromptChanges(false);
   };
 
   // Функция загрузки промпта для этапа из данных воронки
@@ -2309,6 +2718,10 @@ function ManagementPageContent() {
                     onSave={handleSaveGeneralSettings}
                     backendOrgId={backendOrgId}
                     funnelId={currentFunnel?.id}
+                    saving={saving}
+                    successMessage={successMessage}
+                    errorMessage={errorMessage}
+                    hasChanges={hasAgentSettingsChanges}
                   />
                 ) : (
                   <SortableContext items={connectionIds}>
@@ -2663,6 +3076,7 @@ function ManagementPageContent() {
                                 }
                                 currentFunnel={currentFunnel}
                                 backendOrgId={backendOrgId}
+                                hasChanges={hasPromptChanges}
                               />
                             </div>
                             <div className='col-span-1'>
@@ -2671,7 +3085,7 @@ function ManagementPageContent() {
                                 onAISettingChange={handleAISettingChange}
                                 onFollowUpChange={handleFollowUpChange}
                                 onSave={handleSaveAISettings}
-                                hasChanges={hasChanges}
+                                hasChanges={hasAISettingsChanges}
                               />
                             </div>
                           </div>

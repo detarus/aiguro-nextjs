@@ -769,6 +769,47 @@ export function FunnelDebug() {
       // Обновляем контекст воронок
       await refreshFunnels();
 
+      // Принудительно обновляем localStorage с актуальными данными воронки
+      try {
+        const funnelResponse = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${localStorageFunnel.id}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (funnelResponse.ok) {
+          const updatedFunnelData = await funnelResponse.json();
+          // Принудительно обновляем localStorage с новыми данными
+          localStorage.setItem(
+            'currentFunnel',
+            JSON.stringify(updatedFunnelData)
+          );
+
+          // Также обновляем список воронок
+          const funnelsResponse = await fetch(
+            `/api/organization/${backendOrgId}/funnels`
+          );
+          if (funnelsResponse.ok) {
+            const funnelsData = await funnelsResponse.json();
+            localStorage.setItem('funnels', JSON.stringify(funnelsData));
+          }
+
+          console.log(
+            'LocalStorage updated with latest funnel data after funnel update'
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Error updating localStorage after funnel update:',
+          error
+        );
+      }
+
       setUpdateFunnelSuccessMessage(
         'Запрос успешно отправлен и воронка обновлена!'
       );
@@ -780,6 +821,11 @@ export function FunnelDebug() {
       setTimeout(() => {
         setUpdateFunnelSuccessMessage(null);
       }, 3000);
+
+      // Временное решение: полная перезагрузка страницы для гарантированного обновления данных
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500); // Перезагружаем через 1.5 секунды, чтобы пользователь увидел сообщение об успехе
     } catch (error: any) {
       console.error('Error updating current funnel:', error);
       setUpdateFunnelError(error.message || 'Unknown error occurred');

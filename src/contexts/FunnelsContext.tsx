@@ -166,7 +166,28 @@ export function FunnelsProvider({ children }: { children: React.ReactNode }) {
 
   const refreshFunnels = useCallback(async () => {
     await fetchFunnels();
-  }, [fetchFunnels]);
+
+    // Принудительно обновляем localStorage с актуальными данными
+    if (backendOrgId && currentFunnel?.id && currentFunnel.id !== '0') {
+      try {
+        const response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`
+        );
+        if (response.ok) {
+          const updatedFunnelData = await response.json();
+          localStorage.setItem(
+            'currentFunnel',
+            JSON.stringify(updatedFunnelData)
+          );
+          console.log(
+            'LocalStorage updated with latest funnel data in refreshFunnels'
+          );
+        }
+      } catch (error) {
+        console.error('Error updating localStorage in refreshFunnels:', error);
+      }
+    }
+  }, [fetchFunnels, backendOrgId, currentFunnel]);
 
   const setNewFunnelAsSelected = useCallback((funnel: ApiFunnel) => {
     // Добавляем stages для совместимости

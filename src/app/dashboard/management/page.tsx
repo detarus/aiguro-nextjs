@@ -2341,7 +2341,51 @@ function ManagementPageContent() {
       // Обновляем контекст воронок
       await refreshFunnels();
 
+      // Принудительно обновляем localStorage с актуальными данными воронки
+      if (currentFunnel?.id && backendOrgId) {
+        try {
+          const token = getClerkTokenFromClientCookie();
+          const response = await fetch(
+            `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              }
+            }
+          );
+
+          if (response.ok) {
+            const updatedFunnelData = await response.json();
+            // Принудительно обновляем localStorage с новыми данными
+            localStorage.setItem(
+              'currentFunnel',
+              JSON.stringify(updatedFunnelData)
+            );
+
+            // Также обновляем список воронок
+            const funnelsResponse = await fetch(
+              `/api/organization/${backendOrgId}/funnels`
+            );
+            if (funnelsResponse.ok) {
+              const funnelsData = await funnelsResponse.json();
+              localStorage.setItem('funnels', JSON.stringify(funnelsData));
+            }
+
+            console.log('LocalStorage updated with latest funnel data');
+          }
+        } catch (error) {
+          console.error('Error updating localStorage:', error);
+        }
+      }
+
       setTimeout(() => setSuccessMessage(null), 3000);
+
+      // Временное решение: полная перезагрузка страницы для гарантированного обновления данных
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500); // Перезагружаем через 1.5 секунды, чтобы пользователь увидел сообщение об успехе
     } catch (error: any) {
       console.error('Error saving general settings:', error);
       setErrorMessage(error.message || 'Ошибка при сохранении настроек');
@@ -2451,10 +2495,56 @@ function ManagementPageContent() {
           };
           setFunnelStages(updatedStages);
 
+          // Принудительно обновляем localStorage с актуальными данными воронки
+          try {
+            const funnelResponse = await fetch(
+              `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                }
+              }
+            );
+
+            if (funnelResponse.ok) {
+              const updatedFunnelData = await funnelResponse.json();
+              // Принудительно обновляем localStorage с новыми данными
+              localStorage.setItem(
+                'currentFunnel',
+                JSON.stringify(updatedFunnelData)
+              );
+
+              // Также обновляем список воронок
+              const funnelsResponse = await fetch(
+                `/api/organization/${backendOrgId}/funnels`
+              );
+              if (funnelsResponse.ok) {
+                const funnelsData = await funnelsResponse.json();
+                localStorage.setItem('funnels', JSON.stringify(funnelsData));
+              }
+
+              console.log(
+                'LocalStorage updated with latest funnel data after prompt update'
+              );
+            }
+          } catch (error) {
+            console.error(
+              'Error updating localStorage after prompt update:',
+              error
+            );
+          }
+
           // Убираем сообщение об успехе через 3 секунды
           setTimeout(() => {
             setSuccessMessage(null);
           }, 3000);
+
+          // Временное решение: полная перезагрузка страницы для гарантированного обновления данных
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500); // Перезагружаем через 1.5 секунды, чтобы пользователь увидел сообщение об успехе
         } else {
           // Получаем детали ошибки
           let errorMessage = `HTTP ${response.status} ${response.statusText}`;

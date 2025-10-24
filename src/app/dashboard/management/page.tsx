@@ -2693,7 +2693,7 @@ function ManagementPageContent() {
           body: JSON.stringify({
             code_name: stage.assistant.code_name,
             name: editingStageValue.trim(), // Передаем новое название этапа
-            prompt: stage.assistant.prompt || '',
+            prompt: instructions || '',
             // Добавляем параметры AI
             parameters: {
               temperature: aiSettings.temperature || 0.0,

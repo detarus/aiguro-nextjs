@@ -1112,7 +1112,11 @@ function PromptTestingComponent({
       }
 
       let response;
-      if (testMode === 'stage' && selectedStageIndex !== null) {
+      if (
+        testMode === 'stage' &&
+        selectedStageIndex !== null &&
+        selectedStageIndex !== undefined
+      ) {
         // Загружаем диалоги для конкретного этапа
         response = await fetch(
           `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test-stage-dialogs/${selectedStageIndex + 1}`,
@@ -1487,7 +1491,11 @@ function PromptTestingComponent({
       }
 
       let response;
-      if (testMode === 'stage' && selectedStageIndex !== null) {
+      if (
+        testMode === 'stage' &&
+        selectedStageIndex !== null &&
+        selectedStageIndex !== undefined
+      ) {
         // Создаем диалог для конкретного этапа
         const stageNumber = selectedStageIndex + 1;
         const initialMessage = `Начат диалог на этапе ${stageNumber}`;

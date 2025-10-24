@@ -1050,7 +1050,10 @@ function PromptTestingComponent({
   currentFunnel,
   backendOrgId,
   hasChanges,
-  selectedStageIndex
+  selectedStageIndex,
+  funnelStages,
+  onClearChat,
+  shouldClearChat
 }: {
   instructions: string;
   activeSettingsTab: 'setup' | 'test';
@@ -1066,6 +1069,9 @@ function PromptTestingComponent({
   backendOrgId?: string;
   hasChanges?: boolean;
   selectedStageIndex?: number | null;
+  funnelStages?: any[];
+  onClearChat?: () => void;
+  shouldClearChat?: boolean;
 }) {
   // Состояния чата
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1109,7 +1115,7 @@ function PromptTestingComponent({
       if (testMode === 'stage' && selectedStageIndex !== null) {
         // Загружаем диалоги для конкретного этапа
         response = await fetch(
-          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test-stage-dialogs/${selectedStageIndex}`,
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test-stage-dialogs/${selectedStageIndex + 1}`,
           {
             method: 'GET',
             headers: {
@@ -1143,6 +1149,12 @@ function PromptTestingComponent({
       // Если есть диалоги и нет выбранного, выбираем первый
       if (dialogs.length > 0 && !selectedTestDialogId) {
         setSelectedTestDialogId(dialogs[0].uuid);
+      }
+
+      // Если диалогов нет, очищаем выбранный диалог
+      if (dialogs.length === 0) {
+        setSelectedTestDialogId('');
+        setMessages([]);
       }
     } catch (error: any) {
       console.error('Error loading test dialogs:', error);
@@ -1477,6 +1489,9 @@ function PromptTestingComponent({
       let response;
       if (testMode === 'stage' && selectedStageIndex !== null) {
         // Создаем диалог для конкретного этапа
+        const stageNumber = selectedStageIndex + 1;
+        const initialMessage = `Начат диалог на этапе ${stageNumber}`;
+
         response = await fetch(
           `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test-stage`,
           {
@@ -1486,7 +1501,8 @@ function PromptTestingComponent({
               Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
-              stage_number: selectedStageIndex
+              stage_number: stageNumber,
+              initial_message: initialMessage
             })
           }
         );
@@ -1508,7 +1524,8 @@ function PromptTestingComponent({
               description: 'Тестовый диалог',
               tags: ['test'],
               price: 0,
-              messenger_connection_id: 0
+              messenger_connection_id: 0,
+              initial_message: `Начат диалог на этапе ${selectedStageIndex !== null ? selectedStageIndex + 1 : '1'}`
             })
           }
         );
@@ -1630,6 +1647,31 @@ function PromptTestingComponent({
       stopPolling();
     };
   }, []);
+
+  // Очистка чата при изменении shouldClearChat
+  useEffect(() => {
+    if (shouldClearChat) {
+      clearChat();
+      // Перезагружаем диалоги для нового этапа
+      loadTestDialogs();
+      // Сбрасываем флаг после очистки
+      if (onClearChat) {
+        onClearChat();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldClearChat, loadTestDialogs]);
+
+  // Функция для очистки чата ---------------
+
+  const clearChat = () => {
+    setMessages([]);
+    setSelectedTestDialogId('');
+    setUserMessage('');
+    setTestError(null);
+    setTestDialogs([]);
+    stopPolling();
+  };
 
   // Автоскролл к последнему сообщению
   useEffect(() => {
@@ -2046,6 +2088,9 @@ function ManagementPageContent() {
   const [selectedStageIndex, setSelectedStageIndex] = useState<number | null>(
     null
   );
+
+  // Состояние для очистки чата
+  const [shouldClearChat, setShouldClearChat] = useState(false);
 
   // Состояние для модального окна настройки этапа
   const [stageSettingsModal, setStageSettingsModal] = useState<{
@@ -2745,6 +2790,11 @@ function ManagementPageContent() {
     }
   };
 
+  // Функция для очистки чата
+  const clearChat = () => {
+    setShouldClearChat(false);
+  };
+
   // Обработчик клика на заголовок этапа
   const handleStageHeaderClick = (stageIndex: number) => {
     // Выбираем первого доступного агента и открываем настройки
@@ -2949,6 +2999,14 @@ function ManagementPageContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStageIndex, funnelStages, selectedAgentForSettings]);
+
+  // Очистка чата при переключении этапа
+  useEffect(() => {
+    if (selectedStageIndex !== null && selectedAgentForSettings) {
+      // Устанавливаем флаг для очистки чата
+      setShouldClearChat(true);
+    }
+  }, [selectedStageIndex]);
 
   // Загрузка интеграций и агентов
   useEffect(() => {
@@ -3399,6 +3457,9 @@ function ManagementPageContent() {
                                 backendOrgId={backendOrgId}
                                 hasChanges={hasPromptChanges}
                                 selectedStageIndex={selectedStageIndex}
+                                funnelStages={funnelStages}
+                                onClearChat={clearChat}
+                                shouldClearChat={shouldClearChat}
                               />
                             </div>
                             <div className='col-span-1'>

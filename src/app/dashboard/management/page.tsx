@@ -1533,7 +1533,7 @@ function PromptTestingComponent({
               tags: ['test'],
               price: 0,
               messenger_connection_id: 0,
-              initial_message: `Начат диалог на этапе ${selectedStageIndex !== null ? selectedStageIndex + 1 : '1'}`
+              initial_message: `Начат диалог на этапе ${selectedStageIndex !== null && selectedStageIndex !== undefined ? selectedStageIndex + 1 : '1'}`
             })
           }
         );

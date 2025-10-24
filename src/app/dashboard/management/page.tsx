@@ -2331,8 +2331,50 @@ function ManagementPageContent() {
       setSuccessMessage('Настройки агента успешно сохранены');
       setHasAgentSettingsChanges(false);
 
-      // Обновляем контекст воронок
-      await refreshFunnels();
+      // Обновляем всех ассистентов с новыми параметрами AI
+      for (const stage of funnelStages) {
+        if (stage.assistant && (stage.assistant as any).id) {
+          try {
+            const assistantResponse = await fetch(
+              `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/assistant/update/${(stage.assistant as any).id}`,
+              {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  code_name: stage.assistant.code_name,
+                  name: stage.assistant.name,
+                  prompt: instructions || '',
+                  parameters: {
+                    temperature: aiSettings.temperature || 0.0,
+                    top_p: aiSettings.topP || 0.0
+                  }
+                })
+              }
+            );
+
+            if (assistantResponse.ok) {
+              console.log(
+                `Assistant ${(stage.assistant as any).id} updated successfully`
+              );
+            } else {
+              console.error(
+                `Failed to update assistant ${(stage.assistant as any).id}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `Error updating assistant ${(stage.assistant as any).id}:`,
+              error
+            );
+          }
+        }
+      }
+
+      // Немедленная перезагрузка страницы для быстрого обновления данных
+      window.location.reload();
 
       // Принудительно обновляем localStorage с актуальными данными воронки
       if (currentFunnel?.id && backendOrgId) {
@@ -2378,7 +2420,7 @@ function ManagementPageContent() {
       // Временное решение: полная перезагрузка страницы для гарантированного обновления данных
       setTimeout(() => {
         window.location.reload();
-      }, 1500); // Перезагружаем через 1.5 секунды, чтобы пользователь увидел сообщение об успехе
+      }, 500); // Перезагружаем через 0.5 секунды, чтобы пользователь увидел сообщение об успехе
     } catch (error: any) {
       console.error('Error saving general settings:', error);
       setErrorMessage(error.message || 'Ошибка при сохранении настроек');
@@ -2482,6 +2524,9 @@ function ManagementPageContent() {
           setSuccessMessage('Промпт успешно обновлен');
           setHasPromptChanges(false);
 
+          // Немедленная перезагрузка страницы для быстрого обновления данных
+          window.location.reload();
+
           // Обновляем данные в локальном состоянии
           const updatedStages = [...funnelStages];
           updatedStages[selectedStageIndex] = {
@@ -2542,7 +2587,7 @@ function ManagementPageContent() {
           // Временное решение: полная перезагрузка страницы для гарантированного обновления данных
           setTimeout(() => {
             window.location.reload();
-          }, 1500); // Перезагружаем через 1.5 секунды, чтобы пользователь увидел сообщение об успехе
+          }, 500); // Перезагружаем через 0.5 секунды, чтобы пользователь увидел сообщение об успехе
         } else {
           // Получаем детали ошибки
           let errorMessage = `HTTP ${response.status} ${response.statusText}`;
@@ -2762,12 +2807,9 @@ function ManagementPageContent() {
 
         // Показываем сообщение об успехе
         setSuccessMessage('Название этапа успешно обновлено');
-        setTimeout(() => setSuccessMessage(null), 3000);
 
-        // Временное решение: полная перезагрузка страницы для гарантированного обновления данных
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        // Немедленная перезагрузка страницы для быстрого обновления данных
+        window.location.reload();
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Ошибка при обновлении названия этапа');

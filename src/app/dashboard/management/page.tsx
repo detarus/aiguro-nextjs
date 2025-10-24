@@ -1049,7 +1049,8 @@ function PromptTestingComponent({
   stageName,
   currentFunnel,
   backendOrgId,
-  hasChanges
+  hasChanges,
+  selectedStageIndex
 }: {
   instructions: string;
   activeSettingsTab: 'setup' | 'test';
@@ -1064,6 +1065,7 @@ function PromptTestingComponent({
   currentFunnel?: any;
   backendOrgId?: string;
   hasChanges?: boolean;
+  selectedStageIndex?: number | null;
 }) {
   // Состояния чата
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1078,6 +1080,9 @@ function PromptTestingComponent({
   const [loadingDialogs, setLoadingDialogs] = useState(false);
   const [creatingDialog, setCreatingDialog] = useState(false);
   const [deletingDialog, setDeletingDialog] = useState(false);
+
+  // Состояние режима тестирования (вся воронка или конкретный этап)
+  const [testMode, setTestMode] = useState<'funnel' | 'stage'>('funnel');
 
   // Состояние ошибок
   const [testError, setTestError] = useState<string | null>(null);
@@ -1100,16 +1105,32 @@ function PromptTestingComponent({
         return;
       }
 
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialogs`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+      let response;
+      if (testMode === 'stage' && selectedStageIndex !== null) {
+        // Загружаем диалоги для конкретного этапа
+        response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test-stage-dialogs/${selectedStageIndex}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
           }
-        }
-      );
+        );
+      } else {
+        // Загружаем диалоги для всей воронки
+        response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialogs`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
@@ -1129,7 +1150,13 @@ function PromptTestingComponent({
     } finally {
       setLoadingDialogs(false);
     }
-  }, [backendOrgId, currentFunnel?.id, selectedTestDialogId]);
+  }, [
+    backendOrgId,
+    currentFunnel?.id,
+    selectedTestDialogId,
+    testMode,
+    selectedStageIndex
+  ]);
 
   const fetchDialogData = useCallback(
     async (dialogUuid: string) => {
@@ -1380,21 +1407,42 @@ function PromptTestingComponent({
       }
 
       // Отправляем сообщение через тестовый API роут
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test/${selectedTestDialogId}/message`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            text: messageText,
-            role: 'user',
-            time: new Date().toISOString()
-          })
-        }
-      );
+      let response;
+      if (testMode === 'stage') {
+        // Отправляем сообщение через API для этапа
+        response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test-stage/${selectedTestDialogId}/message`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              text: messageText,
+              role: 'user',
+              time: new Date().toISOString()
+            })
+          }
+        );
+      } else {
+        // Отправляем сообщение через обычный тестовый API
+        response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test/${selectedTestDialogId}/message`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              text: messageText,
+              role: 'user',
+              time: new Date().toISOString()
+            })
+          }
+        );
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
@@ -1414,7 +1462,7 @@ function PromptTestingComponent({
 
   // Создание нового диалога
   const createNewDialog = async () => {
-    if (!backendOrgId || !currentFunnel?.id || !stageName) return;
+    if (!backendOrgId || !currentFunnel?.id) return;
 
     setCreatingDialog(true);
     setTestError(null);
@@ -1426,26 +1474,45 @@ function PromptTestingComponent({
         return;
       }
 
-      const response = await fetch(
-        `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialog`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            stage: stageName,
-            manager: 'Test Manager',
-            ai: true,
-            unsubscribed: false,
-            description: 'Тестовый диалог',
-            tags: ['test'],
-            price: 0,
-            messenger_connection_id: 0
-          })
-        }
-      );
+      let response;
+      if (testMode === 'stage' && selectedStageIndex !== null) {
+        // Создаем диалог для конкретного этапа
+        response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/dialog/test-stage`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              stage_number: selectedStageIndex
+            })
+          }
+        );
+      } else {
+        // Создаем диалог для всей воронки
+        response = await fetch(
+          `/api/organization/${backendOrgId}/funnel/${currentFunnel.id}/test_dialog`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              stage: stageName || 'Test Stage',
+              manager: 'Test Manager',
+              ai: true,
+              unsubscribed: false,
+              description: 'Тестовый диалог',
+              tags: ['test'],
+              price: 0,
+              messenger_connection_id: 0
+            })
+          }
+        );
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -1539,6 +1606,14 @@ function PromptTestingComponent({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSettingsTab, backendOrgId, currentFunnel?.id]);
+
+  // Перезагрузка диалогов при изменении режима тестирования
+  useEffect(() => {
+    if (activeSettingsTab === 'test' && backendOrgId && currentFunnel?.id) {
+      loadTestDialogs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testMode, selectedStageIndex]);
 
   // Загрузка сообщений при выборе диалога
   useEffect(() => {
@@ -1675,6 +1750,23 @@ function PromptTestingComponent({
               </div>
 
               <div className='flex gap-2'>
+                {/* Переключатель режима тестирования */}
+                <div className='flex items-center gap-2'>
+                  <span className='text-xs text-gray-500'>Режим:</span>
+                  <select
+                    value={testMode}
+                    onChange={(e) => {
+                      setTestMode(e.target.value as 'funnel' | 'stage');
+                      setSelectedTestDialogId('');
+                      setMessages([]);
+                    }}
+                    className='rounded border border-gray-300 px-2 py-1 text-xs'
+                  >
+                    <option value='funnel'>Вся воронка</option>
+                    <option value='stage'>Текущий этап</option>
+                  </select>
+                </div>
+
                 <Button
                   size='icon'
                   onClick={createNewDialog}
@@ -3306,6 +3398,7 @@ function ManagementPageContent() {
                                 currentFunnel={currentFunnel}
                                 backendOrgId={backendOrgId}
                                 hasChanges={hasPromptChanges}
+                                selectedStageIndex={selectedStageIndex}
                               />
                             </div>
                             <div className='col-span-1'>

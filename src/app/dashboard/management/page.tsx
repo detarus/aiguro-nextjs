@@ -152,6 +152,8 @@ interface ChatMessage {
   text: string;
   sender: 'user' | 'assistant';
   time: string;
+  status?: string;
+  stage_number?: number;
 }
 
 // Конфигурация интеграций
@@ -1270,7 +1272,9 @@ function PromptTestingComponent({
                     hour: '2-digit',
                     minute: '2-digit'
                   })
-                : ''
+                : '',
+              status: msg.status,
+              stage_number: msg.stage_number
             }))
           : [];
 
@@ -1351,7 +1355,9 @@ function PromptTestingComponent({
                     hour: '2-digit',
                     minute: '2-digit'
                   })
-                : ''
+                : '',
+              status: msg.status,
+              stage_number: msg.stage_number
             }))
           : [];
 
@@ -1896,9 +1902,14 @@ function PromptTestingComponent({
                         }`}
                       >
                         <p className='whitespace-pre-wrap'>{message.text}</p>
-                        <p className='mt-1 text-xs opacity-70'>
-                          {message.time}
-                        </p>
+                        <div className='mt-1 flex items-center gap-2 text-xs opacity-70'>
+                          <span>{message.time}</span>
+                          {message.stage_number && (
+                            <span className='rounded bg-white/20 px-1.5 py-0.5'>
+                              Этап {message.stage_number}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -2033,12 +2044,12 @@ function KanbanColumn({
 }) {
   return (
     <div
-      className={`rounded-lg border bg-gray-50 ${className}`}
+      className={`flex-shrink-0 rounded-lg border bg-gray-50 ${className}`}
       style={{
         minHeight: '600px',
-        minWidth: '250px',
-        width: '100%',
-        maxWidth: '300px'
+        width: '20%',
+        minWidth: '200px',
+        maxWidth: '400px'
       }}
     >
       <div className='rounded-t-lg border-b bg-white p-4'>
@@ -3067,7 +3078,7 @@ function ManagementPageContent() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer className='max-w-full lg:!px-8 xl:!px-12'>
       <div className='space-y-6'>
         {/* Kanban Board */}
         <DndContext
@@ -3077,7 +3088,7 @@ function ManagementPageContent() {
           onDragOver={onDragOver}
         >
           <ScrollArea className='w-full'>
-            <div className='flex flex-col gap-6 pb-4 md:flex-row'>
+            <div className='flex flex-col gap-6 pb-4 md:flex-row lg:gap-8'>
               {/* Колонка 1: Доступные источники или Настройки агента */}
               <KanbanColumn
                 title={selectedAgentForSettings ? '' : 'Доступные источники'}
@@ -3169,10 +3180,7 @@ function ManagementPageContent() {
                                 key={`header-skeleton-${index}`}
                                 className='flex items-center'
                               >
-                                <div
-                                  className='flex-shrink-0 px-4 py-4'
-                                  style={{ width: '256px' }}
-                                >
+                                <div className='w-1/6 flex-shrink-0 px-4 py-4'>
                                   <Skeleton className='h-4 w-24' />
                                 </div>
                                 {index < 2 && (
@@ -3234,12 +3242,11 @@ function ManagementPageContent() {
                                           setEditingStageValue(e.target.value)
                                         }
                                         onKeyDown={handleStageInputKeyDown}
-                                        className={`border-none bg-transparent text-sm font-semibold tracking-wide uppercase outline-none ${
+                                        className={`w-40 border-none bg-transparent text-sm font-semibold tracking-wide uppercase outline-none ${
                                           isActiveStage
                                             ? 'text-blue-700'
                                             : 'text-gray-700'
                                         }`}
-                                        style={{ width: '160px' }}
                                         autoFocus
                                       />
                                     ) : (
@@ -3322,7 +3329,7 @@ function ManagementPageContent() {
                     <div className='flex flex-col gap-4 md:flex-row'>
                       {/* Левая секция: Агенты воронки - скрывается в режиме настройки */}
                       {!selectedAgentForSettings && (
-                        <div className='w-full flex-shrink-0 md:w-80'>
+                        <div className='w-full flex-shrink-0 md:w-1/4'>
                           <div className='space-y-3'>
                             {/* Добавляем состояние загрузки для агентов */}
                             {!backendOrgId
@@ -3441,8 +3448,8 @@ function ManagementPageContent() {
                       >
                         {selectedAgentForSettings ? (
                           // Показываем две колонки настроек для выбранного агента с ограниченной шириной
-                          <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
-                            <div className='col-span-2'>
+                          <div className='grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5'>
+                            <div className='md:col-span-2 lg:col-span-3'>
                               <PromptTestingComponent
                                 instructions={instructions}
                                 activeSettingsTab={activeSettingsTab}
@@ -3470,7 +3477,7 @@ function ManagementPageContent() {
                                 shouldClearChat={shouldClearChat}
                               />
                             </div>
-                            <div className='col-span-1'>
+                            <div className='md:col-span-1 lg:col-span-2'>
                               <AISettingsComponent
                                 aiSettings={aiSettings}
                                 onAISettingChange={handleAISettingChange}
@@ -3489,12 +3496,7 @@ function ManagementPageContent() {
                                   (_, stageIndex) => (
                                     <div
                                       key={`stage-skeleton-${stageIndex}`}
-                                      className='flex-shrink-0'
-                                      style={{
-                                        minWidth: '200px',
-                                        width: '100%',
-                                        maxWidth: '240px'
-                                      }}
+                                      className='w-1/6 min-w-[200px] flex-shrink-0'
                                     >
                                       <div className='space-y-2'>
                                         {Array.from({ length: 2 }).map(
@@ -3553,12 +3555,7 @@ function ManagementPageContent() {
                               return funnelStages.map((stage, index) => (
                                 <div
                                   key={index}
-                                  className='flex-shrink-0'
-                                  style={{
-                                    minWidth: '200px',
-                                    width: '100%',
-                                    maxWidth: '240px'
-                                  }}
+                                  className='w-1/6 min-w-[200px] flex-shrink-0'
                                 >
                                   <div className='space-y-2'>
                                     {!backendOrgId
